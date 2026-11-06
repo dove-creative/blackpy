@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>BlackThunder.BlackPy</AssemblyName>
+    <RootNamespace>BlackThunder.BlackPy</RootNamespace>
+    <Product>blackpy</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BlackThunder.UniEngine" Version="0.1.0-mvp.23a68fe" />
+    <PackageReference Include="BlackThunder.BlackboxSystem" Version="0.2.0" />
+    <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

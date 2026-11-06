@@ -1,0 +1,9 @@
+[submodule "guidelines/blackthunder-conventions"]
+	path = guidelines/blackthunder-conventions
+	url = https://github.com/dove-creative/blackthunder-conventions.git
+[submodule "references/uniengine"]
+	path = references/uniengine
+	url = https://github.com/dove-creative/uniengine.git
+[submodule "references/blackbox-system"]
+	path = references/blackbox-system
+	url = https://github.com/dove-creative/blackbox-system.git

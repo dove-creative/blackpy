@@ -1,0 +1,11 @@
+.cache/
+artifacts/
+**/bin/
+**/obj/
+**/TestResults/
+**/__pycache__/
+*.py[cod]
+.vs/
+.vscode/
+*.user
+*.suo
