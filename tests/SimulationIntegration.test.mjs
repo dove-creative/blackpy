@@ -30,27 +30,42 @@ test("gravity and an ordinary move advance while Python is blocked in native cod
     const project = defaultProject();
     Object.assign(project.actors[0], { x: -250, y: 0, physics: "없음" });
     Object.assign(project.actors[1], { kind: "ball", x: 200, y: 180, scale: 0.5, physics: "물리" });
-    await host.write('def 시작():\n    앞으로(200)\n    print("MOVE_DONE", 위치[0])\n', "",
-        blockingBackground(0.9), project);
-    await host.run();
-    await host.wait(() => host.text().includes("NATIVE_BLOCK_BEGIN"), "native block begins");
-    const initial = { x: host.sprite().x, y: host.sprite("자동차").y };
-    const observation = observeScenes();
+    await host.write('def 시작():\n    앞으로(600)\n    print("MOVE_DONE", 위치[0])\n', "",
+        blockingBackground(2), project);
+    const frames = [];
+    let began = false;
+    let ended = false;
+    const receive = ({ data }) => {
+        const packet = JSON.parse(data);
+        if (packet.runId !== host.state.runId || packet.status !== "running") return;
+        const output = (packet.output || []).map(line => line.text).join("\n");
+        began ||= output.includes("NATIVE_BLOCK_BEGIN");
+        ended ||= output.includes("NATIVE_BLOCK_END");
+        if (began && !ended && packet.scene?.active) {
+            frames.push({ x: packet.scene.sprites[0].x, y: packet.scene.sprites[1].y });
+        }
+    };
+    // Preserve the first blocked scene even when the test runner resumes late.
+    host.socket.addEventListener("message", receive);
     try {
-        await pause(450);
-        assert.doesNotMatch(host.text(), /NATIVE_BLOCK_END/);
-        assert.ok(host.sprite().x > initial.x + 65, "The ordinary move must continue without Python polling");
-        assert.ok(host.sprite("자동차").y < initial.y - 70, "Gravity must continue without Python polling");
-        assert.ok(observation.frames.length >= 12, `Only ${observation.frames.length} independent scenes arrived`);
-        const positions = new Set(observation.frames.map(frame => frame.scene.sprites[0].x));
-        assert.ok(positions.size >= 12, "Received frames must contain new simulated positions");
+        await host.run();
+        await host.wait(() => {
+            const initial = frames[0];
+            const latest = frames.at(-1);
+            const distinct = new Set(frames.map(frame => frame.x)).size;
+            const progressed = initial && latest.x > initial.x + 65 && latest.y < initial.y - 70
+                && frames.length >= 12 && distinct >= 12;
+            assert.ok(progressed || !ended, "Python resumed before independent progress: " +
+                JSON.stringify({ initial, latest, frames: frames.length, distinct, began, ended }));
+            return progressed;
+        }, "movement, gravity and new scenes during native Python blocking");
     } finally {
-        observation.close();
+        host.socket.removeEventListener("message", receive);
     }
     await host.wait(() => host.text().includes("MOVE_DONE"), "ordinary move completion reaches Python");
     const completion = host.text().match(/^MOVE_DONE (\S+)$/m);
     assert.ok(completion, host.text());
-    assert.ok(Math.abs(Number(completion[1]) + 50) < 1e-9, host.text());
+    assert.ok(Math.abs(Number(completion[1]) - 350) < 1e-9, host.text());
 });
 
 test("held movement survives blocked Python, releases immediately and rejects an old press generation", async () => {
