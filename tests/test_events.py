@@ -105,7 +105,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         await tick(runtime, 1)
         self.assertEqual(runtime.actors[0].namespace["기록"], ["시작"] * 3 + ["끝"] * 3)
 
-    async def test_delayed_continuous_calls_keep_their_original_delta(self):
+    async def test_delayed_continuous_movement_does_not_resume_a_released_input(self):
         runtime = await self.prepare(
             'def 키_클릭_중(키):\n    기다리기(1)\n    앞으로(100)\n'
         )
@@ -113,7 +113,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         await tick(runtime, 0.2)
         await tick(runtime, 0, [{"kind": "keyup", "key": "오른쪽"}])
         await tick(runtime, 1)
-        self.assertAlmostEqual(runtime.actors[0].position[0], 30)
+        self.assertAlmostEqual(runtime.actors[0].position[0], 0)
 
     async def test_broadcast_starts_ordinary_context(self):
         runtime = await self.prepare(

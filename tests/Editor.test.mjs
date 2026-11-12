@@ -20,7 +20,10 @@ test("implicit commands are recognized while misspellings and wrong argument typ
     const directory = await mkdtemp(path.join(tmpdir(), "BlackPy editor "));
     await cp(path.join(toolRoot, "distribution/project"), directory, { recursive: true });
     await writeFile(path.join(directory, "test.py"),
-        'def 시작():\n    말하기("안녕")\n    앞으로(100)\n    바라보기(90)\n    바라보기(1, 2)\n    print(len(이름), 위치_구하기("고양이"))\n');
+        'def 시작():\n    말하기("안녕")\n    앞으로(100)\n    바라보기(90)\n    바라보기(1, 2)\n'
+        + '    왼쪽_돌기(10)\n    오른쪽_돌기(10)\n    물리_설정("물리")\n    무게_설정(10)\n'
+        + '    힘_작용(90, 10)\n    정지()\n    이름_정하기("새 고양이")\n'
+        + '    print(len(이름), 위치_구하기("고양이"), 물리, 무게, 닿은_객체_리스트)\n');
     const valid = analyze(directory);
     assert.equal(valid.summary.errorCount, 0, JSON.stringify(valid.generalDiagnostics));
     assert.equal(valid.summary.warningCount, 0, JSON.stringify(valid.generalDiagnostics));
@@ -32,7 +35,17 @@ test("implicit commands are recognized while misspellings and wrong argument typ
     assert.ok(invalid.generalDiagnostics.some(item => item.rule === "reportArgumentType"));
 });
 
-for (const name of ["01-movement", "02-keyboard", "03-click", "04-broadcast", "05-contact"]) {
+test("physics mode choices and command argument types remain checked", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "BlackPy physics editor "));
+    await cp(path.join(toolRoot, "distribution/project"), directory, { recursive: true });
+    await writeFile(path.join(directory, "test.py"),
+        'def 시작():\n    물리_설정("다른")\n    무게_설정("무거움")\n    힘_작용("위", 10)\n');
+    const result = analyze(directory);
+    assert.equal(result.summary.errorCount, 3, JSON.stringify(result.generalDiagnostics));
+    assert.ok(result.generalDiagnostics.every(item => item.rule === "reportArgumentType"));
+});
+
+for (const name of ["01-movement", "02-keyboard", "03-click", "04-broadcast", "05-contact", "06-physics"]) {
     test(`${name} has no unknown BlackPy command diagnostics`, async () => {
         const directory = await mkdtemp(path.join(tmpdir(), "BlackPy sample editor "));
         await cp(path.join(toolRoot, "samples", name), directory, { recursive: true });

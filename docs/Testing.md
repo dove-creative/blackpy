@@ -7,6 +7,7 @@
 - 준비
 - 검증 범위
 - 실행 명령
+- 프레임 성능 검증
 - 공개 워크플로 검증
 - 화면 검증
 - 결과 기록과 환경 한계
@@ -29,19 +30,29 @@ $env:NUGET_PACKAGES = Join-Path (Get-Location) '.cache/nuget'
 | 의존성 | 로컬 패키지 해시·직접 참조 버전과 선택적인 소스 서브모듈 커밋이다. |
 | C# | 설정·전체 코드 고정, 파일 경계·이름·초기 상태 검증, 장면 복사·말풍선·입력·실행 수명이다. |
 | Python | 자기 객체 연결, 상태 대입·증감, 원래 오류 위치, 협력 반복, 일반·유지 이벤트와 종료이다. |
-| 시간·동시 실행 | 일반 동작의 완료 순서, 유지 호출의 중첩, 30·60·120FPS의 이동량 일치, 속도 배율과 동시 변화량 합산이다. |
+| 시간·동시 실행 | 일반 동작의 완료 뒤 위치·방향 반영, 유지 호출의 중첩과 최신 이동 교체·빈 호출 정지, 30·60·120Hz 모의 갱신 간격의 이동량 일치, 속도 배율과 동시 변화량 합산이다. |
+| 독립 시뮬레이션 | Python 정체 중 등록 이동·중력·장면 진행, 느린 교환과 요청 폭주에서 C# 갱신 상한 유지, 긴 지연의 0.1초 예산, 해제 즉시 유지 이동 취소와 이전 세대 거절, 입력·접촉 전환 보존, 실행 초기화이다. |
 | 입력·접촉 | 키별 재진입, 시작·유지·종료, 최초 클릭 대상 고정, 배경 빈 곳 판정, 접촉 집합 변화와 숨김이다. |
+| 물리 엔진 | 세 모드 전환, 질량별 순간 충격, 중력·사방 경계·발판 충돌, 자동 회전 잠금, 명령 이동의 장애물 차단, 정지 뒤 중력 유지, 숨김·크기 변경과 재시작 초기화이다. |
+| 물리 연결·이름 | C#의 물리 위치를 Python 조회·이벤트에 반영하고 요청 대기 중 새 명령을 보존하는지, 접촉 이름 목록의 복사·순서, 이름 변경 뒤 조회·접촉과 이전 실행 차단을 확인한다. |
+| 텍스트 입력 | 파일 초기화·이벤트·보조 함수의 input 문자열 반환, 숫자 변환, 빈 답·공백 보존, 동시 질문 순서, 입력 중 다른 이벤트 진행, 중복·이전 실행 답 거절, 중지·재시작과 유지 이벤트 오류이다. |
 | 통합 | 실제 Python·HTTP·WebSocket의 시작·중지·재시작, 전체 코드 고정, 오류·출력, 이전 실행 차단과 프로세스 정리이다. |
 | 브라우저 수명 | 마지막 연결 해제 후 3초 종료, 새로고침 재연결, 여러 탭, 최초 연결 60초 제한과 Python 자식 정리이다. |
-| 웹 | 입력 초점·해제·좌표 변환, 복사 코드, 대상별 명령 목록, 상태 표시와 말풍선 렌더링이다. |
-| 샘플 | 실제 예제 파일을 임시 복사한 뒤 순차 이동, 방향키, 클릭, 방송, 접촉의 예상 결과를 확인한다. |
+| 웹 | 입력 초점·해제·좌표 변환, 복사 코드, 대상별 명령 목록의 프로퍼티 대입 예시 숨김, 상태 표시와 말풍선 렌더링이다. |
+| 샘플 | 실제 예제 파일을 임시 복사한 뒤 순차 이동, 방향키, 클릭, 방송, 접촉, 공의 낙하·충격·정지 예제의 예상 결과를 확인한다. |
+| 샘플 진입점 | 미설치 환경의 설치 안내와 실행 거절, 설치된 wheel로 각 샘플 선택, 다른 작업 폴더·한글 경로, 마지막 브라우저 연결 종료 후 정리, 제거 후 다시 실행 거절이다. |
+| 학생 파일 직접 실행 | 설치된 wheel에서 배경·캐릭터·미등록 `.py`로 같은 프로젝트 열기, 선택 파일의 일반 Python 실행 방지, 내부 실행기 재귀 방지, 일반 파일·다른 설정·모듈·명령 문자열 실행 유지, 연결 해제 후 종료와 패키지 제거 후 원래 실행 복원이다. |
 | GUI 진입점·배포 | GUI subsystem, 한글·공백 경로 및 다른 작업 폴더에서의 실행, 동봉 런타임, 새 프로젝트 구성, 재배포 시 학생 파일 보존과 구형 목적지 거절이다. |
 | 설치형 명령 | 빈 폴더에 프로젝트 생성, 기존 학생 파일·편집기 설정·사용자 정의 stub 보존, 잘못된 경로·실행부 누락 안내이다. |
-| wheel | Windows 배포 태그와 메타데이터, 새 가상환경에서 설치·명령 실행, 현재 Python 전달, 브라우저 종료 후 명령 종료, 재설치·제거 뒤 학생 파일 보존이다. |
+| wheel | Windows 배포 태그와 메타데이터, Box2D.NET DLL·라이선스 동봉과 추가 Python 의존성 없음, 새 가상환경에서 설치·명령 실행, 현재 Python 전달, 브라우저 종료 후 명령 종료, 재설치·제거 뒤 학생 파일 보존이다. |
 | 편집기 안내 | 기본 프로젝트와 샘플의 BlackPy 명령 인식, 일반 내장 함수 유지, 오타·잘못된 인자 타입 진단 유지이다. |
 | 공개 워크플로 | 소스 버전과 입력 버전 일치, 전체 검증 후 동일 wheel 전달, 검증 전용 실행의 업로드 생략, 공개 브랜치·환경 제한과 OIDC 인증이다. |
 
 배경·캐릭터 파일을 각각 저장한 뒤 현재 실행본이 유지되고 다음 실행에 함께 반영되는지 확인한다. 시작 이벤트만 있는 프로젝트의 완료와 입력 이벤트가 있는 프로젝트의 대기 상태를 구분한다.
+
+물리 계산은 실제 Box2D.NET으로 검증한다. Python 연결 테스트의 대역은 응답 전달과 명령 순서만 검사하며 물리 동작 통과의 근거로 삼지 않는다. 30·60·120Hz 모의 갱신 간격에서 같은 경과 시간의 자유 낙하·충격 결과를 허용 오차 안에서 비교한다. 긴 지연은 한 갱신에 최대 0.1초·12회 고정 계산으로 제한하고 초과 시간이 뒤에 누적되지 않는지, 충격이 한 번만 적용되는지 확인한다. 기본 '충돌만' 객체의 기존 접촉 예제도 회귀 검증한다.
+
+독립 시뮬레이션 통합 검사는 실제 Python을 동기 작업으로 멈추거나 교환을 약 20Hz로 늦춘 상태에서 등록된 이동·중력과 새 위치를 담은 장면이 계속 진행하는지 확인한다. 유지 이동은 해제 즉시 멈추고, 해제 전 호출이 나중에 끝나거나 같은 키를 다시 눌러도 이전 이동이 복원되지 않아야 한다. Python 정체 중 접촉의 진입·종료·진입·종료가 한 응답에 모여도 각 전환의 함수가 순서대로 한 번씩 시작되는지 확인한다. 이전 접촉 함수가 기다리는 중에도 다음 전환은 전달하고, 수신 확인 전 재조회에는 중복 호출이 없어야 한다. 각 호출 안의 명령 순서·전체 호출 수 제한과 키·클릭·방송의 일반 재입력 제한은 유지한다.
 
 ## 실행 명령
 
@@ -51,28 +62,46 @@ $env:NUGET_PACKAGES = Join-Path (Get-Location) '.cache/nuget'
 dotnet test tests/BlackThunder.BlackPy.Tests.csproj -c Release
 python -m unittest discover -s tests -p 'test_*.py'
 ./scripts/Publish.ps1
-node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/BrowserLifetime.test.mjs
-node --test tests/Samples.test.mjs tests/Launchers.test.mjs
+node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/PhysicsIntegration.test.mjs tests/SimulationIntegration.test.mjs tests/TextInputIntegration.test.mjs tests/BrowserLifetime.test.mjs
+node --test tests/Samples.test.mjs
 node --test tests/Web*.test.mjs
 node tests/Deployment.test.mjs
 ./scripts/Build-Wheel.ps1
 npm.cmd install --prefix .cache/editor-tools --no-package-lock --ignore-scripts pyright
-node --test tests/Packaging.test.mjs tests/Editor.test.mjs
+node --test tests/Packaging.test.mjs tests/Editor.test.mjs tests/Launchers.test.mjs tests/DirectRun.test.mjs
 ```
 
-wheel 테스트의 기본 입력은 `artifacts/wheels/blackpy-0.1.0-py3-none-win_amd64.whl`이며 다른 wheel은 `BLACKPY_WHEEL` 환경 변수로 지정한다. 테스트는 임시 가상환경에 로컬 wheel을 설치하므로 PyPI 계정이 필요하지 않다. 편집기 검사는 `.cache/editor-tools`의 Pyright를 사용한다. 이 도구는 개발 검증용이며 학생의 실행 의존성이 아니다.
+wheel·샘플 진입점·직접 실행 테스트의 기본 입력은 `artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl`이며 다른 wheel은 `BLACKPY_WHEEL` 환경 변수로 지정한다. 이 테스트들은 wheel 빌드 뒤에 실행하며 임시 가상환경에 로컬 wheel을 설치하므로 PyPI 계정이 필요하지 않다. `Samples.test.mjs`는 개발용 배포 실행부로 예제 코드의 동작을 확인하고, `Launchers.test.mjs`는 학생이 사용하는 설치형 진입점의 설치 전제와 실행 수명을 확인한다. `DirectRun.test.mjs`는 실제 `python 학생파일.py` 호출이 설치 전·후·제거 후에 갖는 경계와 프로젝트 실행 수명을 확인한다. 편집기 검사는 `.cache/editor-tools`의 Pyright를 사용한다. 이 도구는 개발 검증용이며 학생의 실행 의존성이 아니다.
 
 다른 목적지에 만든 배포본은 다음과 같이 검증한다.
 
 ```powershell
 ./scripts/Publish.ps1 -Destination 'C:/Classroom/blackpy-new'
 $env:BLACKPY_DISTRIBUTION = 'C:/Classroom/blackpy-new'
-node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/BrowserLifetime.test.mjs
-node --test tests/Samples.test.mjs tests/Launchers.test.mjs
+node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/PhysicsIntegration.test.mjs tests/SimulationIntegration.test.mjs tests/TextInputIntegration.test.mjs tests/BrowserLifetime.test.mjs
+node --test tests/Samples.test.mjs
 node tests/Deployment.test.mjs
 ```
 
+다른 폴더 배포본을 지정해도 샘플 진입점 검사의 설치 원본은 `BLACKPY_WHEEL`로 지정한 wheel이다. 샘플 진입점이 `BLACKPY_DISTRIBUTION`이나 저장소의 실행부를 설치 대체물로 사용해서는 안 된다.
+
 15개 놀이 전용 ActivityDeployment 테스트는 폐기된 형식에 대한 검사이므로 새 전체 테스트에 포함하지 않는다.
+
+## 프레임 성능 검증
+
+실제 60Hz 처리율은 경과 시간을 지정하는 시간·물리 기능 테스트와 별도로 측정한다. 위의 전체 테스트는 그대로 수행하며, 성능 측정은 전체 테스트나 CI의 필수 실행 명령에 포함하지 않는다. 새 Release 배포본을 지정하고 다른 빌드·테스트가 실행되지 않는 상태에서 다음 명령을 실행한다.
+
+```powershell
+$env:BLACKPY_DISTRIBUTION = Join-Path (Get-Location) 'artifacts/blackpy'
+node scripts/Measure-FrameRate.mjs 20
+node scripts/Measure-FrameRate.mjs 20 slow
+```
+
+첫 인자는 측정할 초이며 생략하면 15초이다. 두 번째 인자를 생략한 일반 모드와 `slow` 모드를 각각 실행한다. 스크립트는 `06-physics`의 임시 복사본에 계측을 넣고 스페이스·엔터 입력을 반복한다. `slow`는 Python의 교환마다 50ms 대기를 넣어 약 20Hz로 늦추는 조건이다.
+
+처음 3초의 준비 시간을 제외한 Python 교환 완료와 WebSocket 장면 전달의 평균 빈도, 간격의 평균·중앙값·95백분위·최댓값과 1/30초를 넘은 횟수를 각각 기록한다. 목표 범위 58.5~61.5FPS는 WebSocket 장면 전달에만 적용한다. `pythonLogic`은 학생 코드와 상태 교환의 처리 빈도를 관찰하는 값이며 60Hz 통과 기준이 아니다. 두 조건에서 장면 전달을 측정하여 Python 처리 속도와 C# 갱신의 독립성을 확인한다.
+
+결과는 `artifacts/test-results/frame-rate-<시각>/report.json`에 저장한다. 실행 환경·배포본·측정 시간·모드와 목표 범위 충족 여부를 검증 기록에 함께 남긴다. 이 측정은 WebSocket 장면 전달을 확인하며, 브라우저 canvas의 실제 화면 표시 FPS를 측정한 결과가 아니다.
 
 ## 공개 워크플로 검증
 
@@ -86,9 +115,15 @@ node tests/Deployment.test.mjs
 
 ## 화면 검증
 
-자동화 테스트와 별도로 실제 브라우저에서 무대·로그·명령 목록의 배치와 작은 화면의 넘침을 확인한다. 배경·캐릭터 선택, 이벤트 카드의 코드 행별 복사, 복사 성공·실패 안내, 키 유지 이동, 빈 곳·캐릭터 클릭, 말풍선과 재시작을 확인한다.
+자동화 테스트와 별도로 실제 브라우저에서 무대·콘솔·명령 목록의 배치와 작은 화면의 넘침을 확인한다. 배경·캐릭터 선택, 이벤트 카드의 코드 행별 복사, 복사 성공·실패 안내, 키 유지 이동, 빈 곳·캐릭터 클릭, 말풍선과 재시작을 확인한다.
 
-프레임마다 호출하는 유지 이벤트는 짧은 함수뿐 아니라 기다리기가 남은 상태도 검증한다. 상태 해제 후 추가 호출은 멈추고 이미 시작한 호출은 완료되어야 한다. 무한 반복과 호출 상한 오류에서도 웹의 중지·재시작으로 실행을 정리할 수 있어야 한다.
+물리 카테고리에서 모드 문자열·무게·충격·정지·접촉 이벤트를 복사하여 실행한다. 변수·함수 만들기 영역은 보류 상태로 표시하지 않으며, 주변 카테고리의 input과 이름·위치·방향 조회는 유지한다. 물리 예제에서는 공이 발판과 경계 벽에 막히는지, 공중 정지 뒤 다시 떨어지는지, 다시 시작 뒤 초기 위치·속도로 돌아오는지를 확인한다.
+
+실행기 제목 아래의 Designed by dove_creative 문구와 콘솔 내부의 input 질문·입력칸 배치를 확인한다. 답을 입력하고 Enter·입력 보내기 버튼으로 제출하며, 질문과 답이 후속 출력보다 앞에 한 번 남는지 확인한다. 빈 질문에 빈 답을 보내도 콘솔의 한 줄 높이를 유지해야 한다. 한글 조합 중 Enter의 중복 제출 방지, 질문이 유지되는 동안 작성 내용·초점 보존, 빈 답과 공백 보존, 통신 실패 시 재시도, 중지·재시작·연결 해제 시 질문 정리를 확인한다. 답을 쓸 때 게임 키 이벤트가 발생하지 않고 질문·답이 HTML로 해석되지 않는지 확인한다. 웹 단위 테스트와 실제 브라우저·운영체제 IME 조작 결과는 구분하여 기록한다.
+
+VS Code에서는 wheel을 설치한 Python을 선택하고 프로젝트의 서로 다른 `.py` 파일에서 'Run Python File'을 눌러 같은 무대가 열리는지 확인한다. 명령줄의 직접 실행 검증과 VS Code 버튼의 실제 조작 검증은 결과 기록에서 구분한다.
+
+최신 갱신마다 호출하는 유지 이벤트는 짧은 함수뿐 아니라 기다리기가 남은 상태도 검증한다. 상태 해제 후 추가 호출과 유지 이동은 멈추고 이미 시작한 함수는 완료되어야 한다. 늦게 도착한 이전 호출의 이동이 해제된 상태나 새로 누른 상태에 적용되지 않아야 한다. 무한 반복과 호출 상한 오류에서도 웹의 중지·재시작으로 실행을 정리할 수 있어야 한다.
 
 ## 결과 기록과 환경 한계
 
@@ -104,7 +139,23 @@ wheel 설치·편집기 명령 인식과 이번 전체 실행 결과는 [2026-11
 
 Trusted Publishing 설정과 GitHub Actions의 확인 상태는 [2026-11-12 Trusted Publishing 검증 기록](검증%20기록/2026-11-12%20Trusted%20Publishing.md)에 있다.
 
+샘플의 설치 전제와 미설치·설치·제거 후 실행 검증은 [2026-11-12 샘플 설치 전제 검증 기록](검증%20기록/2026-11-12%20샘플%20설치%20전제.md)에 있다.
+
+Python 파일 직접 실행과 0.1.1 wheel의 전체 검증은 [2026-11-12 Python 파일 직접 실행 검증 기록](검증%20기록/2026-11-12%20Python%20파일%20직접%20실행.md)에 있다.
+
+웹 명령 목록의 프로퍼티 대입 예시 숨김과 기존 대입 기능의 검증은 [2026-11-12 프로퍼티 대입 안내 숨김 검증 기록](검증%20기록/2026-11-12%20프로퍼티%20대입%20안내%20숨김.md)에 있다.
+
 실제 결과는 docs의 검증 기록에 실행 날짜·환경·명령·통과 수치·오류·미검증 범위를 적는다. 생성 보고서는 artifacts/test-results에 두며 Git에서 제외한다. 과거 단일 main.py·15개 놀이의 통과 수치는 새 구조의 검증 결과로 재사용하지 않는다.
+
+웹 input과 콘솔 명칭 변경의 전체 검증은 [2026-11-13 웹 input과 콘솔 검증 기록](검증%20기록/2026-11-13%20웹%20input과%20콘솔.md)에 있다.
+
+콘솔 내부 입력 배치와 질문·답 출력의 전체 검증은 [2026-11-13 콘솔 입력 배치 검증 기록](검증%20기록/2026-11-13%20콘솔%20입력%20배치.md)에 있다.
+
+블록 재구성·Box2D.NET 물리와 전체 자동화 검증은 [2026-11-13 블록 재구성과 물리 검증 기록](검증%20기록/2026-11-13%20블록%20재구성과%20물리.md)에 있다.
+
+물리 예제의 실제 60Hz 갱신과 프레임 대기 개선의 전체 검증은 [2026-11-13 프레임 대기 개선 검증 기록](검증%20기록/2026-11-13%20프레임%20대기%20개선.md)에 있다.
+
+C# 독립 시뮬레이션과 Python 지연 조건의 60Hz 장면 전달 검증은 [2026-11-13 독립 시뮬레이션 검증 기록](검증%20기록/2026-11-13%20독립%20시뮬레이션.md)에 있다.
 
 테스트 종료 뒤 실행 호스트와 Python 자식 프로세스가 정리되었는지 확인한다. 테스트 시작 실패와 제품 동작 실패를 구분하고, 복원·네트워크·샌드박스 제한은 그대로 기록한다.
 

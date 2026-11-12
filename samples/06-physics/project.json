@@ -1,0 +1,7 @@
+{
+  "background": { "file": "배경.py", "kind": "plain" },
+  "actors": [
+    { "name": "발판", "file": "발판.py", "kind": "paddle", "x": 0, "y": -180, "scale": 1.5, "physics": "충돌만", "mass": 1 },
+    { "name": "공", "file": "공.py", "kind": "ball", "x": 0, "y": 80, "scale": 0.75, "physics": "물리", "mass": 1 }
+  ]
+}

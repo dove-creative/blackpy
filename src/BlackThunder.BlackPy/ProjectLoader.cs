@@ -28,6 +28,8 @@ namespace BlackThunder.BlackPy
         public double Scale { get; set; } = 1;
         public double Speed { get; set; } = 1;
         public bool Visible { get; set; } = true;
+        public string Physics { get; set; } = "충돌만";
+        public double Mass { get; set; } = 1;
     }
 
     public class ProjectSnapshot
@@ -110,6 +112,9 @@ namespace BlackThunder.BlackPy
                 ValidateNumber(actor.Y, -100000, 100000, "세로 위치");
                 ValidateNumber(actor.Heading, -1000000, 1000000, "방향");
                 ValidateNumber(actor.Scale, 0.1, 5, "크기");
+                ValidateNumber(actor.Mass, 0.001, 100000, "무게");
+                if (actor.Physics != "없음" && actor.Physics != "충돌만" && actor.Physics != "물리")
+                    throw Invalid("물리는 없음, 충돌만, 물리 중 하나로 설정해 주세요.");
                 if (!double.IsFinite(actor.Speed) || actor.Speed <= 0)
                     throw Invalid("속도 배율에는 0보다 큰 유한한 숫자를 넣어 주세요.");
             }

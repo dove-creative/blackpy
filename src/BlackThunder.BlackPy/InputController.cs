@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace BlackThunder.BlackPy
 {
@@ -11,6 +12,8 @@ namespace BlackThunder.BlackPy
         public string Key { get; set; } = "";
         public double X { get; set; }
         public double Y { get; set; }
+        public int PromptId { get; set; }
+        public string? Text { get; set; }
     }
 
     public class InputEvent
@@ -20,6 +23,12 @@ namespace BlackThunder.BlackPy
         public string Key { get; }
         public double X { get; }
         public double Y { get; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int PromptId { get; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Text { get; }
+        public long Generation { get; internal set; }
+        public string? TargetId { get; internal set; }
 
         public InputEvent(InputRequest request)
         {
@@ -28,6 +37,8 @@ namespace BlackThunder.BlackPy
             Key = request.Key;
             X = request.X;
             Y = request.Y;
+            PromptId = request.PromptId;
+            Text = request.Text;
         }
     }
 
@@ -46,6 +57,7 @@ namespace BlackThunder.BlackPy
         };
         private readonly LinkedList<InputEvent> _events = new();
         private string? _runId;
+        private int _lastAnsweredPromptId;
 
 
         // Content
@@ -53,6 +65,7 @@ namespace BlackThunder.BlackPy
         {
             _events.Clear();
             _runId = runId;
+            _lastAnsweredPromptId = 0;
         }
 
         public void EndRun()
@@ -61,25 +74,51 @@ namespace BlackThunder.BlackPy
             _events.Clear();
         }
 
-        public void Submit(InputRequest request)
+        public bool HasAnsweredPrompt(int promptId) => promptId > 0 && promptId <= _lastAnsweredPromptId;
+
+        public InputEvent Submit(InputRequest request, int? activePromptId = null)
         {
             RequireRun(request.RunId);
             Validate(request);
+            if (request.Kind == "answer"
+                && (request.PromptId != activePromptId || HasAnsweredPrompt(request.PromptId)))
+                throw new BlackPyException(409, "이미 답했거나 다른 질문의 입력입니다.");
+
             var input = new InputEvent(request);
 
-            // Losing focus must release held keys even when the queue is full.
-            if (input.Kind == "reset") _events.Clear();
+            // Losing focus must release held keys without discarding accepted answers.
+            if (input.Kind == "reset")
+            {
+                var node = _events.First;
+                while (node != null)
+                {
+                    var next = node.Next;
+                    if (node.Value.Kind != "answer") _events.Remove(node);
+                    node = next;
+                }
+            }
 
             if (input.Kind == "pointermove" && _events.Last?.Value.Kind == "pointermove")
             {
                 _events.Last.Value = input;
-                return;
+                return input;
             }
 
-            if (_events.Count >= Capacity)
+            // Reserve one slot so a reset can always follow retained answers.
+            var capacity = input.Kind == "answer" ? Capacity - 1 : Capacity;
+            if (_events.Count >= capacity && (input.Kind == "keyup" || input.Kind == "pointerup"))
+            {
+                // Releases must still revoke server-owned motion when the event queue is full.
+                var node = _events.First;
+                while (node != null && node.Value.Kind == "answer") node = node.Next;
+                if (node != null) _events.Remove(node);
+            }
+            if (_events.Count >= capacity)
                 throw new BlackPyException(429, "입력이 많이 쌓였습니다. 잠시 뒤 다시 눌러 주세요.");
 
             _events.AddLast(input);
+            if (input.Kind == "answer") _lastAnsweredPromptId = input.PromptId;
+            return input;
         }
 
         public InputEvent[] Drain(string runId)
@@ -132,6 +171,13 @@ namespace BlackThunder.BlackPy
                 case "reset":
                     if (request.Button.Length != 0 || request.Key.Length != 0)
                         throw new BlackPyException(400, "이 입력에는 버튼이나 키 이름을 넣지 않습니다.");
+                    break;
+                case "answer":
+                    if (request.PromptId <= 0 || request.Text == null || request.Text.Length > 4096
+                        || request.Text.Contains('\r') || request.Text.Contains('\n'))
+                        throw new BlackPyException(400, "답은 한 줄로 4096자까지 입력해 주세요.");
+                    if (request.Button.Length != 0 || request.Key.Length != 0)
+                        throw new BlackPyException(400, "답에는 버튼이나 키 이름을 넣지 않습니다.");
                     break;
                 default:
                     throw new BlackPyException(400, "지원하지 않는 입력 종류입니다.");

@@ -133,3 +133,18 @@ test("contact sample reports enter and exit once without flooding the log while 
         assert.match(host.text(), /떨어졌을 때: \['고양이'\]/);
     });
 });
+
+test("physics sample settles on its platform and jumps on a single key press", async () => {
+    await sample("06-physics", async host => {
+        const ball = () => host.sprite("공");
+        await host.wait(() => Math.abs(ball().y + 138) < 1, "ball rests on platform");
+        assert.equal(host.state.status, "running");
+        assert.equal(host.sprite("발판").y, -180);
+        const direction = ball().heading;
+        await host.input("keydown", { key: "스페이스" });
+        await host.input("keyup", { key: "스페이스" });
+        await host.wait(() => ball().y > -90, "ball jumps");
+        assert.equal(ball().heading, direction);
+        await host.wait(() => Math.abs(ball().y + 138) < 1, "ball returns to platform");
+    });
+});

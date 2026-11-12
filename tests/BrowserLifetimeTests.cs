@@ -70,5 +70,34 @@ namespace BlackThunder.BlackPy.Tests
         [Test]
         public void NegativeGraceIsRejected() =>
             Assert.Throws<ArgumentOutOfRangeException>(() => new BrowserLifetime(TimeSpan.FromSeconds(-1)));
+
+        [Test]
+        public void DeadlineTracksStartupConnectionDisconnectionAndFinalStop()
+        {
+            var lifetime = new BrowserLifetime(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(60));
+            Assert.That(lifetime.Deadline, Is.EqualTo(TimeSpan.FromSeconds(60)));
+            lifetime.Connected();
+            Assert.That(lifetime.Deadline, Is.Null);
+            lifetime.Disconnected(TimeSpan.FromSeconds(10));
+            Assert.That(lifetime.Deadline, Is.EqualTo(TimeSpan.FromSeconds(13)));
+            lifetime.Connected();
+            Assert.That(lifetime.Deadline, Is.Null);
+            lifetime.Disconnected(TimeSpan.FromSeconds(20));
+            Assert.That(lifetime.Deadline, Is.EqualTo(TimeSpan.FromSeconds(23)));
+            Assert.That(lifetime.ShouldStop(TimeSpan.FromSeconds(23)), Is.True);
+            Assert.That(lifetime.Deadline, Is.Null);
+        }
+
+        [Test]
+        public void ManualHostHasNoDeadlineUntilItsFirstDisconnection()
+        {
+            var lifetime = new BrowserLifetime(TimeSpan.FromSeconds(3));
+            Assert.That(lifetime.Deadline, Is.Null);
+            lifetime.Disconnected(TimeSpan.FromSeconds(10));
+            Assert.That(lifetime.Deadline, Is.Null);
+            lifetime.Connected();
+            lifetime.Disconnected(TimeSpan.FromSeconds(20));
+            Assert.That(lifetime.Deadline, Is.EqualTo(TimeSpan.FromSeconds(23)));
+        }
     }
 }

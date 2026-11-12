@@ -13,18 +13,36 @@ function allCards(background) {
     return categories.flatMap(category => availableCards(category.id, background));
 }
 
-test("background exposes its own input events and excludes actor motion, visibility and contact", () => {
+test("targets expose their own input events without property assignment examples", () => {
     const background = allCards(true).flatMap(card => card.rows.map(row => row.code));
     assert.ok(background.includes("def 자신_클릭():\n    pass"));
-    assert.ok(background.includes('배경 = "city"'));
     assert.ok(background.includes("def 키_클릭_끝(누른_키):\n    pass"));
     assert.ok(background.includes("def 방송_받기(신호_이름):\n    pass"));
-    assert.ok(background.every(code => !/앞으로|가시성|닿는_중|닿았을_때/.test(code)));
+    assert.ok(background.every(code => !/앞으로|가시성|닿는_중|닿았을_때|물리|무게|힘_작용|정지|이름_정하기/.test(code)));
+    assert.ok(background.includes("기다리기(1)"));
     const actor = allCards(false).flatMap(card => card.rows.map(row => row.code));
     assert.ok(actor.includes("def 닿는_중_종료(이름_리스트):\n    pass"));
-    assert.ok(actor.includes("위치 = (0, 0)"));
-    assert.ok(actor.includes("속도 = 1"));
+    assert.ok(["위치", "방향", "속도", "크기", "가시성", "속도_변경(1)", "가시성_설정(True)",
+        "크기_정하기(1)", "크기_바꾸기(2)"].every(code => actor.includes(code)));
+    assert.ok([...background, ...actor].every(code => !/^(위치|방향|속도|크기|가시성|배경|물리|무게)\s*=/.test(code)));
     assert.ok(actor.every(code => !code.startsWith("배경 =")));
+});
+
+test("physics modes, actions and contacts have one category while variables and functions stay deferred", () => {
+    assert.deepEqual(categories.map(category => category.label), ["이벤트", "움직임", "물리", "생김새", "계산", "주변"]);
+    const physics = availableCards("physics", false).flatMap(card => card.rows);
+    assert.deepEqual(physics.slice(0, 2).map(row => [row.code, row.kind]), [
+        ["물리", "value"], ['물리_설정("물리")', "command"]
+    ]);
+    assert.ok(["무게", "무게_설정(10)", "힘_작용(90, 10)", "정지()", "닿은_객체_리스트"]
+        .every(code => physics.some(row => row.code === code)));
+    assert.equal(physics.filter(row => row.kind === "event").length, 3);
+    assert.deepEqual(availableCards("physics", true), []);
+    assert.ok(availableCards("sensing", false).every(card => !card.title.startsWith("충돌")));
+    const motion = availableCards("motion", false).flatMap(card => card.rows.map(row => row.code));
+    assert.ok(["왼쪽_돌기(10)", "오른쪽_돌기(10)", "바라보기(0)", "바라보기(10, 0)"].every(code => motion.includes(code)));
+    assert.equal(motion.at(-1), "기다리기(1)");
+    assert.ok(availableCards("events", false).every(card => !card.rows.some(row => row.code === "기다리기(1)")));
 });
 
 test("every copyable row is valid Python including complete event bodies", () => {

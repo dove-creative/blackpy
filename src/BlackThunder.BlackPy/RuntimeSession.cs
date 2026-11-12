@@ -22,10 +22,12 @@ namespace BlackThunder.BlackPy
         private readonly BrowserLifetime _browserLifetime;
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly Channel<Action> _actions = Channel.CreateBounded<Action>(256);
+        private readonly DeadlineWaiter _wake = new();
         private readonly Dictionary<Guid, BrowserConnection> _browsers = new();
         private readonly Queue<OutputLine> _output = new();
         private readonly SceneController _scene = new();
         private readonly InputController _input = new();
+        private readonly SimulationController _simulation = new();
         private readonly List<TaskCompletionSource<StateMessage>> _stopWaiters = new();
         private readonly TaskCompletionSource<bool> _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Thread _thread;
@@ -39,6 +41,7 @@ namespace BlackThunder.BlackPy
         private bool _stopping;
         private bool _shuttingDown;
         private bool _dirty = true;
+        private double _lastSimulationTime;
         private bool _outputDirty;
         private long _outputRevision;
         private OutputLine[] _outputSnapshot = Array.Empty<OutputLine>();
@@ -83,18 +86,49 @@ namespace BlackThunder.BlackPy
         public Task<StateMessage> InputAsync(InputRequest request) => DispatchAsync(() =>
         {
             RequireActiveRun(request.RunId);
-            _input.Submit(request);
+            _simulation.Accept(_input.Submit(request, _scene.State.TextInput?.Id));
+            if (request.Kind == "answer")
+            {
+                _scene.ClearTextInput();
+                _dirty = true;
+            }
+
             return Snapshot();
         });
 
         public Task<StateMessage> FrameAsync(SceneFrameRequest request) => DispatchAsync(() =>
         {
-            if (_status != "running" || _process == null)
-                throw new BlackPyException(409, "끝났거나 다른 실행의 장면입니다.");
+            RequireActiveRun(request.RunId);
 
-            _scene.Submit(request);
+            if (_simulation.Initialized)
+            {
+                _simulation.SetAppearance(request.Scene);
+                ApplySimulationScene();
+            }
+            else _scene.Submit(request);
+            if (_scene.State.TextInput is TextInputPrompt prompt && _input.HasAnsweredPrompt(prompt.Id))
+                _scene.ClearTextInput();
+
             _dirty = true;
             return Snapshot();
+        });
+
+        public Task<PhysicsStepResult> PhysicsStepAsync(PhysicsStepRequest request) => DispatchAsync<PhysicsStepResult>(() =>
+        {
+            RequireActiveRun(request.RunId);
+            throw new BlackPyException(400, "물리 시간은 실행 프로그램이 진행합니다. 실행 명령 연결을 사용해 주세요.");
+        });
+
+        public Task<SimulationExchangeResult> ExchangeAsync(SimulationExchangeRequest request) => DispatchAsync(() =>
+        {
+            RequireActiveRun(request.RunId);
+            var wasReady = _simulation.Ready;
+            var result = _simulation.Exchange(request);
+            if (!wasReady && _simulation.Ready) _lastSimulationTime = _clock.Elapsed.TotalSeconds;
+            ApplySimulationScene();
+            _dirty = true;
+            result.Events = _input.Drain(request.RunId);
+            return result;
         });
 
         public async Task<StateMessage> StopAsync() => await await DispatchAsync(() =>
@@ -144,7 +178,7 @@ namespace BlackThunder.BlackPy
             else if (_status == "running" && _runId != null)
             {
                 // A vanished browser cannot send the releases for its held keys.
-                _input.Submit(new InputRequest { RunId = _runId, Kind = "reset" });
+                _simulation.Accept(_input.Submit(new InputRequest { RunId = _runId, Kind = "reset" }));
             }
 
             return true;
@@ -162,6 +196,7 @@ namespace BlackThunder.BlackPy
                     try { completion.TrySetResult(operation()); }
                     catch (Exception exception) { completion.TrySetException(exception); }
                 });
+                _wake.Signal();
             }
             catch (ChannelClosedException)
             {
@@ -176,7 +211,8 @@ namespace BlackThunder.BlackPy
         {
             try
             {
-                var lastPublication = _clock.Elapsed.TotalSeconds;
+                const double PublicationInterval = 1.0 / 60;
+                var nextPublication = _clock.Elapsed.TotalSeconds + PublicationInterval;
 
                 while (true)
                 {
@@ -186,13 +222,26 @@ namespace BlackThunder.BlackPy
                     if (!_shuttingDown && _browserLifetime.ShouldStop(_clock.Elapsed)) _stopApplication?.Invoke();
 
                     var now = _clock.Elapsed.TotalSeconds;
-                    if (_dirty && now - lastPublication >= 1.0 / 60)
+                    if (now >= nextPublication)
                     {
-                        Publish();
-                        lastPublication = now;
+                        if (_simulation.Ready)
+                        {
+                            try
+                            {
+                                _simulation.Tick(now - _lastSimulationTime);
+                                ApplySimulationScene();
+                                _dirty = true;
+                            }
+                            catch (Exception exception) { FailSimulation(exception); }
+                            _lastSimulationTime = now;
+                        }
+                        if (_dirty) Publish();
+                        // Keep the original cadence when a wake is late; never replay missed publications.
+                        var intervals = Math.Floor((now - nextPublication) / PublicationInterval) + 1;
+                        nextPublication += intervals * PublicationInterval;
                     }
 
-                    Thread.Sleep(5);
+                    WaitForWork(nextPublication);
                 }
 
                 Publish();
@@ -207,6 +256,37 @@ namespace BlackThunder.BlackPy
                 _actions.Writer.TryComplete(exception);
                 _closed.TrySetException(exception);
             }
+            finally { _wake.Dispose(); }
+        }
+
+        private void WaitForWork(double nextPublication)
+        {
+            var deadline = _dirty || _simulation.Ready ? nextPublication : double.PositiveInfinity;
+            if (!_shuttingDown && _browserLifetime.Deadline is TimeSpan lifetimeDeadline)
+                deadline = Math.Min(deadline, lifetimeDeadline.TotalSeconds);
+
+            var remaining = deadline - _clock.Elapsed.TotalSeconds;
+            if (!_actions.Reader.TryPeek(out _))
+                _wake.Wait(double.IsPositiveInfinity(remaining) ? null : TimeSpan.FromSeconds(Math.Max(0, remaining)));
+        }
+
+        private void ApplySimulationScene()
+        {
+            _scene.Submit(new SceneFrameRequest { RunId = _runId!, Scene = _simulation.Scene() });
+            if (_scene.State.TextInput is TextInputPrompt prompt && _input.HasAnsweredPrompt(prompt.Id))
+                _scene.ClearTextInput();
+        }
+
+        private void FailSimulation(Exception exception)
+        {
+            BeginStop();
+            _status = "error";
+            _error = "실행 명령 오류: " + exception.Message;
+            _output.Enqueue(new OutputLine("stderr", _error));
+            while (_output.Count > 1000) _output.Dequeue();
+            _outputDirty = true;
+            _outputRevision++;
+            _dirty = true;
         }
 
         // Python lifetime
@@ -230,6 +310,7 @@ namespace BlackThunder.BlackPy
             _source = source;
             _scene.BeginRun(_runId);
             _input.BeginRun(_runId);
+            _simulation.BeginRun(_runId, source.Project.Actors.Length);
             _status = "running";
             _stopping = false;
             _dirty = true;
@@ -238,7 +319,12 @@ namespace BlackThunder.BlackPy
             info.ArgumentList.Add("-u");
             info.ArgumentList.Add("-c");
             // Student code starts only after Windows has attached the process to its Job Object.
-            info.ArgumentList.Add("import sys, runpy; gate = sys.stdin.buffer.read(1); " +
+            // Load runtime dependencies before the project directory can shadow standard modules.
+            info.ArgumentList.Add("import sys, os; " +
+                "project = os.path.normcase(os.path.realpath(os.getcwd())); " +
+                "sys.path = [entry for entry in sys.path " +
+                "if os.path.normcase(os.path.realpath(entry or os.curdir)) != project]; " +
+                "import runpy; gate = sys.stdin.buffer.read(1); " +
                 "sys.exit(1) if gate != b'G' else None; " +
                 "runpy.run_path(sys.argv[1], run_name='__main__')");
             info.ArgumentList.Add(runner);
@@ -271,6 +357,7 @@ namespace BlackThunder.BlackPy
             {
                 _scene.EndRun();
                 _input.EndRun();
+                _simulation.EndRun();
                 _source = null;
                 _status = "error";
                 _error = "Python 실행 실패: " + exception.Message;
@@ -282,6 +369,7 @@ namespace BlackThunder.BlackPy
         {
             _scene.EndRun();
             _input.EndRun();
+            _simulation.EndRun();
             _source = null;
 
             if (_process == null) return Task.FromResult(Snapshot());
@@ -392,6 +480,7 @@ namespace BlackThunder.BlackPy
             _process = null;
             _scene.EndRun();
             _input.EndRun();
+            _simulation.EndRun();
             _source = null;
             run.Dispose();
 

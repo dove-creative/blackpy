@@ -3,8 +3,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$commit = '23a68fe24f0ee02e38f3d0d341afca1fad3983e5'
-$version = '0.1.0-mvp.23a68fe'
+$commit = 'e256629bf5a9a164e4d385ea5a7eab82f456e1aa'
+$version = '0.1.0-mvp.e256629'
 $toolRoot = Split-Path -Parent $PSScriptRoot
 $feed = Join-Path $toolRoot 'packages'
 $package = Join-Path $feed "BlackThunder.UniEngine.$version.nupkg"

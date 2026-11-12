@@ -114,7 +114,7 @@ test("contact enter, every-frame stay and exit carry the matching names", async 
 
 test("focus reset emits releases and removes held input", async () => {
     await host.write('def 키_클릭_중(누른_키):\n    앞으로(100)\n' +
-        '\ndef 키_클릭_끝(누른_키):\n    print("RESET_KEY")\n' +
+        '\ndef 키_클릭_끝(누른_키):\n    print("RESET_KEY", 위치[0], 위치[1])\n' +
         '\ndef 자신_클릭_끝():\n    print("RESET_POINTER")\n');
     await host.run();
     await host.wait(() => host.sprite(), "initial scene");
@@ -123,7 +123,12 @@ test("focus reset emits releases and removes held input", async () => {
     await pause(100);
     await host.input("reset");
     await host.wait(() => host.text().includes("RESET_KEY") && host.text().includes("RESET_POINTER"), "reset releases");
-    const x = host.sprite().x;
+    const release = host.text().match(/^RESET_KEY (\S+) (\S+)$/m);
+    assert.ok(release, host.text());
+    await host.wait(() => Math.abs(host.sprite().x - Number(release[1])) < 1e-9 &&
+        Math.abs(host.sprite().y - Number(release[2])) < 1e-9, "reset position reaches the scene");
+    const { x, y } = host.sprite();
     await pause(150);
     assert.equal(host.sprite().x, x);
+    assert.equal(host.sprite().y, y);
 });

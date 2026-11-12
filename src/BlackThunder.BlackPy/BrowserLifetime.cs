@@ -5,6 +5,10 @@ namespace BlackThunder.BlackPy
     /// <summary>Allows a browser to reconnect before requesting host shutdown.</summary>
     public class BrowserLifetime
     {
+        // Property
+        public TimeSpan? Deadline => _stopRequested ? null
+            : !_hasConnected ? _firstConnectionTimeout : _disconnectedAt + _grace;
+
         // Internal
         private readonly TimeSpan _grace;
         private readonly TimeSpan? _firstConnectionTimeout;
@@ -37,11 +41,7 @@ namespace BlackThunder.BlackPy
 
         public bool ShouldStop(TimeSpan now)
         {
-            if (_stopRequested) return false;
-            var firstConnectionExpired = !_hasConnected && _firstConnectionTimeout.HasValue
-                && now >= _firstConnectionTimeout.Value;
-            var disconnectedExpired = _disconnectedAt.HasValue && now - _disconnectedAt.Value >= _grace;
-            if (!firstConnectionExpired && !disconnectedExpired) return false;
+            if (Deadline is not TimeSpan deadline || now < deadline) return false;
             _stopRequested = true;
             return true;
         }

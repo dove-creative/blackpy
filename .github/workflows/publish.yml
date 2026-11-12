@@ -22,7 +22,7 @@ on:
       expected_version:
         description: Exact package version to validate or publish
         required: true
-        default: 0.1.0
+        default: 0.1.1
         type: string
       publish:
         description: Publish the tested Windows wheel to PyPI
@@ -119,10 +119,10 @@ jobs:
         run: ./scripts/Publish.ps1
 
       - name: Run runtime integration and browser lifetime tests
-        run: node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/BrowserLifetime.test.mjs
+        run: node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/PhysicsIntegration.test.mjs tests/SimulationIntegration.test.mjs tests/TextInputIntegration.test.mjs tests/BrowserLifetime.test.mjs
 
-      - name: Run sample and GUI launcher tests
-        run: node --test tests/Samples.test.mjs tests/Launchers.test.mjs
+      - name: Run sample behavior tests
+        run: node --test tests/Samples.test.mjs
 
       - name: Run web tests
         run: node --test tests/Web*.test.mjs
@@ -136,8 +136,8 @@ jobs:
       - name: Install the editor validation tool
         run: npm.cmd install --prefix .cache/editor-tools --no-package-lock --ignore-scripts pyright
 
-      - name: Test wheel installation and editor support
-        run: node --test tests/Packaging.test.mjs tests/Editor.test.mjs
+      - name: Test wheel installation, direct execution, sample launchers, and editor support
+        run: node --test tests/Packaging.test.mjs tests/Launchers.test.mjs tests/Editor.test.mjs tests/DirectRun.test.mjs
 
       - name: Upload the tested wheel
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

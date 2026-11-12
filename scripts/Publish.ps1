@@ -14,6 +14,7 @@ $licenseSources = [ordered]@{
     'BlackPy.LICENSE.md' = Join-Path $toolRoot 'LICENSE.md'
     'UniEngine.LICENSE.md' = Join-Path $toolRoot 'packages/UniEngine.LICENSE.md'
     'BlackboxSystem.LICENSE.md' = Join-Path $toolRoot 'packages/BlackboxSystem.LICENSE.md'
+    'Box2D.NET.LICENSE.md' = Join-Path $toolRoot 'packages/Box2D.NET.LICENSE.md'
 }
 foreach ($licenseSource in $licenseSources.Values) {
     if (-not (Test-Path -LiteralPath $licenseSource -PathType Leaf)) {
@@ -39,16 +40,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Runtime publishing failed.' }
 $launcherScript = Join-Path $PSScriptRoot 'New-Launcher.ps1'
 & $launcherScript -Destination (Join-Path $practicePath '시작.exe') `
     -ManagedDllRelativePath '_runtime/BlackThunder.BlackPy.dll'
-
-$defaultDestination = [IO.Path]::GetFullPath((Join-Path $toolRoot 'artifacts/blackpy'))
-if ([string]::Equals($destinationPath.TrimEnd('\', '/'), $defaultDestination, [StringComparison]::OrdinalIgnoreCase)) {
-    foreach ($sample in (Get-ChildItem -LiteralPath (Join-Path $toolRoot 'samples') -Directory)) {
-        if (Test-Path -LiteralPath (Join-Path $sample.FullName 'project.json')) {
-            & $launcherScript -Destination (Join-Path $sample.FullName '시작.exe') `
-                -ManagedDllRelativePath '../../artifacts/blackpy/실습/_runtime/BlackThunder.BlackPy.dll'
-        }
-    }
-}
 
 $templates = Join-Path $toolRoot 'distribution'
 $batchEncoding = [Text.UTF8Encoding]::new($false)

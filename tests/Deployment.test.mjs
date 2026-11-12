@@ -83,6 +83,10 @@ try {
     await cp(practice, copiedPractice, { recursive: true });
     copiedRuntime = path.join(copiedPractice, "시작.exe");
     assert.equal(digest(await readFile(path.join(copiedPractice, "project.json"))), digest(sourceConfig));
+    assert.ok((await readFile(path.join(copiedPractice, "_runtime", "Box2D.NET.dll"))).length > 0);
+    assert.deepEqual(await readFile(path.join(copiedPractice, "_runtime", "licenses", "Box2D.NET.LICENSE.md")),
+        await readFile(path.join(toolRoot, "packages", "Box2D.NET.LICENSE.md")));
+    report.checks.push("Box2D.NET assembly and pinned MIT notice are included in the folder distribution");
 
     const python = await run(process.env.PYTHON_EXE || "python", ["-c", "import sys; print(sys.executable)"]);
     assert.equal(python.code, 0, python.stderr);

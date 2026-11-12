@@ -142,6 +142,20 @@ namespace BlackThunder.BlackPy
                 await session!.RestartAsync();
                 await context.Response.WriteAsJsonAsync(new { ok = true });
             });
+            app.MapPost("/api/physics/step", async (HttpContext context) =>
+            {
+                var request = await context.Request.ReadFromJsonAsync<PhysicsStepRequest>(StateMessage.JsonOptions);
+                if (request == null) throw new BlackPyException(400, "물리 상태가 필요합니다.");
+                var result = await session!.PhysicsStepAsync(request).WaitAsync(context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(result);
+            });
+            app.MapPost("/api/simulation/exchange", async (HttpContext context) =>
+            {
+                var request = await context.Request.ReadFromJsonAsync<SimulationExchangeRequest>(StateMessage.JsonOptions);
+                if (request == null) throw new BlackPyException(400, "실행 명령이 필요합니다.");
+                var result = await session!.ExchangeAsync(request).WaitAsync(context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(result);
+            });
             app.MapPost("/api/frame", async (HttpContext context) =>
             {
                 var request = await context.Request.ReadFromJsonAsync<SceneFrameRequest>(StateMessage.JsonOptions);

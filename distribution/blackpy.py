@@ -6,6 +6,7 @@ import random
 
 
 EXECUTION = contextvars.ContextVar("blackpy_execution", default=(False, 0.0))
+MOVEMENT = contextvars.ContextVar("blackpy_movement", default=None)
 BACKGROUNDS = {"plain", "city", "dance", "track", "court", "forest"}
 STYLES = {
     "car": (120, 70, "#ef7857"), "cat": (86, 96, "#ffbb55"),
@@ -18,8 +19,10 @@ STYLES = {
 STATE_NAMES = {
     "이름": "name", "위치": "position", "방향": "heading",
     "속도": "speed", "크기": "scale", "가시성": "visible",
-    "배경": "background",
+    "배경": "background", "물리": "physics", "무게": "mass",
+    "닿은_객체_리스트": "touching_names",
 }
+PHYSICS_MODES = {"없음", "충돌만", "물리"}
 
 
 def number(value, label, minimum=-100000, maximum=100000):
@@ -63,6 +66,11 @@ class ScriptObject:
         self._speed = 1.0
         self._scale = 1.0
         self._visible = True
+        self._physics = "충돌만"
+        self._mass = 1.0
+        self._physics_commands = []
+        self._absolute_revision = 0
+        self._heading_revision = 0
 
         if is_background:
             self.background = self.kind
@@ -74,6 +82,9 @@ class ScriptObject:
             self.speed = specification.get("speed", 1)
             self.scale = specification.get("scale", 1)
             self.visible = specification.get("visible", True)
+            self.mass = specification.get("mass", 1)
+            self.physics = specification.get("physics", "충돌만")
+            self._physics_baseline = self.physics_snapshot()
 
     def require_actor(self):
         if self.is_background:
@@ -85,7 +96,11 @@ class ScriptObject:
 
     @name.setter
     def name(self, value):
-        raise ValueError("이름은 프로젝트 설정에서 정하며 코드에서 바꿀 수 없어요.")
+        raise ValueError("이름을 바꿀 때에는 이름_정하기(\"새이름\")를 사용해 주세요.")
+
+    def set_name(self, value):
+        self.require_actor()
+        self.runtime.rename(self, value)
 
     @property
     def position(self):
@@ -98,6 +113,8 @@ class ScriptObject:
         if not isinstance(value, (tuple, list)) or len(value) != 2:
             raise TypeError("위치에는 (가로, 세로)처럼 숫자 두 개를 넣어 주세요.")
         self._position = (number(value[0], "가로 위치"), number(value[1], "세로 위치"))
+        self._absolute_revision += 1
+        self.queue_physics("teleport", *self._position)
 
     @property
     def heading(self):
@@ -108,6 +125,9 @@ class ScriptObject:
     def heading(self, value):
         self.require_actor()
         self._heading = number(value, "방향", -1000000, 1000000) % 360
+        self._heading_revision += 1
+        if self.runtime.remote_exchange is not None:
+            self.queue_physics("heading", self._heading)
 
     @property
     def speed(self):
@@ -130,7 +150,10 @@ class ScriptObject:
     @scale.setter
     def scale(self, value):
         self.require_actor()
-        self._scale = number(value, "크기", 0.1, 5)
+        value = number(value, "크기", 0.1, 5)
+        self.validate_physics_size(self._physics, value)
+        self._scale = value
+        self.queue_physics("resize", *self.dimensions)
 
     @property
     def visible(self):
@@ -143,6 +166,75 @@ class ScriptObject:
         if not isinstance(value, bool):
             raise TypeError("가시성에는 True 또는 False를 넣어 주세요.")
         self._visible = value
+        self.queue_physics("visible", int(value))
+
+    @property
+    def physics(self):
+        self.require_actor()
+        return self._physics
+
+    @physics.setter
+    def physics(self, value):
+        self.require_actor()
+        if not isinstance(value, str) or value not in PHYSICS_MODES:
+            raise ValueError('물리에는 "없음", "충돌만", "물리" 중 하나를 넣어 주세요.')
+        self.validate_physics_size(value, self._scale)
+        self._physics = value
+        self.queue_physics("mode", mode=value)
+
+    @property
+    def mass(self):
+        self.require_actor()
+        return self._mass
+
+    @mass.setter
+    def mass(self, value):
+        self.require_actor()
+        self._mass = number(value, "무게", 0.001, 100000)
+        self.queue_physics("mass", self._mass)
+
+    @property
+    def touching_names(self):
+        self.require_actor()
+        contacts = self.runtime.contacts[self.id]
+        return [actor.name for actor in self.runtime.actors if actor.id in contacts]
+
+    def validate_physics_size(self, mode, scale):
+        width, height, _ = STYLES[self.kind]
+        if mode == "물리" and (width * scale > 800 or height * scale > 600):
+            raise ValueError("물리 객체의 크기는 무대의 가로 800, 세로 600 안에 들어가야 해요.")
+
+    def queue_physics(self, kind, x=0.0, y=0.0, mode="", **fields):
+        if len(self._physics_commands) >= 4096:
+            raise RuntimeError("한 프레임에 물리 명령이 너무 많아요. 반복문에 기다리기를 넣어 주세요.")
+        self._physics_commands.append({"id": self.id, "kind": kind, "x": x, "y": y, "mode": mode, **fields})
+
+    def set_physics(self, value):
+        self.physics = value
+
+    def set_mass(self, value):
+        self.mass = value
+
+    def impulse(self, angle, strength):
+        self.require_actor()
+        if self._physics != "물리":
+            raise ValueError('힘을 주기 전에 물리_설정("물리")로 설정해 주세요.')
+        angle = number(angle, "힘의 방향", -1000000, 1000000)
+        strength = number(strength, "힘의 크기", 0, 100000)
+        radians = math.radians(angle)
+        self.queue_physics("impulse", math.cos(radians) * strength, math.sin(radians) * strength)
+
+    def stop(self):
+        self.require_actor()
+        self.queue_physics("stop")
+
+    def physics_snapshot(self):
+        width, height = self.dimensions
+        return {
+            "id": self.id, "x": self._position[0], "y": self._position[1],
+            "width": width, "height": height, "mode": self._physics,
+            "mass": self._mass, "visible": self._visible,
+        }
 
     @property
     def background(self):
@@ -164,7 +256,13 @@ class ScriptObject:
         return width * self._scale, height * self._scale
 
     def apply_delta(self, x=0.0, y=0.0, heading=0.0):
-        self.position = (self._position[0] + x, self._position[1] + y)
+        self.require_actor()
+        if x or y:
+            self._position = (
+                number(self._position[0] + x, "가로 위치"),
+                number(self._position[1] + y, "세로 위치"),
+            )
+            self.queue_physics("move", x, y)
         self.heading = self._heading + heading
 
     async def forward(self, value):
@@ -175,7 +273,12 @@ class ScriptObject:
         continuous, delta_time = EXECUTION.get()
 
         if continuous:
-            self.apply_delta(x * self._speed * delta_time, y * self._speed * delta_time)
+            if not self.runtime.movement_active(MOVEMENT.get()):
+                return
+            if self.runtime.remote_exchange is not None:
+                self.runtime.change_rate(self, x * self._speed, y * self._speed)
+            else:
+                self.apply_delta(x * self._speed * delta_time, y * self._speed * delta_time)
         else:
             await self.runtime.animate(self, x, y, 0, abs(value) / (200 * self._speed))
 
@@ -185,7 +288,12 @@ class ScriptObject:
         continuous, delta_time = EXECUTION.get()
 
         if continuous:
-            self.apply_delta(heading=value * self._speed * delta_time)
+            if not self.runtime.movement_active(MOVEMENT.get()):
+                return
+            if self.runtime.remote_exchange is not None:
+                self.runtime.change_rate(self, rotation=value * self._speed)
+            else:
+                self.apply_delta(heading=value * self._speed * delta_time)
         else:
             await self.runtime.animate(self, 0, 0, value, abs(value) / (180 * self._speed))
 
@@ -239,6 +347,10 @@ class ScriptObject:
             "랜덤": random_integer, "각도로": vector_angle,
             "위치_구하기": self.runtime.position_of,
             "방향_구하기": self.runtime.heading_of,
+            "물리_설정": self.set_physics, "무게_설정": self.set_mass,
+            "힘_작용": self.impulse, "정지": self.stop,
+            "이름_정하기": self.set_name,
+            "왼쪽_돌기": self.left, "오른쪽_돌기": self.right,
         }
 
     def snapshot(self):

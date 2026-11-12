@@ -15,6 +15,14 @@ namespace BlackThunder.BlackPy
         public string Background { get; set; } = "plain";
         public SpriteState[] Sprites { get; set; } = Array.Empty<SpriteState>();
         public string Message { get; set; } = "";
+        public TextInputPrompt? TextInput { get; set; }
+    }
+
+    public class TextInputPrompt
+    {
+        public int Id { get; set; }
+        public string Message { get; set; } = "";
+        public string Actor { get; set; } = "";
     }
 
     public class SpriteState
@@ -69,10 +77,27 @@ namespace BlackThunder.BlackPy
             State = CopyValidated(request.Scene);
         }
 
-        public void EndRun() => _runId = null;
+        public void ClearTextInput()
+        {
+            if (State.TextInput == null) return;
+
+            State = new SceneState
+            {
+                Active = State.Active,
+                Background = State.Background,
+                Sprites = State.Sprites,
+                Message = State.Message
+            };
+        }
+
+        public void EndRun()
+        {
+            _runId = null;
+            ClearTextInput();
+        }
 
         // Frame validation
-        private static SceneState CopyValidated(SceneState scene)
+        internal static SceneState CopyValidated(SceneState scene)
         {
             if (scene == null || scene.Background == null || !_backgrounds.Contains(scene.Background))
                 throw Invalid("준비된 배경 이름을 사용해 주세요.");
@@ -80,6 +105,11 @@ namespace BlackThunder.BlackPy
                 throw Invalid("장면 안내는 200자까지 사용할 수 있습니다.");
             if (scene.Sprites == null || scene.Sprites.Length > 64)
                 throw Invalid("한 장면에는 캐릭터를 64개까지 놓을 수 있습니다.");
+
+            var prompt = scene.TextInput;
+            if (prompt != null && (prompt.Id <= 0 || prompt.Message == null || prompt.Message.Length > 2000
+                || prompt.Actor == null || prompt.Actor.Length > 80))
+                throw Invalid("입력 질문은 올바른 번호와 2000자 이하의 안내, 80자 이하의 대상 이름이 필요합니다.");
 
             var sprites = new SpriteState[scene.Sprites.Length];
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -124,7 +154,13 @@ namespace BlackThunder.BlackPy
                 Active = true,
                 Background = scene.Background,
                 Sprites = sprites,
-                Message = scene.Message
+                Message = scene.Message,
+                TextInput = prompt == null ? null : new TextInputPrompt
+                {
+                    Id = prompt.Id,
+                    Message = prompt.Message,
+                    Actor = prompt.Actor
+                }
             };
         }
 

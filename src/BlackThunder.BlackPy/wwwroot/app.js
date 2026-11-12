@@ -54,6 +54,7 @@
     let project = null;
     let selectedCategory = "events";
     let projectRequest = 0;
+    let outputCount = 0;
     let pointerPosition = { x: 0, y: 0 };
     const heldKeys = new Map();
     const inputQueue = new window.BlackPyInput.InputQueue(sendInput, message => {
@@ -62,10 +63,48 @@
         actionNotice = message;
         updateControls();
     });
+    const textInput = new window.BlackPyTextInput.TextInput({
+        form: document.getElementById("text-input-form"),
+        label: document.getElementById("text-input-label"),
+        answer: document.getElementById("text-input-answer"),
+        submit: document.getElementById("text-input-submit"),
+        status: document.getElementById("text-input-status")
+    }, sendAnswer, () => {
+        releaseInput();
+        outputPlaceholder.hidden = true;
+        consoleArea.scrollTop = consoleArea.scrollHeight;
+    });
 
     function targets() {
         if (!project) return [];
         return [{ name: "배경", file: project.background.file, background: true }, ...project.actors];
+    }
+
+    function targetSprite(target) {
+        if (!target || target.background) return null;
+        const index = project.actors.findIndex(actor => actor.name === target.name);
+        const scene = state.scene || window.BlackPyPalette.previewScene(project);
+        return scene.sprites.find(sprite => sprite.id === `actor-${index + 1}`) || null;
+    }
+
+    function targetName(target) {
+        return targetSprite(target)?.label || target.name;
+    }
+
+    function updateTargetNames() {
+        let changed = false;
+
+        for (const option of targetSelect.children) {
+            const target = targets().find(item => item.name === option.value);
+            const name = target ? targetName(target) : option.value;
+
+            if (option.textContent !== name) {
+                option.textContent = name;
+                changed = true;
+            }
+        }
+
+        if (changed) renderPalette();
     }
 
     async function loadProject() {
@@ -86,7 +125,7 @@
             const options = targets().map(target => {
                 const option = document.createElement("option");
                 option.value = target.name;
-                option.textContent = target.background ? "배경" : target.name;
+                option.textContent = targetName(target);
                 return option;
             });
             targetSelect.replaceChildren(...options);
@@ -108,7 +147,7 @@
         const isBackground = Boolean(target?.background);
         targetFile.textContent = target?.file || "프로젝트의 Python 파일";
         const visibleCategories = window.BlackPyPalette.categories
-            .filter(item => !isBackground || item.id !== "motion");
+            .filter(item => window.BlackPyPalette.availableCards(item.id, isBackground).length > 0);
 
         if (!visibleCategories.some(item => item.id === selectedCategory)) {
             selectedCategory = "events";
@@ -133,6 +172,7 @@
         const descriptions = {
             events: "‘중’ 함수는 누르거나 닿는 동안 매 프레임 실행돼요. 각 코드 줄을 눌러 복사해요.",
             motion: "일반 함수의 숫자는 거리·각도예요. ‘중’ 함수에서는 초당 이동량·회전량이고, 속도 배율도 곱해져요.",
+            physics: "물리 모드와 무게를 정하고, 힘을 주거나 닿은 캐릭터를 확인해요. 충돌 때문에 회전하지는 않아요.",
             looks: "내 캐릭터의 모습과 말을 바꿔요.",
             math: "숫자를 계산하고 조건을 만들어요.",
             sensing: "캐릭터의 상태와 다른 캐릭터의 위치를 알아봐요."
@@ -141,10 +181,10 @@
             ? "배경은 캐릭터가 없는 빈 곳의 클릭을 받아요. ‘중’ 함수는 매 프레임 실행돼요."
             : descriptions[selectedCategory];
         const category = visibleCategories.find(item => item.id === selectedCategory);
-        const lookupName = project?.actors.find(actor => actor.name !== target?.name)?.name
-            || project?.actors[0]?.name || "고양이";
+        const lookupTarget = project?.actors.find(actor => actor.name !== target?.name) || project?.actors[0];
+        const lookupName = lookupTarget ? targetName(lookupTarget) : "고양이";
         const cards = window.BlackPyPalette.availableCards(selectedCategory, isBackground, lookupName);
-        commandCards.replaceChildren(...cards.map(card => {
+        commandCards.replaceChildren(...cards.flatMap(card => {
             const article = document.createElement("article");
             article.className = "command-card";
             article.style.setProperty("--category-color", category.color);
@@ -157,9 +197,13 @@
                 button.type = "button";
                 button.className = "code-row";
                 button.setAttribute("aria-label", `${row.label} 코드 복사`);
+                const kind = document.createElement("span");
+                kind.className = "code-kind";
+                kind.textContent = { value: "값", command: "명령", event: "이벤트" }[row.kind];
+                kind.setAttribute("aria-hidden", "true");
                 const code = document.createElement("code");
                 code.textContent = row.label;
-                button.appendChild(code);
+                button.append(kind, code);
                 button.addEventListener("click", () => copySnippet(row.code));
                 article.appendChild(button);
             }
@@ -171,7 +215,13 @@
                 article.appendChild(note);
             }
 
-            return article;
+            if (card.sectionStart) {
+                const divider = document.createElement("hr");
+                divider.className = "command-divider";
+                return [divider, article];
+            }
+
+            return [article];
         }));
     }
 
@@ -187,8 +237,7 @@
     }
 
     function updatePosition() {
-        const scene = state.scene?.active ? state.scene : window.BlackPyPalette.previewScene(project);
-        const sprite = scene.sprites.find(item => item.label === targetSelect.value);
+        const sprite = targetSprite(targets().find(target => target.name === targetSelect.value));
         positionReport.hidden = !sprite;
         if (!sprite) return;
         positionX.textContent = numberLabel(sprite.x);
@@ -233,6 +282,9 @@
 
         notice.hidden = message.length === 0;
         updateInput();
+        const answerRunId = connected && receivedSnapshot && state.status === "running" ? state.runId : null;
+        textInput.update(answerRunId, state.scene?.textInput, requestPending);
+        outputPlaceholder.hidden = outputCount > 0 || textInput.current !== null;
     }
 
     function updateInput() {
@@ -272,6 +324,23 @@
             throw new Error(response.status === 429
                 ? "입력이 너무 많아요. 키를 놓고 잠시 기다려 주세요."
                 : body.error || "무대 입력을 보내지 못했어요. 다시 시작해 주세요.");
+        }
+    }
+
+    async function sendAnswer(packet, signal) {
+        const response = await fetch("/api/input", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Playground-Token": token },
+            body: JSON.stringify(packet),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(5000)])
+        });
+
+        // Another tab or a replaced run may have already completed this question.
+        if (response.status === 409) return;
+
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || "답을 보내지 못했어요. 다시 눌러 주세요.");
         }
     }
 
@@ -379,6 +448,7 @@
             renderOutput(message.output, newRun);
         }
 
+        updateTargetNames();
         updatePosition();
         sceneMessage.hidden = state.scene === null || !state.scene.message;
 
@@ -408,7 +478,8 @@
         }
 
         outputLines.replaceChildren(fragment);
-        outputPlaceholder.hidden = lines.length > 0;
+        outputCount = lines.length;
+        outputPlaceholder.hidden = outputCount > 0 || textInput.current !== null;
 
         if (followOutput) {
             consoleArea.scrollTop = consoleArea.scrollHeight;
@@ -567,6 +638,7 @@
     targetSelect.addEventListener("change", () => { renderPalette(); updatePosition(); });
     window.addEventListener("pagehide", () => {
         releaseInput();
+        textInput.update(null, null);
         leavingPage = true;
         clearTimeout(reconnectTimer);
         socket?.close();

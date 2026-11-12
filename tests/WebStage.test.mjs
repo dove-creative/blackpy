@@ -5,7 +5,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const root = new URL("../src/BlackThunder.BlackPy/wwwroot/", import.meta.url);
-const scripts = await Promise.all(["input.js", "palette.js", "app.js"]
+const scripts = await Promise.all(["input.js", "text-input.js", "palette.js", "app.js"]
     .map(name => readFile(new URL(name, root), "utf8")));
 const project = {
     background: { file: "배경.py", kind: "plain" },
@@ -87,8 +87,8 @@ function browser({ clipboardError } = {}) {
     });
     for (const source of scripts) vm.runInContext(source, context);
     socket.emit("open");
-    const state = (runId, status = "running", scene = null) => socket.emit("message", {
-        data: JSON.stringify({ type: "snapshot", runId, status, scene })
+    const state = (runId, status = "running", scene = null, output) => socket.emit("message", {
+        data: JSON.stringify({ type: "snapshot", runId, status, scene, output })
     });
     const inputs = () => requests.filter(request => request.url === "/api/input").map(request => request.body);
     return { document, window, element, requests, state, inputs, copied, captured };
@@ -153,7 +153,7 @@ test("target selection changes palette and filename, without sending runtime inp
     const app = browser();
     await setImmediate();
     assert.equal(app.element("target-file").textContent, "고양이.py");
-    assert.equal(app.element("categories").children.length, 5);
+    assert.equal(app.element("categories").children.length, 6);
     const select = app.element("target-select");
     select.value = "배경";
     select.emit("change");
@@ -161,6 +161,34 @@ test("target selection changes palette and filename, without sending runtime inp
     assert.equal(app.element("categories").children.length, 4);
     assert.match(app.element("category-description").textContent, /빈 곳/);
     assert.equal(app.inputs().length, 0);
+});
+
+test("renaming an actor keeps file selection and updates live lookup snippets", async () => {
+    const app = browser();
+    await setImmediate();
+    app.state("one", "running", {
+        active: true,
+        sprites: [
+            { id: "actor-1", label: "새 고양이", x: 15, y: 20, heading: 90 },
+            { id: "actor-2", label: '자동차 "둘"', x: 100, y: 40, heading: 0 }
+        ]
+    });
+    await setImmediate();
+    assert.equal(app.element("target-select").value, "고양이");
+    assert.equal(app.element("target-file").textContent, "고양이.py");
+    assert.equal(app.element("target-select").children[1].textContent, "새 고양이");
+    assert.equal(app.element("position-report").hidden, false);
+    assert.equal(app.element("position-x").textContent, "15");
+    app.element("categories").children[5].emit("click");
+    const positionCard = app.element("command-cards").children
+        .find(card => card.children[0]?.textContent === "다른 캐릭터의 위치");
+    positionCard.children[1].emit("click");
+    await setImmediate();
+    assert.deepEqual(app.copied, ['위치_구하기("자동차 \\"둘\\"")']);
+    app.state("two", "running", null);
+    await setImmediate();
+    assert.equal(app.element("target-select").children[1].textContent, "고양이");
+    assert.equal(app.element("target-select").value, "고양이");
 });
 
 test("each code row copies a complete event template and announces success", async () => {
@@ -181,4 +209,59 @@ test("clipboard rejection is reported instead of claiming success", async () => 
     await setImmediate();
     assert.equal(app.copied.length, 0);
     assert.match(app.element("copy-status").textContent, /복사하지 못했어요|허용/);
+});
+
+test("text questions release game keys, keep typing across frames and send an answer instead of game input", async () => {
+    const app = browser();
+    app.state("one");
+    const canvas = app.element("stage");
+    canvas.focus();
+    canvas.emit("keydown", { key: "ArrowLeft", code: "ArrowLeft" });
+    const scene = { active: true, sprites: [], textInput: { id: 1, message: "이름은?", actor: "고양이" } };
+    app.state("one", "running", scene);
+    const answer = app.element("text-input-answer");
+    assert.equal(app.document.activeElement, answer);
+    assert.equal(app.element("text-input-form").hidden, false);
+    answer.value = "  한글 이름  ";
+    app.state("one", "running", scene);
+    assert.equal(answer.value, "  한글 이름  ");
+    assert.equal(app.element("stop-button").disabled, false);
+    assert.equal(app.element("restart-button").disabled, false);
+    answer.emit("keydown", { key: "ArrowLeft", code: "ArrowLeft" });
+    app.window.emit("keyup", { key: "ArrowLeft", code: "ArrowLeft" });
+    app.element("text-input-form").emit("submit");
+    await setImmediate();
+    assert.deepEqual(app.inputs().filter(packet => packet.kind !== "answer").map(packet => packet.kind),
+        ["keydown", "reset"]);
+    assert.deepEqual(app.inputs().find(packet => packet.kind === "answer"), {
+        runId: "one", promptId: 1, kind: "answer", text: "  한글 이름  "
+    });
+    app.state("one", "completed", scene);
+    assert.equal(app.element("text-input-form").hidden, true);
+    assert.equal(answer.value, "");
+});
+
+test("console input hides the empty placeholder and scrolls only when a new prompt opens", () => {
+    const app = browser();
+    const consoleArea = app.element(".console-area");
+    consoleArea.scrollHeight = 1000;
+    consoleArea.clientHeight = 134;
+    consoleArea.scrollTop = 0;
+    app.state("one", "running", null, []);
+    assert.equal(app.element("output-placeholder").hidden, false);
+    const scene = { active: true, sprites: [], textInput: { id: 1, message: "숫자: ", actor: "고양이" } };
+    app.state("one", "running", scene);
+    assert.equal(app.element("output-placeholder").hidden, true);
+    assert.equal(consoleArea.scrollTop, 1000);
+    app.element("text-input-answer").value = "12";
+    consoleArea.scrollTop = 0;
+    app.state("one", "running", scene);
+    assert.equal(consoleArea.scrollTop, 0);
+    assert.equal(app.element("text-input-answer").value, "12");
+    app.state("one", "running", null, [{ stream: "stdout", text: "숫자: 12" }]);
+    assert.equal(app.element("text-input-form").hidden, true);
+    assert.equal(app.element("output-placeholder").hidden, true);
+    assert.equal(consoleArea.scrollTop, 0);
+    app.state("two", "running", null, []);
+    assert.equal(app.element("output-placeholder").hidden, false);
 });

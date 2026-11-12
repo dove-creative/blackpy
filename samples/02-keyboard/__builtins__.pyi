@@ -1,6 +1,7 @@
 """BlackPy 전용 명령 안내입니다. 이 파일은 실행되지 않습니다."""
 
 from typing import overload as _overload
+from typing import Literal as _Literal
 
 이름: str
 위치: tuple[float, float]
@@ -9,6 +10,9 @@ from typing import overload as _overload
 크기: float
 가시성: bool
 배경: str
+물리: _Literal["없음", "충돌만", "물리"]
+무게: float
+닿은_객체_리스트: list[str]
 
 
 def 말하기(내용: str, /) -> None:
@@ -27,6 +31,14 @@ def 오른쪽으로돌기(값: float, /) -> None:
     """오른쪽으로 돌아요. ~중 이벤트에서는 초당 회전 각도예요."""
 
 
+def 왼쪽_돌기(값: float, /) -> None:
+    """왼쪽으로 돌아요. ~중 이벤트에서는 초당 회전 각도예요."""
+
+
+def 오른쪽_돌기(값: float, /) -> None:
+    """오른쪽으로 돌아요. ~중 이벤트에서는 초당 회전 각도예요."""
+
+
 def 좌표로(가로: float, 세로: float, /) -> None:
     """지정한 좌표로 즉시 이동해요."""
 
@@ -39,6 +51,22 @@ def 바라보기(가로: float, 세로: float, /) -> None: ...
 
 def 속도_변경(변화량: float, /) -> None:
     """이동·회전 속도 배율에 변화량을 더해요. 배율은 0보다 커야 해요."""
+
+
+def 물리_설정(모드: _Literal["없음", "충돌만", "물리"], /) -> None:
+    """물리 참여 방식을 정해요. '물리'에서는 중력과 힘이 작용해요."""
+
+
+def 무게_설정(값: float, /) -> None:
+    """무게를 0.001~100000으로 정해요. 같은 힘이면 가벼울수록 더 빨라져요."""
+
+
+def 힘_작용(각도: float, 크기: float, /) -> None:
+    """'물리' 객체를 주어진 각도 방향으로 한 번 밀어요. 오른쪽 0도, 위쪽 90도예요."""
+
+
+def 정지() -> None:
+    """현재 물리 속도를 0으로 만들어요. 이후 중력이나 충돌로 다시 움직일 수 있어요."""
 
 
 def 크기_바꾸기(변화량: float, /) -> None:
@@ -67,6 +95,10 @@ def 랜덤(부터: int, 까지: int, /) -> int:
 
 def 각도로(가로: float, 세로: float, /) -> float:
     """방향 벡터의 각도를 구해요. 오른쪽은 0도, 위쪽은 90도예요."""
+
+
+def 이름_정하기(새_이름: str, /) -> None:
+    """내 캐릭터의 이름을 바꿔요. 다른 캐릭터와 겹치지 않는 이름을 사용해요."""
 
 
 def 위치_구하기(대상_이름: str, /) -> tuple[float, float]:

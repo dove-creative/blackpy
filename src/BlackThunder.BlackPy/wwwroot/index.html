@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="app.css">
     <script src="scene.js" defer></script>
     <script src="input.js" defer></script>
+    <script src="text-input.js" defer></script>
     <script src="palette.js" defer></script>
     <script src="app.js" defer></script>
 </head>
@@ -16,7 +17,7 @@
         <header class="page-header">
             <div class="heading-group">
                 <span class="brand-mark" aria-hidden="true">B<span>py</span></span>
-                <div><h1>BlackPy</h1><p class="page-intro">코드를 쓰고, 나만의 이야기를 움직여요.</p></div>
+                <div><h1>BlackPy</h1><p class="page-intro">Designed by dove_creative</p></div>
             </div>
             <p id="connection-status" class="connection-status" role="status" aria-live="polite">
                 <span class="connection-dot" aria-hidden="true"></span><span id="connection-label">연결 중</span>
@@ -39,7 +40,7 @@
                         <canvas id="stage" width="800" height="600" role="application" tabindex="0"
                                 aria-label="캐릭터를 움직이는 무대. 가운데가 원점이고 오른쪽과 위쪽이 양수입니다."
                                 aria-describedby="input-hint scene-message position-report">
-                            Python 출력과 오류는 무대 아래 로그에서 확인해요.
+                            Python 출력과 오류는 무대 아래 콘솔에서 확인해요.
                         </canvas>
                     </div>
                     <p id="input-hint" class="input-hint">시작한 뒤 무대를 눌러요.</p>
@@ -51,12 +52,22 @@
                     </p>
                 </section>
                 <section class="panel output-panel" aria-labelledby="output-title">
-                    <div class="panel-heading"><h2 id="output-title">로그</h2><span class="output-icon">&gt;_</span></div>
-                    <div class="console-area" tabindex="0" role="region" aria-label="Python 출력과 오류">
+                    <div class="panel-heading"><h2 id="output-title">콘솔</h2><span class="output-icon">&gt;_</span></div>
+                    <div class="console-area" tabindex="0" role="region" aria-label="Python 출력과 오류 콘솔">
                         <p id="output-placeholder" class="output-placeholder">
                             <code>print()</code>로 쓴 말과 오류가 여기에 나와요.
                         </p>
                         <div id="output-lines"></div>
+                        <form id="text-input-form" class="text-input-form" aria-label="Python 입력" hidden>
+                            <label id="text-input-label" for="text-input-answer"></label>
+                            <div class="text-input-controls">
+                                <input id="text-input-answer" type="text" maxlength="4096" autocomplete="off"
+                                       autocapitalize="off" spellcheck="false" aria-describedby="text-input-status">
+                                <button id="text-input-submit" class="console-submit" type="submit"
+                                        aria-label="입력 보내기" title="Enter로 입력 보내기">↵</button>
+                            </div>
+                            <p id="text-input-status" class="text-input-status" role="status" aria-live="polite"></p>
+                        </form>
                     </div>
                 </section>
             </div>

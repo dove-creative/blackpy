@@ -1,6 +1,5 @@
 .cache/
 artifacts/
-samples/*/시작.exe
 **/bin/
 **/obj/
 **/TestResults/

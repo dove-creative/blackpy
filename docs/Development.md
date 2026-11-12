@@ -15,7 +15,7 @@
 
 Windows x64, .NET 10 SDK, PowerShell 7, Python 3.10 이상을 사용한다. 전체 검증에는 Node.js 22 이상이 필요하다. C# 언어 버전은 9이며 nullable 참조 형식은 사용하고 암시적 using은 사용하지 않는다.
 
-빌드는 저장소에 포함된 로컬 NuGet 패키지를 사용한다. 라이브러리 소스 서브모듈을 초기화하지 않아도 빌드할 수 있다.
+BlackThunder 라이브러리는 저장소에 포함된 로컬 NuGet 패키지를 사용하고, Box2D.NET은 고정 버전의 NuGet.org 패키지를 복원한다. 라이브러리 소스 서브모듈을 초기화하지 않아도 빌드할 수 있다. Box2D.NET을 처음 복원할 때는 NuGet.org에 접근할 수 있어야 한다.
 
 ```powershell
 $env:NUGET_PACKAGES = Join-Path (Get-Location) '.cache/nuget'
@@ -29,11 +29,12 @@ dotnet build src/BlackThunder.BlackPy/BlackThunder.BlackPy.csproj -c Release
 | --- | --- |
 | `src/BlackThunder.BlackPy` | C# 실행부와 웹 무대이다. |
 | `src/blackpy` | pip 설치형의 프로젝트 생성·편집기 지원·실행 명령이다. |
+| `src/_blackpy_autostart.py` | 학생 Python 파일의 직접 실행을 설치형 실행 명령에 연결한다. |
 | `pyproject.toml` | Python 패키지 정보, 진입점과 Windows wheel 빌드 설정이다. |
 | `.github/workflows/publish.yml` | `main`의 코드·빌드 변경 검증과 수동 PyPI Trusted Publishing을 실행하는 워크플로이다. |
 | `distribution` | Python 지원 모듈과 BAT 원본이다. |
 | `distribution/project` | 배경·캐릭터별 새 기본 프로젝트와 편집기 안내 파일의 원본이다. |
-| `samples` | 이동·키 입력·클릭·방송·접촉을 직접 실행하는 독립 프로젝트이다. |
+| `samples` | 이동·키 입력·클릭·방송·접촉·물리를 직접 실행하는 독립 프로젝트이다. |
 | `scripts` | 배포와 패키지 준비 도구이다. |
 | `tests` | 프로젝트·장면·입력·Python·웹·통합·배포 검증이다. |
 | `packages` | 고정한 로컬 NuGet 패키지와 라이선스·출처 기록이다. |
@@ -42,7 +43,9 @@ dotnet build src/BlackThunder.BlackPy/BlackThunder.BlackPy.csproj -c Release
 | `docs` | 개요·구현·사용·개발·검증 문서이다. |
 | `artifacts` | 생성된 배포본과 검증 보고서이다. Git에서 제외한다. |
 
-`Publish.ps1`은 배포본의 `실습/시작.exe`를 생성한다. 기본 목적지인 `artifacts/blackpy`로 배포할 때는 각 `samples` 프로젝트에도 `시작.exe`를 생성하며, 이 파일들은 Git에서 제외한다. 다른 목적지로 배포할 때는 기존 샘플 실행 파일의 경로를 바꾸지 않는다.
+`Publish.ps1`은 폴더 배포본의 `실습/시작.exe`를 생성한다. 샘플에는 실행 파일을 생성하지 않는다. 샘플별 `시작.pyw`는 실행에 사용한 Python 환경의 설치된 BlackPy를 호출하며, 저장소의 빌드 결과를 대신 사용하지 않는다.
+
+샘플 진입점의 원본은 `scripts/SampleLauncher.pyw`이다. 원본을 수정하면 각 샘플의 `시작.pyw`도 함께 갱신한다. `Debug.bat`은 같은 진입점을 콘솔 모드로 실행하며 설치 오류와 실행 오류를 확인하는 용도이다. 학생의 배경·캐릭터 파일과 `project.json`은 진입점 변경과 별도로 보존한다.
 
 `New-Launcher.ps1`과 `Launcher.proj`는 선택된 .NET SDK의 MSBuild 태스크에서 raw apphost를 GUI 진입점으로 만들고 관리 DLL의 상대경로를 내장한다. 생성 도구는 SDK의 런타임에서 실행하므로 PowerShell을 실행하는 .NET 버전에 묶이지 않는다. 배포 폴더를 옮겨도 상대경로로 공통 런타임을 찾는다. 생성 API의 기준은 [.NET HostWriter 구현](https://github.com/dotnet/runtime/blob/main/src/installer/managed/Microsoft.NET.HostModel/AppHost/HostWriter.cs)이다. 기존 `Debug.bat`은 콘솔 진단용으로 함께 제공한다.
 
@@ -54,7 +57,7 @@ Windows x64에서 다음 명령을 실행한다. Python 빌드 도구는 `.cache
 
 ```powershell
 ./scripts/Build-Wheel.ps1
-python -m pip install ./artifacts/wheels/blackpy-0.1.0-py3-none-win_amd64.whl
+python -m pip install ./artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl
 ```
 
 `Build-Wheel.ps1`은 Python 빌드 도구를 준비한 뒤 wheel을 생성하고 Twine으로 메타데이터를 검사한다. `wheel_hook.py`는 새 임시 경로에 `Publish.ps1`을 실행하고 그 결과의 공통 실행부와 `distribution/project`의 원본을 묶는다. 기존 `artifacts/blackpy/실습`이나 학생 프로젝트의 수정 내용은 wheel의 원본으로 사용하지 않는다.
@@ -63,6 +66,8 @@ wheel에는 다음 구조가 설치된다.
 
 ```text
 site-packages/
+├─ blackpy_autostart.pth
+├─ _blackpy_autostart.py
 └─ blackpy/
    ├─ cli.py
    ├─ __main__.py
@@ -81,6 +86,18 @@ site-packages/
 ```
 
 실제 `_runtime`에는 다른 Python 지원 모듈과 동봉 .NET·ASP.NET Core의 DLL·설정도 들어간다. `blackpy` 명령 진입점은 해당 Python 환경의 Scripts 폴더에 설치된다. 설치형 명령과 실행부 내부의 `blackpy.py`는 서로 다른 Python 프로세스에서 사용한다. 실행기는 자신의 지원 모듈 경로를 우선하여 가져온다.
+
+0.1.1의 직접 실행 연결은 설치 경로의 `.pth`가 독립된 시작 모듈을 등록하고 CPython의 `cpython.run_file` 이벤트에서 프로젝트를 판별하는 방식이다. `.pth` 처리 중에는 실행부를 시작하거나 설치형 `blackpy` 패키지를 미리 가져오지 않는다. 내부 실행기가 자신의 `blackpy.py`를 가져오는 동작과 충돌하지 않아야 한다. Python이 선택한 학생 파일을 구문 분석하거나 실행하기 전에 설치형 명령에 위임하므로 문법 오류도 무대의 학생 실행 오류로 확인할 수 있다. 기준은 [Python의 site 초기화](https://docs.python.org/3.10/library/site.html)와 [audit 이벤트](https://docs.python.org/3.10/library/audit_events.html)이다.
+
+직접 실행 대상은 실제 `.py` 파일이며, 바로 옆의 `project.json`에 문자열인 `background.file`과 배열인 `actors`가 있어야 한다. 설정의 상세 유효성은 실행부가 검사한다. `.pyw` 샘플 실행기는 원래 진입점을 그대로 사용한다. 일반 Python 작업을 명시적으로 실행하려면 해당 프로세스의 `BLACKPY_AUTO_RUN` 환경 변수를 `0`으로 둔다. `-S`도 설치 초기화를 생략하지만 다른 패키지 경로에 영향을 주므로 직접 실행 연결만 끌 때는 환경 변수를 사용한다.
+
+```powershell
+$env:BLACKPY_AUTO_RUN = '0'
+python ./내프로젝트/보조도구.py
+Remove-Item Env:BLACKPY_AUTO_RUN
+```
+
+직접 실행 연결은 0.1.1부터 제공한다. 로컬 wheel 설치 검증과 PyPI 공개 설치 검증은 구분하며, 공개는 아래 절차로 수행한다.
 
 배포 태그는 `py3-none-win_amd64`, 최소 Python 버전은 3.10이다. 이 작업은 Windows용 wheel 배포이며 sdist·editable 설치를 배포 절차로 사용하지 않는다. 패키지 버전은 `src/blackpy/__init__.py`에서 관리한다. 빌드·설치 도구의 실행 절차는 [Python Packaging User Guide](https://packaging.python.org/en/latest/tutorials/packaging-projects/)를 기준으로 한다.
 
@@ -140,16 +157,19 @@ git submodule update --init -- references/uniengine
 
 ## NuGet 의존성
 
-BlackPy는 UniEngine과 BlackboxSystem을 NuGet으로 직접 참조한다. UniEngine의 BlackboxSystem 의존성과 BlackPy의 직접 참조는 최종 앱에서 같은 패키지 버전으로 해석된다. 직접 선택한 버전은 UniEngine이 사용하는 API와 바이너리 호환성을 유지해야 한다.
+BlackPy는 UniEngine과 BlackboxSystem, Box2D.NET을 NuGet으로 직접 참조한다. UniEngine의 BlackboxSystem 의존성과 BlackPy의 직접 참조는 최종 앱에서 같은 패키지 버전으로 해석된다. 직접 선택한 버전은 UniEngine이 사용하는 API와 바이너리 호환성을 유지해야 한다.
 
 현재 고정 자료는 다음과 같다.
 
 | 패키지 | 버전 | 소스 커밋 |
 | --- | --- | --- |
-| `BlackThunder.UniEngine` | `0.1.0-mvp.23a68fe` | `23a68fe24f0ee02e38f3d0d341afca1fad3983e5` |
+| `BlackThunder.UniEngine` | `0.1.0-mvp.e256629` | `e256629bf5a9a164e4d385ea5a7eab82f456e1aa` |
 | `BlackThunder.BlackboxSystem` | `0.2.0` | `635c20e2ece4ce0c504ea03dda2c40679eac00e1` |
+| `Box2D.NET` | `3.1.654` | [3.1.654 태그](https://github.com/ikpil/Box2D.NET/tree/3.1.654) |
 
-버전·소스·SHA-256의 기준은 [source-manifest.json](../packages/source-manifest.json)이다. `NuGet.config`는 `BlackThunder.*` 패키지를 `packages` 로컬 피드에서 복원하도록 지정한다. 라이브러리마다 외부 개발 폴더를 직접 프로젝트 참조하지 않는다.
+BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.json](../packages/source-manifest.json)이다. `NuGet.config`는 `BlackThunder.*` 패키지를 `packages` 로컬 피드에서 복원하도록 지정한다. 라이브러리마다 외부 개발 폴더를 직접 프로젝트 참조하지 않는다.
+
+물리 엔진은 [Box2D.NET](https://www.nuget.org/packages/Box2D.NET/3.1.654)의 순수 C# 구현을 사용한다. .NET 10용 패키지에는 추가 패키지 의존성이 없으며 Python 패키지나 엔진의 예제용 렌더링 라이브러리를 배포하지 않는다. MIT 라이선스 원문은 [3.1.654 LICENSE](https://github.com/ikpil/Box2D.NET/blob/3.1.654/LICENSE)에서 가져온 [Box2D.NET.LICENSE.md](../packages/Box2D.NET.LICENSE.md)에 보관한다. Publish는 이 고지를 공통 실행부의 licenses에 복사하며 wheel에도 같은 실행부·고지를 포함한다.
 
 `Verify-Dependencies.ps1`은 포함된 패키지의 SHA-256과 직접 참조 버전을 검사한다. `-IncludeSource`는 초기화된 두 소스 서브모듈의 고정 커밋도 검사한다.
 
@@ -161,13 +181,17 @@ BlackPy는 UniEngine과 BlackboxSystem을 NuGet으로 직접 참조한다. UniEn
 
 이 스크립트는 고정 커밋을 사용하며 기존 고정 패키지를 덮어쓰지 않는다. 패키지 갱신은 서브모듈 커밋, 생성 버전, 프로젝트 참조, 출처 기록을 함께 검토하는 작업이다. 갱신을 검증한 뒤 참조되지 않는 이전 패키지는 제거한다.
 
-캐릭터별 스크립트 구조의 움직임·상태·이벤트는 Python 런타임에서 처리한다. 이전 고양이 전용 UniEngine 이동 경로는 제거하였다. NuGet 참조와 패키지·소스 고정 정보는 이번 개편에서 변경하지 않았으며, BlackboxSystem의 별도 실행 진단 계측은 추가하지 않았다.
+캐릭터별 스크립트의 명령·상태 접근·이벤트는 Python 런타임에서 처리한다. C# 실행부는 등록된 이동·회전과 Box2D.NET 물리를 독립된 최대 60Hz 주기로 갱신하고 장면을 발행한다. Python은 명령과 표현 상태를 교환하고 완료된 위치·방향을 받은 뒤 학생 코드를 이어 간다. 이전 고양이 전용 UniEngine 이동 경로는 사용하지 않는다. UniEngine 의존성은 위 표의 MVP 커밋과 패키지로 고정한다.
 
 ## 문서와 변경 검증
 
 기본 프로젝트는 project.json, 배경·캐릭터 파일과 편집기용 `__builtins__.pyi`로 구성한다. Publish는 artifacts/blackpy/실습에 프로젝트를, 그 아래 _runtime에 실행부와 지원 모듈을 배치한다. 기존 학생 코드·설정을 보존하고 없는 기본 파일만 추가한다. 구형 main.py만 있는 목적지는 거절하며 별도의 새 배포 경로를 사용한다. 설치형의 프로젝트 생성·실행·편집기 설정은 [Usage](Usage.md)에 있다.
 
 이전 15개 놀이와 Actor·stage·playground 예제는 현재 실행부와 호환되지 않으므로 새 파일 구성·명령·이벤트 의미에 맞춰 재작성해야 한다. 실행부 배포가 외부 수업 자료를 자동 수정하지 않는다.
+
+물리 기능을 수업 자료에 추가할 때는 힘을 한 번 주는 충격과 유지 이벤트의 반복 적용을 구분하고, 속도 배율이 물리 속도가 아님을 설명한다. 물리 객체의 이동은 벽에 막힐 수 있으며 정지 뒤에도 중력이 계속된다. 기존 접촉 예제는 기본 '충돌만' 모드를 사용하므로 접촉 확인 수업에 중력 설정을 추가할 필요가 없다. 학생 자료의 명령 분류는 감지를 주변으로 바꾸고 물리·접촉 명령을 물리 영역으로 안내한다.
+
+일반 이벤트의 이동 값은 총거리, 유지 이벤트의 이동 값은 초당 이동량이라는 사용법을 유지한다. 이동량에 프레임 시간을 직접 곱하는 코드를 학생에게 요구하지 않는다. 유지 이벤트가 새 값을 정하면 실행부가 그 속도로 움직이며, 키·클릭·접촉을 해제하면 Python의 다음 응답을 기다리지 않고 해당 유지 이동을 끝낸다.
 
 README는 첫 실행과 상세 문서의 진입점이다. 개요와 구현 문서는 책임·동작·제약을 설명하며, 구체적인 API 사용은 Usage에 둔다. 테스트 계획과 실제 실행 결과는 분리한다.
 
