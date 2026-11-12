@@ -20,14 +20,9 @@ function observeScenes() {
     return { frames, close: () => host.socket.removeEventListener("message", receive) };
 }
 
-function blockingBackground(seconds, delay = 0.15) {
-    return `import time\ndef 시작():\n    기다리기(${delay})\n` +
-        `    print("NATIVE_BLOCK_BEGIN", flush=True)\n    time.sleep(${seconds})\n` +
-        '    print("NATIVE_BLOCK_END", flush=True)\n';
-}
-
-test("gravity and an ordinary move advance while Python is blocked in native code", async () => {
+function blockOnFirstMotion(seconds, extraCommands = []) {
     const probe = `
+import json
 import time
 original_exchange = script_runtime.remote_exchange
 blocked = False
@@ -36,35 +31,45 @@ async def blocking_exchange(scene, actors, commands, ready, ack, contact_ack):
     if not blocked and ready and any(command["kind"] == "motion" for command in commands):
         blocked = True
         scene = dict(scene, message="NATIVE_BLOCK_BEGIN")
-        commands = [*commands,
-                    {"id": "actor-2", "kind": "teleport", "x": 200, "y": 180},
-                    {"id": "actor-2", "kind": "stop"}]
+        commands = [*commands, *json.loads(${JSON.stringify(JSON.stringify(extraCommands))})]
         result = await original_exchange(scene, actors, commands, ready, ack, contact_ack)
-        time.sleep(2)
+        time.sleep(${seconds})
         return result
     return await original_exchange(scene, actors, commands, ready, ack, contact_ack)
 script_runtime.remote_exchange = blocking_exchange
 `;
-    const project = defaultProject();
-    Object.assign(project.actors[0], { x: -250, y: 0, physics: "없음" });
-    Object.assign(project.actors[1], { kind: "ball", x: 200, y: 180, scale: 0.5, physics: "물리" });
-    await host.write('def 시작():\n    앞으로(600)\n    print("MOVE_DONE", 위치[0])\n', "",
-        `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project);
-    const frames = [];
-    let began = false;
-    let ended = false;
+    return `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`;
+}
+
+function observeBlocking() {
+    const observation = { frames: [], began: false, ended: false };
     const receive = ({ data }) => {
         const packet = JSON.parse(data);
         if (packet.runId !== host.state.runId || packet.status !== "running" || !packet.scene?.active) return;
         const marked = packet.scene.message === "NATIVE_BLOCK_BEGIN";
-        began ||= marked;
-        ended ||= began && !marked;
-        if (began && !ended) {
-            frames.push({ x: packet.scene.sprites[0].x, y: packet.scene.sprites[1].y });
+        observation.began ||= marked;
+        observation.ended ||= observation.began && !marked;
+        if (observation.began && !observation.ended) {
+            observation.frames.push({ x: packet.scene.sprites[0].x, y: packet.scene.sprites[1].y,
+                text: (packet.output || []).map(line => line.text).join("\n") });
         }
     };
     // The marker, motion, and reset reach C# atomically; stdout has an independent delivery delay.
     host.socket.addEventListener("message", receive);
+    observation.close = () => host.socket.removeEventListener("message", receive);
+    return observation;
+}
+
+test("gravity and an ordinary move advance while Python is blocked in native code", async () => {
+    const project = defaultProject();
+    Object.assign(project.actors[0], { x: -250, y: 0, physics: "없음" });
+    Object.assign(project.actors[1], { kind: "ball", x: 200, y: 180, scale: 0.5, physics: "물리" });
+    const background = blockOnFirstMotion(2, [
+        { id: "actor-2", kind: "teleport", x: 200, y: 180 }, { id: "actor-2", kind: "stop" }
+    ]);
+    await host.write('def 시작():\n    앞으로(600)\n    print("MOVE_DONE", 위치[0])\n', "", background, project);
+    const observation = observeBlocking();
+    const { frames } = observation;
     try {
         await host.run();
         await host.wait(() => {
@@ -73,12 +78,13 @@ script_runtime.remote_exchange = blocking_exchange
             const distinct = new Set(frames.map(frame => frame.x)).size;
             const progressed = initial && latest.x > initial.x + 65 && latest.y < initial.y - 70
                 && frames.length >= 12 && distinct >= 12;
-            assert.ok(progressed || !ended, "Python resumed before independent progress: " +
-                JSON.stringify({ initial, latest, frames: frames.length, distinct, began, ended }));
+            assert.ok(progressed || !observation.ended, "Python resumed before independent progress: " +
+                JSON.stringify({ initial, latest, frames: frames.length, distinct,
+                    began: observation.began, ended: observation.ended }));
             return progressed;
         }, "movement, gravity and new scenes during native Python blocking");
     } finally {
-        host.socket.removeEventListener("message", receive);
+        observation.close();
     }
     await host.wait(() => host.text().includes("MOVE_DONE"), "ordinary move completion reaches Python");
     const completion = host.text().match(/^MOVE_DONE (\S+)$/m);
@@ -171,13 +177,22 @@ test("contact enter and exit are retained when both occur during a Python stall"
     const cat = 'def 시작():\n    앞으로(400)\n' +
         '\ndef 닿았을_때(목록):\n    print("CONTACT_ENTER", 목록, flush=True)\n' +
         '\ndef 닿는_중_종료(목록):\n    print("CONTACT_EXIT", 목록, flush=True)\n';
-    await host.write(cat, "", blockingBackground(1.4, 0.3), project);
-    await host.run();
-    await host.wait(() => host.text().includes("NATIVE_BLOCK_BEGIN"), "native block begins");
-    await pause(1050);
-    assert.doesNotMatch(host.text(), /NATIVE_BLOCK_END|CONTACT_ENTER|CONTACT_EXIT/);
-    assert.ok(host.sprite().x > 30, "The moving actor must cross the other actor during the stall");
-    await host.wait(() => host.text().includes("CONTACT_EXIT"), "both queued contact transitions reach Python");
+    await host.write(cat, "", blockOnFirstMotion(3), project);
+    const observation = observeBlocking();
+    try {
+        await host.run();
+        await host.wait(() => {
+            const latest = observation.frames.at(-1);
+            const crossed = latest && latest.x > 30;
+            assert.ok(crossed || !observation.ended, "Python resumed before crossing the contact: " +
+                JSON.stringify({ initial: observation.frames[0], latest, frames: observation.frames.length }));
+            return crossed;
+        }, "crossing the other actor during native Python blocking");
+        await host.wait(() => host.text().includes("CONTACT_EXIT"), "both queued contact transitions reach Python");
+        for (const frame of observation.frames) assert.doesNotMatch(frame.text, /CONTACT_ENTER|CONTACT_EXIT/);
+    } finally {
+        observation.close();
+    }
     const text = host.text();
     assert.match(text, /CONTACT_ENTER \['자동차'\]/);
     assert.match(text, /CONTACT_EXIT \['자동차'\]/);
