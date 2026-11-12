@@ -18,8 +18,8 @@ test("authentication and missing project never create student files", async () =
 });
 
 test("normal moves finish before the next line and actors move simultaneously", async () => {
-    await host.write('def 시작():\n    앞으로(100)\n    print("고양이 도착 🐱")\n',
-        'def 시작():\n    앞으로(100)\n    print("자동차 도착")\n');
+    await host.write('def 시작():\n    print("CAT_BEGIN")\n    앞으로(100)\n    print("고양이 도착 🐱")\n',
+        'def 시작():\n    print("CAR_BEGIN")\n    앞으로(100)\n    print("자동차 도착")\n');
     const started = Date.now();
     await host.run();
     await host.done();
@@ -27,12 +27,14 @@ test("normal moves finish before the next line and actors move simultaneously", 
     assert.ok(Date.now() - started >= 450);
     assert.ok(Math.abs(host.sprite().x) < 0.01);
     assert.ok(Math.abs(host.sprite("자동차").x - 50) < 0.01);
-    assert.match(host.text(), /고양이 도착 🐱/);
-    assert.match(host.text(), /자동차 도착/);
-    assert.ok(host.history.some(scene => {
-        const [cat, car] = scene.sprites;
-        return cat?.x > -90 && cat.x < -10 && car?.x < 140 && car.x > 60;
-    }));
+    const text = host.text();
+    assert.match(text, /고양이 도착 🐱/);
+    assert.match(text, /자동차 도착/);
+    const firstArrival = Math.min(text.indexOf("고양이 도착 🐱"), text.indexOf("자동차 도착"));
+    const catStarted = text.indexOf("CAT_BEGIN");
+    const carStarted = text.indexOf("CAR_BEGIN");
+    assert.ok(catStarted >= 0 && catStarted < firstArrival && carStarted >= 0 && carStarted < firstArrival,
+        "Both actors must begin before either movement finishes: " + text);
 });
 
 test("state assignments and helper calls bind to their own actor", async () => {

@@ -61,6 +61,25 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         await tick(runtime, 0.25)
         self.assertEqual(runtime.actors[0].speech, "완료")
 
+    async def test_actors_advance_together_before_following_statements(self):
+        runtime = await self.prepare(
+            'def 시작():\n    앞으로(100)\n    말하기("고양이 도착")\n',
+            other_source='def 시작():\n    앞으로(100)\n    말하기("자동차 도착")\n',
+        )
+        runtime.start()
+        await settle()
+        cat, car = runtime.actors
+
+        await tick(runtime, 0.25)
+        self.assertAlmostEqual(cat.position[0], 50)
+        self.assertAlmostEqual(car.position[0], 250)
+        self.assertEqual((cat.speech, car.speech), ("", ""))
+
+        await tick(runtime, 0.25)
+        self.assertAlmostEqual(cat.position[0], 100)
+        self.assertAlmostEqual(car.position[0], 300)
+        self.assertEqual((cat.speech, car.speech), ("고양이 도착", "자동차 도착"))
+
     async def test_same_key_busy_is_ignored_other_key_runs(self):
         runtime = await self.prepare(
             '기록 = []\ndef 키_클릭(키):\n    기록.append(키)\n    기다리기(1)\n'

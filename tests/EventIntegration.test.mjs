@@ -7,22 +7,32 @@ before(async () => { await host.open(); });
 beforeEach(async () => { await host.stop(); });
 after(async () => { await host.close(); });
 
-test("held keys move by time, different keys combine, and release ends new calls", async () => {
+test("held keys combine, releasing one keeps the other moving, and release ends new calls", async () => {
     await host.write('def 키_클릭(누른_키):\n    print("DOWN", 누른_키)\n' +
         '\ndef 키_클릭_중(누른_키):\n    if 누른_키 == "오른쪽":\n        방향 = 0\n' +
         '        앞으로(100)\n    elif 누른_키 == "위":\n        방향 = 90\n        앞으로(100)\n' +
-        '\ndef 키_클릭_끝(누른_키):\n    print("UP", 누른_키)\n');
+        '\ndef 키_클릭_끝(누른_키):\n    print("UP", 누른_키, 위치[0], 위치[1])\n');
     await host.run();
     await host.wait(() => host.sprite(), "initial scene");
     await host.input("keydown", { key: "오른쪽" });
     await host.input("keydown", { key: "위" });
-    await pause(450);
+    await host.wait(() => host.sprite().x > -75 && host.sprite().y > 25, "both held keys moved");
     await host.input("keyup", { key: "오른쪽" });
+    await host.wait(() => host.text().includes("UP 오른쪽"), "right key release");
+    const rightRelease = host.text().match(/^UP 오른쪽 (\S+) (\S+)$/m);
+    assert.ok(rightRelease, host.text());
+    const releasedX = Number(rightRelease[1]);
+    const releasedY = Number(rightRelease[2]);
+    await host.wait(() => host.sprite().y > releasedY + 10, "up key continues after right release");
+    assert.ok(Math.abs(host.sprite().x - releasedX) < 1e-9, "Released right key must stop horizontal movement");
+
     await host.input("keyup", { key: "위" });
     await host.wait(() => host.text().includes("UP 위"), "key releases");
+    const upRelease = host.text().match(/^UP 위 (\S+) (\S+)$/m);
+    assert.ok(upRelease, host.text());
+    await host.wait(() => Math.abs(host.sprite().x - Number(upRelease[1])) < 1e-9 &&
+        Math.abs(host.sprite().y - Number(upRelease[2])) < 1e-9, "released position reaches the scene");
     const { x, y } = host.sprite();
-    assert.ok(x > -75 && x < -25, `x=${x}`);
-    assert.ok(y > 25 && y < 75, `y=${y}`);
     await pause(150);
     assert.equal(host.sprite().x, x);
     assert.equal(host.sprite().y, y);
