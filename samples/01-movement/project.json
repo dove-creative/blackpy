@@ -1,0 +1,6 @@
+{
+  "background": { "file": "배경.py", "kind": "plain" },
+  "actors": [
+    { "name": "고양이", "file": "고양이.py", "kind": "cat", "x": -160, "y": -80, "heading": 0 }
+  ]
+}

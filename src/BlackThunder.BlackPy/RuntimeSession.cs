@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace BlackThunder.BlackPy
 {
-    /// <summary>Serializes the simulation, command completion, and process lifecycle on one owner thread.</summary>
+    /// <summary>Serializes project snapshots, input, scenes, and process lifecycle on one owner thread.</summary>
     public class RuntimeSession : IAsyncDisposable
     {
         // Internal
@@ -17,20 +18,21 @@ namespace BlackThunder.BlackPy
         private readonly PythonCommand _python;
         private readonly string _baseUrl;
         private readonly string _token;
+        private readonly Action? _stopApplication;
+        private readonly BrowserLifetime _browserLifetime;
+        private readonly Stopwatch _clock = Stopwatch.StartNew();
         private readonly Channel<Action> _actions = Channel.CreateBounded<Action>(256);
         private readonly Dictionary<Guid, BrowserConnection> _browsers = new();
         private readonly Queue<OutputLine> _output = new();
-        private readonly Queue<CommandTicket> _commands = new();
         private readonly SceneController _scene = new();
+        private readonly InputController _input = new();
         private readonly List<TaskCompletionSource<StateMessage>> _stopWaiters = new();
         private readonly TaskCompletionSource<bool> _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Thread _thread;
-        private MotionController _motion = null!;
         private ProcessRun? _process;
-        private CommandTicket? _currentCommand;
-        private Task? _currentMotion;
         private TaskCompletionSource<StateMessage>? _restartWaiter;
         private string? _runId;
+        private ProjectSnapshot? _source;
         private string _status = "ready";
         private string? _error;
         private string? _lastErrorLine;
@@ -44,18 +46,47 @@ namespace BlackThunder.BlackPy
 
         // Content --------------------
         // Construction and requests
-        public RuntimeSession(string projectDirectory, PythonCommand python, string baseUrl, string token)
+        public RuntimeSession(
+            string projectDirectory,
+            PythonCommand python,
+            string baseUrl,
+            string token,
+            Action? stopApplication = null,
+            TimeSpan? firstBrowserTimeout = null)
         {
             _projectDirectory = projectDirectory;
             _python = python;
             _baseUrl = baseUrl;
             _token = token;
-            _thread = new Thread(RunLoop) { IsBackground = true, Name = "Elementary simulation" };
+            _stopApplication = stopApplication;
+            _browserLifetime = new BrowserLifetime(TimeSpan.FromSeconds(3), firstBrowserTimeout);
+            _thread = new Thread(RunLoop) { IsBackground = true, Name = "BlackPy session" };
             _thread.Start();
         }
 
         public Task<StateMessage> GetStateAsync() => DispatchAsync(Snapshot);
         public Task<StateMessage> RunAsync() => DispatchAsync(StartRun);
+        public Task<ProjectDefinition> GetProjectAsync() => DispatchAsync(() =>
+            _source?.Project ?? ProjectLoader.ReadDefinition(_projectDirectory));
+        public Task<ProjectSnapshot> GetSourceAsync(string runId) => DispatchAsync(() =>
+        {
+            RequireActiveRun(runId);
+            return _source!;
+        });
+
+        public Task<InputEvent[]> GetEventsAsync(string runId) => DispatchAsync(() =>
+        {
+            RequireActiveRun(runId);
+            return _input.Drain(runId);
+        });
+
+        public Task<StateMessage> InputAsync(InputRequest request) => DispatchAsync(() =>
+        {
+            RequireActiveRun(request.RunId);
+            _input.Submit(request);
+            return Snapshot();
+        });
+
         public Task<StateMessage> FrameAsync(SceneFrameRequest request) => DispatchAsync(() =>
         {
             if (_status != "running" || _process == null)
@@ -88,33 +119,19 @@ namespace BlackThunder.BlackPy
             });
         }
 
-        public async Task<StateMessage> CommandAsync(CommandRequest request)
-        {
-            return await await DispatchAsync(() =>
-            {
-                if (_status != "running" || _process == null || request.RunId != _runId)
-                    throw new BlackPyException(409, "끝났거나 다른 실행의 명령입니다.");
-                if (_commands.Count >= 128) throw new BlackPyException(429, "대기 중인 이동 명령이 너무 많습니다.");
-
-                MotionController.Validate(request.Command, request.Args);
-                var ticket = new CommandTicket(request.Command, request.Args);
-                _commands.Enqueue(ticket);
-                return ticket.Completion.Task;
-            });
-        }
-
         public Task<BrowserConnection> ConnectAsync() => DispatchAsync(() =>
         {
             if (_shuttingDown) throw new BlackPyException(503, "실행 프로그램이 종료됩니다.");
             var connection = new BrowserConnection();
             _browsers.Add(connection.Id, connection);
+            _browserLifetime.Connected();
             connection.Messages.Writer.TryWrite(Snapshot());
             return connection;
         });
 
         public Task DisconnectAsync(BrowserConnection connection) => DispatchAsync(() =>
         {
-            _browsers.Remove(connection.Id);
+            if (!_browsers.Remove(connection.Id)) return false;
             connection.Messages.Writer.TryComplete();
 
             if (_browsers.Count == 0)
@@ -122,6 +139,12 @@ namespace BlackThunder.BlackPy
                 _restartWaiter?.TrySetException(new BlackPyException(409, "웹 화면의 연결이 끊겼습니다."));
                 _restartWaiter = null;
                 BeginStop();
+                _browserLifetime.Disconnected(_clock.Elapsed);
+            }
+            else if (_status == "running" && _runId != null)
+            {
+                // A vanished browser cannot send the releases for its held keys.
+                _input.Submit(new InputRequest { RunId = _runId, Kind = "reset" });
             }
 
             return true;
@@ -148,30 +171,22 @@ namespace BlackThunder.BlackPy
             return await completion.Task;
         }
 
-        // Simulation
+        // Session loop
         private void RunLoop()
         {
             try
             {
-                using var motion = new MotionController();
-                using var changes = motion.Subscribe(_ => _dirty = true);
-                _motion = motion;
-                var clock = Stopwatch.StartNew();
-                var previous = clock.Elapsed.TotalSeconds;
-                var lastPublication = previous;
+                var lastPublication = _clock.Elapsed.TotalSeconds;
 
                 while (true)
                 {
                     for (int i = 0; i < 128 && _actions.Reader.TryRead(out var action); i++) action();
                     if (_shuttingDown && _process == null) break;
 
-                    var now = clock.Elapsed.TotalSeconds;
-                    var deltaTime = (float)(now - previous);
-                    previous = now;
-                    _motion.Tick(deltaTime);
-                    AdvanceCommands();
+                    if (!_shuttingDown && _browserLifetime.ShouldStop(_clock.Elapsed)) _stopApplication?.Invoke();
 
-                    if (_dirty && now - lastPublication >= 1.0 / 30)
+                    var now = _clock.Elapsed.TotalSeconds;
+                    if (_dirty && now - lastPublication >= 1.0 / 60)
                     {
                         Publish();
                         lastPublication = now;
@@ -194,59 +209,27 @@ namespace BlackThunder.BlackPy
             }
         }
 
-        private void AdvanceCommands()
-        {
-            if (_currentCommand != null && _currentMotion!.IsCompleted)
-            {
-                if (_currentMotion.IsCompletedSuccessfully) _currentCommand.Completion.TrySetResult(Snapshot());
-                else _currentCommand.Completion.TrySetException(new BlackPyException(409, "이동이 중지되었습니다."));
-                _currentCommand = null;
-                _currentMotion = null;
-            }
-
-            if (_currentCommand != null || _commands.Count == 0 || _status != "running") return;
-
-            var next = _commands.Dequeue();
-
-            try
-            {
-                _currentMotion = _motion.Command(next.Command, next.Args);
-                _currentCommand = next;
-            }
-            catch (Exception exception)
-            {
-                next.Completion.TrySetException(exception);
-            }
-        }
-
-        private void CancelCommands()
-        {
-            _motion.Cancel();
-            var exception = new BlackPyException(409, "이동이 중지되었습니다.");
-            _currentCommand?.Completion.TrySetException(exception);
-            _currentCommand = null;
-            _currentMotion = null;
-
-            while (_commands.TryDequeue(out var command)) command.Completion.TrySetException(exception);
-        }
-
         // Python lifetime
         private StateMessage StartRun()
         {
             if (_shuttingDown) throw new BlackPyException(503, "실행 프로그램을 종료하는 중입니다.");
             if (_process != null) throw new BlackPyException(409, "이미 실행 중입니다. 중지하거나 다시 시작해 주세요.");
             if (_browsers.Count == 0) throw new BlackPyException(409, "웹 화면을 먼저 열어 주세요.");
-            if (!File.Exists(Path.Combine(_projectDirectory, "main.py")))
-                throw new BlackPyException(400, "시작.bat 옆에 main.py를 저장해 주세요.");
+            var runner = Path.Combine(AppContext.BaseDirectory, "_blackpy_runner.py");
+            if (!File.Exists(runner))
+                throw new BlackPyException(500, "Python 실행 지원 파일이 없습니다. 실행 프로그램을 다시 배포해 주세요.");
+            // Preserve every configured source and its exact encoding for this run.
+            var source = ProjectLoader.ReadSnapshot(_projectDirectory);
 
-            _motion.Reset();
             _output.Clear();
             _outputRevision++;
             _outputDirty = true;
             _lastErrorLine = null;
             _error = null;
             _runId = Guid.NewGuid().ToString("N");
+            _source = source;
             _scene.BeginRun(_runId);
+            _input.BeginRun(_runId);
             _status = "running";
             _stopping = false;
             _dirty = true;
@@ -256,8 +239,9 @@ namespace BlackThunder.BlackPy
             info.ArgumentList.Add("-c");
             // Student code starts only after Windows has attached the process to its Job Object.
             info.ArgumentList.Add("import sys, runpy; gate = sys.stdin.buffer.read(1); " +
-                "sys.exit(1) if gate != b'G' else None; sys.argv = ['main.py']; " +
-                "runpy.run_path('main.py', run_name='__main__')");
+                "sys.exit(1) if gate != b'G' else None; " +
+                "runpy.run_path(sys.argv[1], run_name='__main__')");
+            info.ArgumentList.Add(runner);
             info.WorkingDirectory = _projectDirectory;
             info.Environment["PLAYGROUND_URL"] = _baseUrl;
             info.Environment["PLAYGROUND_TOKEN"] = _token;
@@ -279,12 +263,15 @@ namespace BlackThunder.BlackPy
                 _process = run;
                 _ = MonitorProcessAsync(run);
                 process.StandardInput.Write("G");
+                process.StandardInput.WriteLine(JsonSerializer.Serialize(source, StateMessage.JsonOptions));
                 process.StandardInput.Close();
                 return Snapshot();
             }
             catch (Exception exception)
             {
                 _scene.EndRun();
+                _input.EndRun();
+                _source = null;
                 _status = "error";
                 _error = "Python 실행 실패: " + exception.Message;
                 throw new BlackPyException(500, _error);
@@ -293,8 +280,9 @@ namespace BlackThunder.BlackPy
 
         private Task<StateMessage> BeginStop()
         {
-            CancelCommands();
             _scene.EndRun();
+            _input.EndRun();
+            _source = null;
 
             if (_process == null) return Task.FromResult(Snapshot());
 
@@ -401,9 +389,10 @@ namespace BlackThunder.BlackPy
         {
             if (_process != run) { run.Dispose(); return; }
 
-            CancelCommands();
             _process = null;
             _scene.EndRun();
+            _input.EndRun();
+            _source = null;
             run.Dispose();
 
             if (!_stopping)
@@ -429,6 +418,12 @@ namespace BlackThunder.BlackPy
         }
 
         // Snapshots and shutdown
+        private void RequireActiveRun(string runId)
+        {
+            if (_status != "running" || _process == null || runId != _runId)
+                throw new BlackPyException(409, "끝났거나 다른 실행의 요청입니다.");
+        }
+
         private StateMessage Snapshot()
         {
             if (_outputDirty)
@@ -441,9 +436,6 @@ namespace BlackThunder.BlackPy
             {
                 Status = _status,
                 RunId = _runId,
-                X = _motion.Transform.Position.X,
-                Y = _motion.Transform.Position.Y,
-                Heading = _motion.Heading,
                 Scene = _scene.State,
                 Error = _error,
                 Output = _outputSnapshot,
@@ -491,14 +483,6 @@ namespace BlackThunder.BlackPy
 
         private static TaskCompletionSource<T> Completion<T>() =>
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        private class CommandTicket
-        {
-            public string Command { get; }
-            public double[] Args { get; }
-            public TaskCompletionSource<StateMessage> Completion { get; } = RuntimeSession.Completion<StateMessage>();
-            public CommandTicket(string command, double[] args) { Command = command; Args = args; }
-        }
 
         private class ProcessRun : IDisposable
         {

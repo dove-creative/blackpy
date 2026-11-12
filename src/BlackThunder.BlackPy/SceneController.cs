@@ -29,6 +29,7 @@ namespace BlackThunder.BlackPy
         public string Color { get; set; } = "#ffb347";
         public bool Visible { get; set; } = true;
         public string Label { get; set; } = "";
+        public string Speech { get; set; } = "";
     }
 
     /// <summary>Owns the latest Python animation frame on the runtime's single simulation thread.</summary>
@@ -44,13 +45,16 @@ namespace BlackThunder.BlackPy
         };
         private static readonly HashSet<string> _kinds = new(StringComparer.Ordinal)
         {
-            "cat", "car", "rabbit", "ball", "bat"
+            "cat", "car", "rabbit", "ball", "bat", "ghost", "star", "basket", "paddle", "rocket", "flag", "planet"
         };
         private string? _runId;
 
 
         // Content --------------------
         // Run lifetime
+        public static bool IsBackgroundKind(string kind) => kind != null && _backgrounds.Contains(kind);
+        public static bool IsActorKind(string kind) => kind != null && _kinds.Contains(kind);
+
         public void BeginRun(string runId)
         {
             _runId = runId;
@@ -90,6 +94,8 @@ namespace BlackThunder.BlackPy
                     throw Invalid("준비된 캐릭터 모양을 사용해 주세요.");
                 if (sprite.Label == null || sprite.Label.Length > 80)
                     throw Invalid("캐릭터 설명은 80자까지 사용할 수 있습니다.");
+                if (sprite.Speech == null || sprite.Speech.Length > 200)
+                    throw Invalid("말풍선은 200자까지 사용할 수 있습니다.");
                 if (!ValidColor(sprite.Color)) throw Invalid("색은 #으로 시작하는 여섯 자리 색상 코드로 적어 주세요.");
 
                 ValidateNumber(sprite.X, -100000, 100000, "가로 위치");
@@ -108,7 +114,8 @@ namespace BlackThunder.BlackPy
                     Heading = sprite.Heading,
                     Color = sprite.Color,
                     Visible = sprite.Visible,
-                    Label = sprite.Label
+                    Label = sprite.Label,
+                    Speech = sprite.Speech
                 };
             }
 

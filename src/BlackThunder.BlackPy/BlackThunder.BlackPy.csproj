@@ -10,5 +10,9 @@
     <PackageReference Include="BlackThunder.UniEngine" Version="0.1.0-mvp.23a68fe" />
     <PackageReference Include="BlackThunder.BlackboxSystem" Version="0.2.0" />
     <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../distribution/_blackpy*.py" Link="%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../distribution/blackpy.py" Link="blackpy.py"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

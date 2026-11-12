@@ -1,6 +1,6 @@
 "use strict";
 
-// Original canvas drawings for the five introductory BlackPy activities.
+// Original canvas drawings for BlackPy's movement and game activities.
 (() => {
     const width = 800;
     const height = 600;
@@ -324,9 +324,57 @@
         path(context, "M-5 10Q2 17 9 10", "#edb6ac", outline, 2);
     }
 
+    function drawGhost(context, color) {
+        path(context, "M-40 42V-6Q-40-46 0-46Q40-46 40-6V42L20 30 0 42-20 30Z", color, outline);
+        ellipse(context, -14, -6, 5, 8, outline);
+        ellipse(context, 14, -6, 5, 8, outline);
+        path(context, "M-12 15Q0 29 12 15", "#eeb8ba", outline, 2);
+    }
+
+    function drawStar(context, color) {
+        path(context, "M0-47L14-16 47-14 23 10 29 44 0 27-29 44-23 10-47-14-14-16Z", color, outline);
+        ellipse(context, -10, -2, 3, 5, outline);
+        ellipse(context, 10, -2, 3, 5, outline);
+    }
+
+    function drawBasket(context, color) {
+        path(context, "M-46-25L-34 43H34L46-25Z", color, outline);
+        rounded(context, -49, -34, 98, 16, 6, "#f4d6a8", outline);
+        line(context, [[-23, -15], [-17, 34]], "#f4d6a8", 5);
+        line(context, [[0, -15], [0, 34]], "#f4d6a8", 5);
+        line(context, [[23, -15], [17, 34]], "#f4d6a8", 5);
+    }
+
+    function drawPaddle(context, color) {
+        rounded(context, -48, -43, 96, 86, 12, color, outline);
+        rounded(context, -36, -26, 72, 16, 7, "#ffffff75");
+    }
+
+    function drawRocket(context, color) {
+        path(context, "M-33-25L-47-44-5-29Q27-27 48 0Q27 27-5 29L-47 44-33 25Z", color, outline);
+        ellipse(context, 13, 0, 15, 21, "#c4edf1", outline);
+        path(context, "M-35-17L-49 0-35 17Z", "#f5b45e", outline);
+    }
+
+    function drawFlag(context, color) {
+        line(context, [[-27, 44], [-27, -45]], outline, 6);
+        path(context, "M-24-44H43L18-13 43 14H-24Z", color, outline);
+        ellipse(context, -21, 44, 26, 5, "#6a9a79");
+    }
+
+    function drawPlanet(context, color) {
+        ellipse(context, 0, 0, 43, 43, color, outline);
+        path(context, "M-30-26L-9-32 1-12-12 2-36-4Z M10 13L29 4 37 21 19 35 3 29Z", "#86bb8c");
+        ellipse(context, -16, -19, 8, 5, "#ffffff65");
+    }
+
     function drawSprite(context, sprite) {
         if (!sprite.visible) return;
-        const painters = { car: drawCar, cat: drawCat, rabbit: drawRabbit, ball: drawBall, bat: drawBat };
+        const painters = {
+            car: drawCar, cat: drawCat, rabbit: drawRabbit, ball: drawBall, bat: drawBat,
+            ghost: drawGhost, star: drawStar, basket: drawBasket, paddle: drawPaddle,
+            rocket: drawRocket, flag: drawFlag, planet: drawPlanet
+        };
         const defaults = { car: "#dc806c", cat: "#f0bd63", rabbit: "#f7eadc", ball: "#e8a15e", bat: "#a89bc5" };
         const painter = painters[sprite.kind] || drawCat;
         const x = width / 2 + sprite.x;
@@ -343,7 +391,7 @@
 
         if (sprite.label) {
             context.save();
-            context.font = '600 28px "Malgun Gothic", sans-serif';
+            context.font = '600 20px "Malgun Gothic", sans-serif';
             context.textAlign = "center";
             context.textBaseline = "middle";
             const textWidth = context.measureText(sprite.label).width;
@@ -355,11 +403,45 @@
         }
     }
 
+    function drawSpeech(context, sprite) {
+        if (!sprite.visible || !sprite.speech) return;
+        context.save();
+        context.font = '20px "Malgun Gothic", sans-serif';
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        const lines = [];
+        let line = "";
+
+        for (const character of sprite.speech) {
+            if (character === "\n" || (line && context.measureText(line + character).width > 240)) {
+                lines.push(line);
+                line = character === "\n" ? "" : character;
+            } else {
+                line += character;
+            }
+        }
+
+        lines.push(line);
+        const boxWidth = Math.max(45, ...lines.map(text => context.measureText(text).width + 28));
+        const boxHeight = lines.length * 26 + 18;
+        const x = Math.max(8, Math.min(width - boxWidth - 8, width / 2 + sprite.x - boxWidth / 2));
+        const y = Math.max(8, Math.min(height - boxHeight - 8,
+            height / 2 - sprite.y - sprite.height / 2 - boxHeight - 14));
+        rounded(context, x, y, boxWidth, boxHeight, 12, "#fffef7", "#bacbb9");
+        context.fillStyle = outline;
+        lines.forEach((text, index) => context.fillText(text, x + 14, y + 22 + index * 26));
+        context.restore();
+    }
+
     function draw(context, scene) {
         context.drawImage(background(scene.background), 0, 0, width, height);
 
         for (const sprite of scene.sprites) {
             drawSprite(context, sprite);
+        }
+
+        for (const sprite of scene.sprites) {
+            drawSpeech(context, sprite);
         }
     }
 

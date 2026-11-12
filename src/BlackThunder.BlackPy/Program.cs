@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -28,9 +29,17 @@ namespace BlackThunder.BlackPy
             catch (Exception exception)
             {
                 Console.Error.WriteLine(exception.Message);
+                if (OperatingSystem.IsWindows() && !args.Contains("--no-browser") && GetConsoleWindow() == IntPtr.Zero)
+                    MessageBox(IntPtr.Zero, exception.Message, "BlackPy를 시작하지 못했어요", 0x10);
                 return 1;
             }
         }
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetConsoleWindow();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int MessageBox(IntPtr owner, string text, string caption, uint type);
 
         private static async Task<int> RunAsync(Options options)
         {
@@ -46,7 +55,7 @@ namespace BlackThunder.BlackPy
             builder.WebHost.ConfigureKestrel(server =>
             {
                 server.Listen(IPAddress.Loopback, options.Port);
-                server.Limits.MaxRequestBodySize = 65536;
+                server.Limits.MaxRequestBodySize = 262144;
             });
 
             await using var app = builder.Build();
@@ -101,6 +110,23 @@ namespace BlackThunder.BlackPy
             app.UseStaticFiles();
             app.MapGet("/api/state", async context =>
                 await context.Response.WriteAsJsonAsync(await session!.GetStateAsync()));
+            app.MapGet("/api/project", async context =>
+                await context.Response.WriteAsJsonAsync(await session!.GetProjectAsync()));
+            app.MapGet("/api/source", async context =>
+                await context.Response.WriteAsJsonAsync(
+                    await session!.GetSourceAsync(context.Request.Query["runId"].ToString())));
+            app.MapGet("/api/events", async context =>
+            {
+                var events = await session!.GetEventsAsync(context.Request.Query["runId"].ToString());
+                await context.Response.WriteAsJsonAsync(new { events });
+            });
+            app.MapPost("/api/input", async context =>
+            {
+                var request = await context.Request.ReadFromJsonAsync<InputRequest>(StateMessage.JsonOptions);
+                if (request == null) throw new BlackPyException(400, "입력이 필요합니다.");
+                await session!.InputAsync(request);
+                await context.Response.WriteAsJsonAsync(new { ok = true });
+            });
             app.MapPost("/api/run", async context =>
             {
                 await session!.RunAsync();
@@ -116,13 +142,6 @@ namespace BlackThunder.BlackPy
                 await session!.RestartAsync();
                 await context.Response.WriteAsJsonAsync(new { ok = true });
             });
-            app.MapPost("/api/command", async (HttpContext context) =>
-            {
-                var request = await context.Request.ReadFromJsonAsync<CommandRequest>(StateMessage.JsonOptions);
-                if (request == null) throw new BlackPyException(400, "이동 명령이 필요합니다.");
-                await session!.CommandAsync(request).WaitAsync(context.RequestAborted);
-                await context.Response.WriteAsJsonAsync(new { ok = true });
-            });
             app.MapPost("/api/frame", async (HttpContext context) =>
             {
                 var request = await context.Request.ReadFromJsonAsync<SceneFrameRequest>(StateMessage.JsonOptions);
@@ -135,7 +154,9 @@ namespace BlackThunder.BlackPy
             await app.StartAsync();
             var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
             baseUrl = addresses.Addresses.Single().TrimEnd('/');
-            await using var runtime = new RuntimeSession(options.Project, python, baseUrl, token);
+            await using var runtime = new RuntimeSession(
+                options.Project, python, baseUrl, token, app.Lifetime.StopApplication,
+                options.NoBrowser ? null : TimeSpan.FromSeconds(60));
             session = runtime;
             using var stopping = app.Lifetime.ApplicationStopping.Register(() => { _ = runtime.ShutdownAsync(); });
             var browserUrl = baseUrl + "/#token=" + token;
@@ -144,7 +165,10 @@ namespace BlackThunder.BlackPy
             if (!options.NoBrowser)
             {
                 try { Process.Start(new ProcessStartInfo(browserUrl) { UseShellExecute = true }); }
-                catch (Exception exception) { Console.Error.WriteLine("브라우저 열기 실패: " + exception.Message); }
+                catch (Exception exception)
+                {
+                    throw new InvalidOperationException("브라우저를 열지 못했습니다: " + exception.Message, exception);
+                }
             }
 
             await app.WaitForShutdownAsync();
@@ -223,6 +247,9 @@ namespace BlackThunder.BlackPy
             public static Options Parse(string[] args)
             {
                 var options = new Options();
+                var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath);
+                if (executableDirectory != null && File.Exists(Path.Combine(executableDirectory, "project.json")))
+                    options.Project = executableDirectory;
 
                 for (int i = 0; i < args.Length; i++)
                 {

@@ -20,6 +20,7 @@ namespace BlackThunder.BlackPy.Tests
             frame.Scene.Sprites[0].X = 999;
             frame.Scene.Sprites = Array.Empty<SpriteState>();
             frame.Scene.Message = "changed";
+            Assert.That(scene.State.Sprites[0].Speech, Is.EqualTo("안녕!"));
 
             Assert.That(scene.State.Active, Is.True);
             Assert.That(scene.State.Sprites[0].X, Is.EqualTo(25));
@@ -36,7 +37,7 @@ namespace BlackThunder.BlackPy.Tests
         }
 
         [Test]
-        public void SixtyFourSpritesWithFullUnicodeLabelsFitTheRequestLimit()
+        public void SixtyFourSpritesWithFullUnicodeSpeechFitTheRequestLimit()
         {
             var scene = new SceneController();
             scene.BeginRun("run");
@@ -50,6 +51,7 @@ namespace BlackThunder.BlackPy.Tests
                 {
                     Id = "character-" + i,
                     Label = new string('나', 80),
+                    Speech = new string('다', 200),
                     X = -100000,
                     Y = 100000,
                     Width = 2000,
@@ -61,7 +63,7 @@ namespace BlackThunder.BlackPy.Tests
             scene.Submit(frame);
             Assert.That(scene.State.Sprites.Length, Is.EqualTo(64));
             Assert.That(JsonSerializer.SerializeToUtf8Bytes(frame, StateMessage.JsonOptions).Length,
-                Is.LessThanOrEqualTo(65536));
+                Is.LessThanOrEqualTo(262144));
         }
 
         [Test]
@@ -115,6 +117,9 @@ namespace BlackThunder.BlackPy.Tests
             frame.Scene.Sprites[0].Color = "url(untrusted)";
             AssertStatus(400, () => scene.Submit(frame));
             frame = Frame("run");
+            frame.Scene.Sprites[0].Speech = new string('가', 201);
+            AssertStatus(400, () => scene.Submit(frame));
+            frame = Frame("run");
             frame.Scene.Sprites[0].Width = 0;
             AssertStatus(400, () => scene.Submit(frame));
             frame = Frame("run");
@@ -131,11 +136,13 @@ namespace BlackThunder.BlackPy.Tests
         {
             var directory = Path.Combine(Path.GetTempPath(), "BlackPySceneTests-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
-            await File.WriteAllTextAsync(Path.Combine(directory, "main.py"), "import time\ntime.sleep(60)\n");
+            await File.WriteAllTextAsync(Path.Combine(directory, "project.json"),
+                "{\"background\":{\"file\":\"배경.py\"},\"actors\":[]}");
+            await File.WriteAllTextAsync(Path.Combine(directory, "배경.py"), "import time\ntime.sleep(60)\n");
 
             try
             {
-                var python = await PythonCommand.ResolveAsync();
+                var python = ProjectTestDirectory.PassivePython(await PythonCommand.ResolveAsync());
                 await using var session = new RuntimeSession(directory, python, "http://127.0.0.1:1", "test-token");
                 var browser = await session.ConnectAsync();
                 var first = await session.RunAsync();
@@ -168,12 +175,15 @@ namespace BlackThunder.BlackPy.Tests
         {
             var directory = Path.Combine(Path.GetTempPath(), "BlackPySceneTests-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
-            await File.WriteAllTextAsync(Path.Combine(directory, "main.py"),
+            await File.WriteAllTextAsync(Path.Combine(directory, "project.json"),
+                "{\"background\":{\"file\":\"배경.py\"},\"actors\":[]}");
+            await File.WriteAllTextAsync(Path.Combine(directory, "배경.py"),
                 "import os, time\nwhile not os.path.exists('finish'):\n    time.sleep(0.01)\n");
 
             try
             {
-                var python = await PythonCommand.ResolveAsync();
+                var python = ProjectTestDirectory.PassivePython(await PythonCommand.ResolveAsync(),
+                    "import os, time\nwhile not os.path.exists('finish'):\n    time.sleep(0.01)\n");
                 await using var session = new RuntimeSession(directory, python, "http://127.0.0.1:1", "test-token");
                 var browser = await session.ConnectAsync();
                 var running = await session.RunAsync();
@@ -207,7 +217,7 @@ namespace BlackThunder.BlackPy.Tests
             {
                 Background = "city",
                 Message = "자동차 출발!",
-                Sprites = new[] { new SpriteState { Id = "car", Kind = "car", X = 25, Y = -30 } }
+                Sprites = new[] { new SpriteState { Id = "car", Kind = "car", X = 25, Y = -30, Speech = "안녕!" } }
             }
         };
 

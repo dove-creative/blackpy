@@ -1,0 +1,7 @@
+{
+  "background": { "file": "배경.py", "kind": "city" },
+  "actors": [
+    { "name": "고양이", "file": "고양이.py", "kind": "cat", "x": -160, "y": -80, "heading": 0, "scale": 1, "speed": 1, "visible": true },
+    { "name": "자동차", "file": "자동차.py", "kind": "car", "x": 160, "y": -80, "heading": 180, "scale": 1, "speed": 1, "visible": true }
+  ]
+}

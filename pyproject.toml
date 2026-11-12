@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "blackpy"
+dynamic = ["version"]
+description = "A local Python playground for young learners, with a Korean command palette."
+readme = "distribution/README.pypi.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.md"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Natural Language :: Korean",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://github.com/dove-creative/blackpy"
+Documentation = "https://github.com/dove-creative/blackpy/blob/main/docs/Usage.md"
+Issues = "https://github.com/dove-creative/blackpy/issues"
+
+[project.scripts]
+blackpy = "blackpy.cli:main"
+
+[tool.hatch.version]
+path = "src/blackpy/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/blackpy"]
+core-metadata-version = "2.4"
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "scripts/wheel_hook.py"

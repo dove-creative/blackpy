@@ -1,286 +1,252 @@
-"""웹 무대에서 캐릭터와 함께 움직임 놀이를 만드는 명령입니다."""
+"""캐릭터 파일에 자동으로 연결되는 상태와 명령입니다."""
 
-import http.client
-import json
+import contextvars
 import math
-import os
-import time
-from urllib.parse import urlsplit
+import random
 
 
-def _number(value, name, minimum=-100000, maximum=100000):
+EXECUTION = contextvars.ContextVar("blackpy_execution", default=(False, 0.0))
+BACKGROUNDS = {"plain", "city", "dance", "track", "court", "forest"}
+STYLES = {
+    "car": (120, 70, "#ef7857"), "cat": (86, 96, "#ffbb55"),
+    "rabbit": (82, 100, "#f0e9ff"), "ball": (64, 64, "#f78d38"),
+    "bat": (120, 70, "#9a85d9"), "ghost": (72, 84, "#ddd9ff"),
+    "star": (64, 64, "#ffd65a"), "basket": (110, 60, "#c88d50"),
+    "paddle": (140, 24, "#479cb3"), "rocket": (90, 64, "#e5846c"),
+    "flag": (50, 80, "#76bc73"), "planet": (90, 90, "#6aa7d5"),
+}
+STATE_NAMES = {
+    "이름": "name", "위치": "position", "방향": "heading",
+    "속도": "speed", "크기": "scale", "가시성": "visible",
+    "배경": "background",
+}
+
+
+def number(value, label, minimum=-100000, maximum=100000):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(f"{name}에는 숫자를 넣어 주세요.")
-
-    if not minimum <= value <= maximum or not math.isfinite(value):
-        raise ValueError(f"{name}에는 {minimum}~{maximum}의 숫자를 넣어 주세요.")
-
+        raise TypeError(f"{label}에는 숫자를 넣어 주세요.")
+    if not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(f"{label}에는 {minimum}~{maximum}의 숫자를 넣어 주세요.")
     return float(value)
 
 
-class _Stage:
-    def __init__(self):
-        self._actors = []
-        self._background = "plain"
-        self._message = ""
-        self._connection = None
-        self._token = ""
-        self._run_id = ""
-
-    def background(self, name):
-        """준비된 배경으로 바꿉니다. 캐릭터 위치는 그대로입니다."""
-        if name not in ("plain", "city", "dance", "track", "court", "forest"):
-            raise ValueError("배경 이름을 시작 코드와 비교해 주세요.")
-
-        self._background = name
-        self._publish()
-
-    def say(self, message):
-        """무대 위에 짧은 글을 보여 줍니다. 소리는 나지 않습니다."""
-        if not isinstance(message, str) or len(message) > 200:
-            raise ValueError("무대 글은 200자 안쪽의 문자열로 적어 주세요.")
-
-        self._message = message
-        self._publish()
-
-    def wait(self, seconds):
-        """지정한 시간 동안 장면을 보여 준 뒤 다음 명령으로 갑니다."""
-        self._animate(_number(seconds, "기다리는 시간", 0, 3600), lambda _: None)
-
-    def race(self, *actors, finish_x=260):
-        """각자의 속도로 함께 달립니다. 모두 도착하면 1등 이름을 줍니다."""
-        finish_x = _number(finish_x, "도착 위치")
-        self._check_actors(actors)
-        starts = [actor.x for actor in actors]
-
-        if any(start > finish_x for start in starts):
-            raise ValueError("출발 위치는 도착선의 왼쪽에 두어 주세요.")
-
-        arrivals = [
-            (finish_x - actor.x) / actor._speed for actor in actors
-        ]
-        duration = max(arrivals)
-
-        def update(progress):
-            elapsed = duration * progress
-
-            for actor, start in zip(actors, starts):
-                actor._x = min(finish_x, start + actor._speed * elapsed)
-
-        self._animate(duration, update)
-        first = min(arrivals)
-        winners = [
-            actor.name for actor, arrival in zip(actors, arrivals)
-            if math.isclose(arrival, first, abs_tol=0.000001)
-        ]
-        return (
-            winners[0] if len(winners) == 1 else "공동 1등: " + ", ".join(winners)
-        )
-
-    def dribble(self, player, ball, bounces=4, height=100, distance=360):
-        """친구와 공이 함께 이동하고 공은 위아래로 튑니다."""
-        self._check_actors((player, ball))
-
-        if isinstance(bounces, bool) or not isinstance(bounces, int):
-            raise TypeError("튀는 횟수에는 정수를 넣어 주세요.")
-        if not 1 <= bounces <= 50:
-            raise ValueError("튀는 횟수는 1~50번으로 정해 주세요.")
-
-        height = _number(height, "튀는 높이", 0, 200)
-        distance = _number(distance, "이동 거리")
-        player_x, ball_x, ground_y = player.x, ball.x, ball.y
-        _number(player_x + distance, "친구의 도착 위치")
-        _number(ball_x + distance, "공의 도착 위치")
-        _number(ground_y + height, "공의 가장 높은 위치")
-
-        def update(progress):
-            player._x = player_x + distance * progress
-            ball._x = ball_x + distance * progress
-            ball._y = ground_y + height * abs(
-                math.sin(math.pi * bounces * progress)
-            )
-
-        self._animate(bounces * 0.7, update)
-        ball._y = ground_y
-        self._publish()
-
-    def _check_actors(self, actors):
-        if not actors or len({id(actor) for actor in actors}) != len(actors):
-            raise ValueError("서로 다른 캐릭터를 하나 이상 넣어 주세요.")
-
-        if any(actor not in self._actors for actor in actors):
-            raise ValueError("Actor로 만든 캐릭터를 넣어 주세요.")
-
-    def _animate(self, duration, update):
-        started = time.monotonic()
-        update(0)
-        self._publish()
-
-        while True:
-            elapsed = time.monotonic() - started
-            progress = 1 if duration - elapsed <= 1e-9 else elapsed / duration
-            update(progress)
-            self._publish()
-
-            if progress == 1:
-                return
-
-            time.sleep(min(1 / 30, max(0, duration - elapsed)))
-
-    def _publish(self):
-        self._send({
-            "background": self._background,
-            "sprites": [actor._snapshot() for actor in self._actors],
-            "message": self._message,
-        })
-
-    def _send(self, scene):
-        if self._connection is None:
-            address = os.environ.get("PLAYGROUND_URL", "")
-            self._token = os.environ.get("PLAYGROUND_TOKEN", "")
-            self._run_id = os.environ.get("PLAYGROUND_RUN_ID", "")
-            endpoint = urlsplit(address)
-
-            if not address or not self._token or not self._run_id:
-                raise RuntimeError(
-                    "main.py를 저장한 뒤 웹 화면의 '시작' 버튼을 눌러 주세요."
-                )
-
-            if endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1":
-                raise RuntimeError("실행 프로그램의 연결 주소를 확인해 주세요.")
-
-            self._connection = http.client.HTTPConnection(
-                endpoint.hostname, endpoint.port, timeout=15
-            )
-
-        body = json.dumps(
-            {"runId": self._run_id, "scene": scene}, allow_nan=False
-        ).encode("utf-8")
-
-        try:
-            self._connection.request(
-                "POST", "/api/frame", body=body,
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Playground-Token": self._token,
-                },
-            )
-            response = self._connection.getresponse()
-            payload = response.read().decode("utf-8")
-
-            if response.status != 200:
-                try:
-                    message = json.loads(payload).get("error", "실행이 끝났어요.")
-                except (ValueError, AttributeError):
-                    message = "실행 프로그램이 장면을 처리하지 못했어요."
-
-                raise RuntimeError(message)
-        except (OSError, http.client.HTTPException) as error:
-            self._connection.close()
-            self._connection = None
-            raise RuntimeError(
-                "웹 무대와 연결이 끊겼어요. 시작.bat를 다시 실행해 주세요."
-            ) from error
+def random_integer(minimum, maximum):
+    if (isinstance(minimum, bool) or isinstance(maximum, bool)
+            or not isinstance(minimum, int) or not isinstance(maximum, int)):
+        raise TypeError("랜덤의 시작과 끝에는 정수를 넣어 주세요.")
+    if minimum > maximum:
+        raise ValueError("랜덤의 시작은 끝보다 클 수 없어요.")
+    return random.randint(minimum, maximum)
 
 
-class Actor:
-    """외형을 고르고 이동·회전하는 놀이 캐릭터입니다."""
+def vector_angle(x, y):
+    x = number(x, "가로 값", -float("inf"), float("inf"))
+    y = number(y, "세로 값", -float("inf"), float("inf"))
+    return math.degrees(math.atan2(y, x)) % 360
 
-    _styles = {
-        "car": (120, 70, "#ef7857"),
-        "cat": (86, 96, "#ffbb55"),
-        "rabbit": (82, 100, "#f0e9ff"),
-        "ball": (64, 64, "#f78d38"),
-        "bat": (120, 70, "#9a85d9"),
-    }
 
-    def __init__(self, kind, x=0, y=0, name="", scale=1):
-        if kind not in self._styles:
-            raise ValueError("캐릭터 이름을 시작 코드와 비교해 주세요.")
-        if not isinstance(name, str) or len(name) > 80:
-            raise ValueError("이름은 80자 안쪽의 문자열로 적어 주세요.")
-        if len(stage._actors) >= 16:
-            raise ValueError("한 무대에는 캐릭터를 16개까지 만들 수 있어요.")
+class ScriptObject:
+    """파일 하나의 상태와 실행 대상을 보유합니다."""
 
-        scale = _number(scale, "크기", 0.1, 5)
-        width, height, color = self._styles[kind]
-        self._kind = kind
-        self._x = _number(x, "가로 위치")
-        self._y = _number(y, "세로 위치")
-        self._name = name or kind
-        self._width = width * scale
-        self._height = height * scale
-        self._color = color
+    def __init__(self, runtime, specification, index, is_background=False):
+        self.runtime = runtime
+        self.is_background = is_background
+        self.id = "background" if is_background else f"actor-{index}"
+        self._name = "배경" if is_background else specification["name"]
+        self.filename = specification["file"]
+        self.kind = specification.get("kind", "plain" if is_background else "cat")
+        self.namespace = {}
+        self.handlers = {}
+        self.speech = ""
+        self._position = (0.0, 0.0)
         self._heading = 0.0
-        self._speed = 200.0
-        self._id = "actor-" + str(len(stage._actors) + 1)
-        stage._actors.append(self)
-        stage._publish()
+        self._speed = 1.0
+        self._scale = 1.0
+        self._visible = True
 
-    @property
-    def x(self):
-        return self._x
+        if is_background:
+            self.background = self.kind
+        else:
+            if self.kind not in STYLES:
+                raise ValueError("준비된 캐릭터 모양을 사용해 주세요.")
+            self.position = (specification.get("x", 0), specification.get("y", 0))
+            self.heading = specification.get("heading", 0)
+            self.speed = specification.get("speed", 1)
+            self.scale = specification.get("scale", 1)
+            self.visible = specification.get("visible", True)
 
-    @property
-    def y(self):
-        return self._y
+    def require_actor(self):
+        if self.is_background:
+            raise ValueError("배경에서는 캐릭터의 움직임이나 크기를 사용할 수 없어요.")
 
     @property
     def name(self):
         return self._name
 
-    def set_speed(self, speed):
-        """앞으로·뒤로·좌표 이동과 달리기의 초당 이동량을 정합니다."""
-        self._speed = _number(speed, "이동 속도", 1, 2000)
+    @name.setter
+    def name(self, value):
+        raise ValueError("이름은 프로젝트 설정에서 정하며 코드에서 바꿀 수 없어요.")
 
-    def forward(self, distance):
-        """바라보는 쪽으로 움직인 뒤 다음 명령으로 갑니다."""
-        distance = _number(distance, "이동 거리")
+    @property
+    def position(self):
+        self.require_actor()
+        return self._position
+
+    @position.setter
+    def position(self, value):
+        self.require_actor()
+        if not isinstance(value, (tuple, list)) or len(value) != 2:
+            raise TypeError("위치에는 (가로, 세로)처럼 숫자 두 개를 넣어 주세요.")
+        self._position = (number(value[0], "가로 위치"), number(value[1], "세로 위치"))
+
+    @property
+    def heading(self):
+        self.require_actor()
+        return self._heading
+
+    @heading.setter
+    def heading(self, value):
+        self.require_actor()
+        self._heading = number(value, "방향", -1000000, 1000000) % 360
+
+    @property
+    def speed(self):
+        self.require_actor()
+        return self._speed
+
+    @speed.setter
+    def speed(self, value):
+        self.require_actor()
+        value = number(value, "속도 배율", 0, float("inf"))
+        if value == 0:
+            raise ValueError("속도 배율에는 0보다 큰 숫자를 넣어 주세요.")
+        self._speed = value
+
+    @property
+    def scale(self):
+        self.require_actor()
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        self.require_actor()
+        self._scale = number(value, "크기", 0.1, 5)
+
+    @property
+    def visible(self):
+        self.require_actor()
+        return self._visible
+
+    @visible.setter
+    def visible(self, value):
+        self.require_actor()
+        if not isinstance(value, bool):
+            raise TypeError("가시성에는 True 또는 False를 넣어 주세요.")
+        self._visible = value
+
+    @property
+    def background(self):
+        if not self.is_background:
+            raise ValueError("배경 설정은 배경 파일에서 사용해 주세요.")
+        return self.runtime.background_kind
+
+    @background.setter
+    def background(self, value):
+        if not self.is_background:
+            raise ValueError("배경 설정은 배경 파일에서 사용해 주세요.")
+        if not isinstance(value, str) or value not in BACKGROUNDS:
+            raise ValueError("준비된 배경 이름을 사용해 주세요.")
+        self.runtime.background_kind = value
+
+    @property
+    def dimensions(self):
+        width, height, _ = STYLES[self.kind]
+        return width * self._scale, height * self._scale
+
+    def apply_delta(self, x=0.0, y=0.0, heading=0.0):
+        self.position = (self._position[0] + x, self._position[1] + y)
+        self.heading = self._heading + heading
+
+    async def forward(self, value):
+        self.require_actor()
+        value = number(value, "이동 값")
         radians = math.radians(self._heading)
-        self.goto(
-            self.x + distance * math.cos(radians),
-            self.y + distance * math.sin(radians),
-        )
+        x, y = math.cos(radians) * value, math.sin(radians) * value
+        continuous, delta_time = EXECUTION.get()
 
-    def backward(self, distance):
-        self.forward(-_number(distance, "이동 거리"))
+        if continuous:
+            self.apply_delta(x * self._speed * delta_time, y * self._speed * delta_time)
+        else:
+            await self.runtime.animate(self, x, y, 0, abs(value) / (200 * self._speed))
+
+    async def left(self, value):
+        self.require_actor()
+        value = number(value, "회전 값", -1000000, 1000000)
+        continuous, delta_time = EXECUTION.get()
+
+        if continuous:
+            self.apply_delta(heading=value * self._speed * delta_time)
+        else:
+            await self.runtime.animate(self, 0, 0, value, abs(value) / (180 * self._speed))
+
+    async def right(self, value):
+        await self.left(-number(value, "회전 값", -1000000, 1000000))
 
     def goto(self, x, y):
-        """방향을 유지하면서 지정한 위치로 움직입니다."""
-        x = _number(x, "가로 위치")
-        y = _number(y, "세로 위치")
-        start_x, start_y = self.x, self.y
-        duration = math.hypot(x - start_x, y - start_y) / self._speed
+        self.position = (x, y)
 
-        def update(progress):
-            self._x = start_x + (x - start_x) * progress
-            self._y = start_y + (y - start_y) * progress
+    def look(self, *values):
+        self.require_actor()
+        if len(values) == 1:
+            self.heading = values[0]
+        elif len(values) == 2:
+            x = number(values[0], "가로 위치") - self._position[0]
+            y = number(values[1], "세로 위치") - self._position[1]
+            self.heading = vector_angle(x, y)
+        else:
+            raise TypeError("바라보기에는 각도 하나 또는 가로·세로 위치를 넣어 주세요.")
 
-        stage._animate(duration, update)
+    def change_speed(self, value):
+        self.speed += number(value, "속도 변화량")
 
-    def left(self, degrees):
-        """왼쪽으로 회전합니다. 한 바퀴는 360도입니다."""
-        degrees = _number(degrees, "회전 각도")
-        start_heading = self._heading
+    def change_scale(self, value):
+        self.scale += number(value, "크기 변화량")
 
-        def update(progress):
-            self._heading = start_heading + degrees * progress
+    def set_scale(self, value):
+        self.scale = value
 
-        stage._animate(abs(degrees) / 180, update)
-        self._heading %= 360
-        stage._publish()
+    def set_visible(self, value):
+        self.visible = value
 
-    def right(self, degrees):
-        self.left(-_number(degrees, "회전 각도"))
+    def say(self, message):
+        if not isinstance(message, str):
+            raise TypeError("말하기에는 문자열을 넣어 주세요.")
+        if len(message) > 200:
+            raise ValueError("말하기는 200자까지 사용할 수 있어요.")
+        if self.is_background:
+            self.runtime.message = message
+        else:
+            self.speech = message
 
-    def _snapshot(self):
+    def commands(self):
         return {
-            "id": self._id, "kind": self._kind,
-            "x": self.x, "y": self.y,
-            "width": self._width, "height": self._height,
-            "heading": self._heading, "color": self._color,
-            "visible": True, "label": self.name,
+            "앞으로": self.forward, "왼쪽으로돌기": self.left,
+            "오른쪽으로돌기": self.right, "좌표로": self.goto,
+            "바라보기": self.look, "속도_변경": self.change_speed,
+            "크기_바꾸기": self.change_scale, "크기_정하기": self.set_scale,
+            "가시성_설정": self.set_visible, "말하기": self.say,
+            "기다리기": self.runtime.wait, "방송하기": self.runtime.broadcast,
+            "랜덤": random_integer, "각도로": vector_angle,
+            "위치_구하기": self.runtime.position_of,
+            "방향_구하기": self.runtime.heading_of,
         }
 
-
-stage = _Stage()
+    def snapshot(self):
+        width, height = self.dimensions
+        return {
+            "id": self.id, "kind": self.kind,
+            "x": self._position[0], "y": self._position[1],
+            "width": width, "height": height, "heading": self._heading,
+            "color": STYLES[self.kind][2], "visible": self._visible,
+            "label": self.name, "speech": self.speech,
+        }

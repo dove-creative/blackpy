@@ -24,6 +24,10 @@ foreach ($licenseSource in $licenseSources.Values) {
 $destinationPath = [IO.Path]::GetFullPath($Destination)
 $practicePath = Join-Path $destinationPath '실습'
 $runtimePath = Join-Path $practicePath '_runtime'
+if ((Test-Path -LiteralPath (Join-Path $practicePath 'main.py')) -and
+    -not (Test-Path -LiteralPath (Join-Path $practicePath 'project.json'))) {
+    throw '기존 main.py 프로젝트는 자동 변환하지 않습니다. -Destination으로 새 배포 폴더를 지정해 주세요.'
+}
 $project = Join-Path $toolRoot 'src\BlackThunder.BlackPy\BlackThunder.BlackPy.csproj'
 $publishArguments = @('publish', $project, '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
     '-p:PublishTrimmed=false', '-p:PublishSingleFile=false', '-o', $runtimePath)
@@ -32,27 +36,28 @@ if ($SkipRestore) { $publishArguments += '--no-restore' }
 & dotnet @publishArguments
 if ($LASTEXITCODE -ne 0) { throw 'Runtime publishing failed.' }
 
-$templates = Join-Path $toolRoot 'distribution'
-$batchEncoding = [Text.UTF8Encoding]::new($false)
-$startBatch = [IO.File]::ReadAllText((Join-Path $templates 'Start.bat')).Replace("`r`n", "`n").Replace("`n", "`r`n")
-Copy-Item -LiteralPath (Join-Path $templates 'playground.py') -Destination $practicePath -Force
-Copy-Item -LiteralPath (Join-Path $templates 'blackpy.py') -Destination $practicePath -Force
-[IO.File]::WriteAllText((Join-Path $practicePath '시작.bat'), $startBatch, $batchEncoding)
-$mainPath = Join-Path $practicePath 'main.py'
-if (-not (Test-Path -LiteralPath $mainPath)) {
-    Copy-Item -LiteralPath (Join-Path $templates 'main.py') -Destination $mainPath
+$launcherScript = Join-Path $PSScriptRoot 'New-Launcher.ps1'
+& $launcherScript -Destination (Join-Path $practicePath '시작.exe') `
+    -ManagedDllRelativePath '_runtime/BlackThunder.BlackPy.dll'
+
+$defaultDestination = [IO.Path]::GetFullPath((Join-Path $toolRoot 'artifacts/blackpy'))
+if ([string]::Equals($destinationPath.TrimEnd('\', '/'), $defaultDestination, [StringComparison]::OrdinalIgnoreCase)) {
+    foreach ($sample in (Get-ChildItem -LiteralPath (Join-Path $toolRoot 'samples') -Directory)) {
+        if (Test-Path -LiteralPath (Join-Path $sample.FullName 'project.json')) {
+            & $launcherScript -Destination (Join-Path $sample.FullName '시작.exe') `
+                -ManagedDllRelativePath '../../artifacts/blackpy/실습/_runtime/BlackThunder.BlackPy.dll'
+        }
+    }
 }
 
-$examplesPath = Join-Path $toolRoot 'examples'
-$activityBatch = [IO.File]::ReadAllText((Join-Path $templates 'Activity.bat')).Replace("`r`n", "`n").Replace("`n", "`r`n")
-foreach ($example in (Get-ChildItem -LiteralPath $examplesPath -Directory)) {
-    $activityPath = Join-Path $destinationPath $example.Name
-    New-Item -ItemType Directory -Path $activityPath -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $templates 'blackpy.py') -Destination $activityPath -Force
-    [IO.File]::WriteAllText((Join-Path $activityPath '시작.bat'), $activityBatch, $batchEncoding)
-    $activityMain = Join-Path $activityPath 'main.py'
-    if (-not (Test-Path -LiteralPath $activityMain)) {
-        Copy-Item -LiteralPath (Join-Path $example.FullName 'main.py') -Destination $activityMain
+$templates = Join-Path $toolRoot 'distribution'
+$batchEncoding = [Text.UTF8Encoding]::new($false)
+$debugBatch = [IO.File]::ReadAllText((Join-Path $templates 'Debug.bat')).Replace("`r`n", "`n").Replace("`n", "`r`n")
+[IO.File]::WriteAllText((Join-Path $practicePath 'Debug.bat'), $debugBatch, $batchEncoding)
+foreach ($template in (Get-ChildItem -LiteralPath (Join-Path $templates 'project') -File)) {
+    $studentFile = Join-Path $practicePath $template.Name
+    if (-not (Test-Path -LiteralPath $studentFile)) {
+        Copy-Item -LiteralPath $template.FullName -Destination $studentFile
     }
 }
 

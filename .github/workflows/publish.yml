@@ -1,0 +1,175 @@
+name: Publish BlackPy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/publish.yml
+      - src/**
+      - tests/**
+      - scripts/**
+      - packages/**
+      - distribution/**
+      - samples/**
+      - Directory.Build.props
+      - NuGet.config
+      - pyproject.toml
+      - LICENSE.md
+      - .gitattributes
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Exact package version to validate or publish
+        required: true
+        default: 0.1.0
+        type: string
+      publish:
+        description: Publish the tested Windows wheel to PyPI
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blackpy-pypi
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and build Windows wheel
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}/.cache/nuget
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      wheel: ${{ steps.version.outputs.wheel }}
+    steps:
+      - name: Check out source without private submodules
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Check package version and publish branch
+        id: version
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          PUBLISH_REQUESTED: ${{ inputs.publish }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          $source = Get-Content -LiteralPath src/blackpy/__init__.py -Raw
+          $version = [regex]::Match($source, '(?m)^__version__ = "([^"]+)"\r?$').Groups[1].Value
+          if (-not $version) {
+              throw 'The package version could not be read.'
+          }
+
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $env:EXPECTED_VERSION -cne $version) {
+              throw "Expected version '$env:EXPECTED_VERSION' does not match package version '$version'."
+          }
+
+          if ($env:PUBLISH_REQUESTED -eq 'true' -and
+              ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:DEFAULT_BRANCH -ne 'main')) {
+              throw 'Publishing requires main to be the selected branch and repository default branch.'
+          }
+
+          $wheel = "blackpy-$version-py3-none-win_amd64.whl"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "wheel=$wheel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "BLACKPY_WHEEL=$env:GITHUB_WORKSPACE/artifacts/wheels/$wheel" |
+              Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+          architecture: x64
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Verify pinned NuGet packages
+        run: ./scripts/Verify-Dependencies.ps1
+
+      - name: Run C# tests
+        run: dotnet test tests/BlackThunder.BlackPy.Tests.csproj -c Release --nologo
+
+      - name: Run Python tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Build the folder distribution
+        run: ./scripts/Publish.ps1
+
+      - name: Run runtime integration and browser lifetime tests
+        run: node --test tests/Integration.test.mjs tests/EventIntegration.test.mjs tests/BrowserLifetime.test.mjs
+
+      - name: Run sample and GUI launcher tests
+        run: node --test tests/Samples.test.mjs tests/Launchers.test.mjs
+
+      - name: Run web tests
+        run: node --test tests/Web*.test.mjs
+
+      - name: Verify deployment and student file preservation
+        run: node tests/Deployment.test.mjs
+
+      - name: Build and check a fresh Windows wheel
+        run: ./scripts/Build-Wheel.ps1
+
+      - name: Install the editor validation tool
+        run: npm.cmd install --prefix .cache/editor-tools --no-package-lock --ignore-scripts pyright
+
+      - name: Test wheel installation and editor support
+        run: node --test tests/Packaging.test.mjs tests/Editor.test.mjs
+
+      - name: Upload the tested wheel
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: blackpy-wheel
+          path: artifacts/wheels/${{ steps.version.outputs.wheel }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish to PyPI with Trusted Publishing
+    needs: build
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.publish &&
+      github.ref == 'refs/heads/main' && github.event.repository.default_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/blackpy/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the tested wheel
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: blackpy-wheel
+          path: dist
+
+      - name: Publish without an API token
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: dist/
+          attestations: true

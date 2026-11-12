@@ -1,152 +1,168 @@
-"""놀이 명령의 시간, 좌표, 동시 움직임과 입력 경계를 확인합니다."""
+"""거리·속도 문맥, 상태 대입과 움직임 합산을 검증합니다."""
 
-import copy
-import importlib.util
+import asyncio
 import math
-from pathlib import Path
 import unittest
-from unittest.mock import patch
+
+from test_runtime_support import make_runtime, settle, tick
+from blackpy import EXECUTION, random_integer, vector_angle
 
 
-MODULE = Path(__file__).resolve().parents[1] / "distribution" / "blackpy.py"
+class MotionTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.runtime = make_runtime()
+        await self.runtime.initialize()
+        self.actor = self.runtime.actors[0]
+        self.addAsyncCleanup(self.runtime.close)
 
+    async def test_normal_distance_waits_for_completion(self):
+        movement = asyncio.create_task(self.actor.forward(100))
+        await settle()
+        await tick(self.runtime, 0.25)
+        self.assertAlmostEqual(self.actor.position[0], 50)
+        self.assertFalse(movement.done())
+        await tick(self.runtime, 0.25)
+        await movement
+        self.assertAlmostEqual(self.actor.position[0], 100)
 
-class AnimationTests(unittest.TestCase):
-    def setUp(self):
-        spec = importlib.util.spec_from_file_location("blackpy", MODULE)
-        self.api = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.api)
-        self.frames = []
-        self.api.stage._send = lambda scene: self.frames.append(
-            copy.deepcopy(scene)
-        )
-        self.clock = 0
-        self.patches = [
-            patch.object(self.api.time, "monotonic", lambda: self.clock),
-            patch.object(self.api.time, "sleep", self.advance),
-        ]
+    async def test_normal_speed_is_captured_at_start(self):
+        self.actor.speed = 2
+        movement = asyncio.create_task(self.actor.forward(100))
+        await settle()
+        self.actor.speed = 10
+        await tick(self.runtime, 0.125)
+        self.assertAlmostEqual(self.actor.position[0], 50)
+        await tick(self.runtime, 0.125)
+        await movement
 
-        for replacement in self.patches:
-            replacement.start()
-            self.addCleanup(replacement.stop)
+    async def test_multiple_motions_add_instead_of_overwriting(self):
+        first = asyncio.create_task(self.actor.forward(100))
+        second = asyncio.create_task(self.actor.forward(50))
+        await settle()
+        await tick(self.runtime, 0.25)
+        self.assertAlmostEqual(self.actor.position[0], 100)
+        await tick(self.runtime, 0.25)
+        await asyncio.gather(first, second)
+        self.assertAlmostEqual(self.actor.position[0], 150)
 
-    def advance(self, seconds):
-        self.clock += seconds
+    async def test_absolute_position_retains_remaining_motion(self):
+        task = asyncio.create_task(self.actor.forward(100))
+        await settle()
+        await tick(self.runtime, 0.25)
+        self.actor.goto(1000, 20)
+        await tick(self.runtime, 0.25)
+        await task
+        self.assertEqual(self.actor.position, (1050, 20))
 
-    def actor(self, kind="cat", **kwargs):
-        return self.api.Actor(kind, **kwargs)
+    async def test_continuous_rate_is_frame_independent(self):
+        for frames in (30, 60, 120):
+            self.actor.position = (0, 0)
+            self.actor.speed = 2
+            context = EXECUTION.set((True, 1 / frames))
+            try:
+                for _ in range(frames):
+                    await self.actor.forward(100)
+            finally:
+                EXECUTION.reset(context)
+            self.assertAlmostEqual(self.actor.position[0], 200)
+            self.assertEqual(self.runtime.motions, [])
 
-    def test_move_blocks_until_distance_over_speed(self):
-        actor = self.actor()
-        actor.set_speed(100)
-        actor.forward(150)
-        self.assertAlmostEqual(self.clock, 1.5)
-        self.assertAlmostEqual(actor.x, 150)
-        self.assertTrue(any(
-            0 < f["sprites"][0]["x"] < 150 for f in self.frames
-        ))
+    async def test_continuous_rotation_uses_degrees_per_second(self):
+        context = EXECUTION.set((True, 0.25))
+        try:
+            await self.actor.left(180)
+            self.assertAlmostEqual(self.actor.heading, 45)
+            await self.actor.right(90)
+            self.assertAlmostEqual(self.actor.heading, 22.5)
+        finally:
+            EXECUTION.reset(context)
 
-    def test_signed_distance_and_goto_preserve_heading(self):
-        actor = self.actor()
-        actor.left(90)
-        actor.forward(-40)
-        self.assertAlmostEqual(actor.x, 0)
-        self.assertAlmostEqual(actor.y, -40)
-        actor.backward(-20)
-        self.assertAlmostEqual(actor.y, -20)
-        actor.goto(25, 30)
-        self.assertEqual(actor._heading, 90)
-        self.assertEqual((actor.x, actor.y), (25, 30))
+    async def test_signed_motion_and_start_heading(self):
+        self.actor.heading = 90
+        movement = asyncio.create_task(self.actor.forward(-100))
+        await settle()
+        self.actor.heading = 0
+        await tick(self.runtime, 0.5)
+        await movement
+        self.assertAlmostEqual(self.actor.position[0], 0)
+        self.assertAlmostEqual(self.actor.position[1], -100)
 
-    def test_full_turn_has_intermediate_frames_and_returns_to_heading(self):
-        actor = self.actor()
-        actor.right(360)
-        headings = [f["sprites"][0]["heading"] for f in self.frames]
-        self.assertTrue(any(-300 < angle < -60 for angle in headings))
-        self.assertEqual(actor._heading, 0)
-        self.assertAlmostEqual(self.clock, 2)
+    async def test_zero_motion_completes_without_frame(self):
+        await self.actor.forward(0)
+        await self.actor.left(0)
+        self.assertFalse(self.runtime.motions)
 
-    def test_zero_distance_is_immediate(self):
-        actor = self.actor()
-        actor.forward(0)
-        actor.left(0)
-        self.assertEqual(self.clock, 0)
-        self.assertEqual(actor.x, 0)
+    async def test_extreme_finite_speed_still_applies_full_normal_motion(self):
+        self.actor.speed = 1e308
+        await self.actor.forward(100)
+        await self.actor.left(90)
+        self.assertEqual(self.actor.position, (100, 0))
+        self.assertEqual(self.actor.heading, 90)
 
-    def test_race_uses_speed_and_distance_with_simultaneous_frames(self):
-        slow = self.actor(x=-260, y=80, name="토끼")
-        fast = self.actor(x=-260, y=-100, name="고양이")
-        slow.set_speed(100)
-        fast.set_speed(200)
-        result = self.api.stage.race(slow, fast)
-        self.assertEqual(result, "고양이")
-        self.assertAlmostEqual(self.clock, 5.2)
-        self.assertEqual((slow.x, fast.x), (260, 260))
-        moving = [f["sprites"] for f in self.frames if len(f["sprites"]) == 2]
-        self.assertTrue(any(-260 < a["x"] < b["x"] < 260 for a, b in moving))
-        self.assertTrue(any(a["x"] < 260 and b["x"] == 260 for a, b in moving))
+    async def test_look_accepts_opposite_coordinate_limits(self):
+        self.actor.position = (-100000, 0)
+        self.actor.look(100000, 0)
+        self.assertEqual(self.actor.heading, 0)
 
-    def test_race_equal_arrival_is_a_tie(self):
-        left = self.actor(x=0, name="하나")
-        right = self.actor(x=130, name="둘")
-        left.set_speed(200)
-        right.set_speed(100)
-        self.assertEqual(
-            self.api.stage.race(left, right), "공동 1등: 하나, 둘"
-        )
+    async def test_normal_rotation_duration_and_speed(self):
+        self.actor.speed = 2
+        rotation = asyncio.create_task(self.actor.right(180))
+        await settle()
+        await tick(self.runtime, 0.25)
+        self.assertAlmostEqual(self.actor.heading, 270)
+        await tick(self.runtime, 0.25)
+        await rotation
+        self.assertAlmostEqual(self.actor.heading, 180)
 
-    def test_dribble_preserves_offset_and_returns_ball_to_ground(self):
-        player = self.actor(x=-240, y=-80)
-        ball = self.actor("ball", x=-170, y=-180)
-        self.api.stage.dribble(
-            player, ball, bounces=2, height=100, distance=360
-        )
-        self.assertAlmostEqual(self.clock, 1.4)
-        self.assertEqual((player.x, player.y), (120, -80))
-        self.assertEqual((ball.x, ball.y), (190, -180))
-        moving = [f["sprites"] for f in self.frames if len(f["sprites"]) == 2]
-        self.assertTrue(any(b["y"] > -85 for a, b in moving))
+    async def test_wait_uses_simulation_time(self):
+        task = asyncio.create_task(self.runtime.wait(1))
+        await settle()
+        await tick(self.runtime, 0.75)
+        self.assertFalse(task.done())
+        await tick(self.runtime, 0.25)
+        await task
 
-        for friend, sphere in moving:
-            self.assertAlmostEqual(sphere["x"] - friend["x"], 70)
-            self.assertGreaterEqual(sphere["y"], -180)
-            self.assertLessEqual(sphere["y"], -80)
+    async def test_absolute_commands_do_not_scale_by_frame_time(self):
+        context = EXECUTION.set((True, 0.001))
+        try:
+            self.actor.goto(100, 50)
+            self.actor.look(90)
+            self.assertEqual(self.actor.position, (100, 50))
+            self.assertEqual(self.actor.heading, 90)
+            self.actor.look(200, 50)
+            self.assertEqual(self.actor.heading, 0)
+        finally:
+            EXECUTION.reset(context)
 
-    def test_background_and_message_do_not_reset_actors(self):
-        actor = self.actor(x=50)
-        self.api.stage.background("forest")
-        self.api.stage.say("숲속 친구들!")
-        self.assertEqual(self.frames[-1]["message"], "숲속 친구들!")
-        self.assertEqual(self.frames[-1]["background"], "forest")
-        self.assertEqual(actor.x, 50)
+    async def test_state_validation_and_name_immutability(self):
+        for name, value in (("speed", 0), ("speed", math.inf), ("scale", 0),
+                            ("position", (1,)), ("visible", 1), ("name", "새 이름")):
+            with self.subTest(name=name, value=value):
+                with self.assertRaises((ValueError, TypeError)):
+                    setattr(self.actor, name, value)
 
-    def test_invalid_values_fail_before_frames_change(self):
-        actor = self.actor()
-
-        for value in (True, "100", math.inf, math.nan, 10 ** 400):
-            count = len(self.frames)
-
-            with self.assertRaises((TypeError, ValueError)):
-                actor.forward(value)
-
-            self.assertEqual(len(self.frames), count)
-
+    async def test_background_capabilities_and_speech(self):
+        background = self.runtime.background
+        background.background = "city"
+        background.say("무대 안내")
+        self.actor.say("안녕")
+        self.assertEqual(self.runtime.snapshot()["message"], "무대 안내")
+        self.assertEqual(self.runtime.snapshot()["sprites"][0]["speech"], "안녕")
         with self.assertRaises(ValueError):
-            actor.set_speed(0)
+            await background.forward(10)
         with self.assertRaises(ValueError):
-            self.api.stage.race(actor, actor)
-        with self.assertRaises(ValueError):
-            self.api.stage.race(actor, finish_x=-100)
-        with self.assertRaises(ValueError):
-            self.api.Actor("unsupported")
+            self.actor.background = "city"
 
-    def test_wait_and_message_publish_in_order(self):
-        self.api.stage.say("준비")
-        self.api.stage.wait(0.5)
-        self.api.stage.say("시작")
-        self.assertAlmostEqual(self.clock, 0.5)
-        self.assertTrue(all(f["message"] == "준비" for f in self.frames[:-1]))
-        self.assertEqual(self.frames[-1]["message"], "시작")
+    async def test_lookup_and_calculations(self):
+        self.actor.goto(10, 20)
+        self.assertEqual(self.runtime.position_of("고양이"), (10, 20))
+        self.assertEqual(self.runtime.heading_of("고양이"), 0)
+        self.assertEqual(vector_angle(0, 1), 90)
+        self.assertEqual(random_integer(4, 4), 4)
+        with self.assertRaises(ValueError):
+            self.runtime.position_of("없는 이름")
+        with self.assertRaises(TypeError):
+            random_integer(True, 3)
 
 
 if __name__ == "__main__":

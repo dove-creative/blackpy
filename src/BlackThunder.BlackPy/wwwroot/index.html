@@ -4,95 +4,83 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <title>blackpy</title>
+    <title>BlackPy · 나의 코드 무대</title>
     <link rel="stylesheet" href="app.css">
     <script src="scene.js" defer></script>
+    <script src="input.js" defer></script>
+    <script src="palette.js" defer></script>
     <script src="app.js" defer></script>
 </head>
 <body>
     <main class="playground">
         <header class="page-header">
             <div class="heading-group">
-                <div class="brand-mark" aria-hidden="true">
-                    <svg viewBox="0 0 64 64" fill="none">
-                        <path d="M14 26 13 10 27 18Q32 16 37 18L51 10 50 26Q58 49 32 54Q6 49 14 26Z"
-                              fill="#F5B957" stroke="#284B48" stroke-width="3" stroke-linejoin="round"/>
-                        <path d="M23 32V35M41 32V35M28 41L32 44 36 41" stroke="#284B48"
-                              stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <div>
-                    <h1>blackpy</h1>
-                    <p class="page-intro">VS Code에서 <code>main.py</code>를 저장해요.</p>
-                </div>
+                <span class="brand-mark" aria-hidden="true">B<span>py</span></span>
+                <div><h1>BlackPy</h1><p class="page-intro">코드를 쓰고, 나만의 이야기를 움직여요.</p></div>
             </div>
             <p id="connection-status" class="connection-status" role="status" aria-live="polite">
-                <span class="connection-dot" aria-hidden="true"></span>
-                <span id="connection-label">연결 중</span>
+                <span class="connection-dot" aria-hidden="true"></span><span id="connection-label">연결 중</span>
             </p>
         </header>
-
         <section class="controls" aria-label="코드 실행">
-            <button id="start-button" class="button button-primary" type="button" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 4 13 8-13 8Z"/></svg>
-                시작
-            </button>
-            <button id="stop-button" class="button button-stop" type="button" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
-                중지
-            </button>
-            <button id="restart-button" class="button button-secondary" type="button" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 10a7 7 0 1 1 1 7M5 4v6h6" fill="none" stroke="currentColor"
-                          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                다시 시작
-            </button>
+            <button id="start-button" class="button button-primary" type="button" disabled>▶ 시작</button>
+            <button id="stop-button" class="button button-stop" type="button" disabled>■ 중지</button>
+            <button id="restart-button" class="button button-secondary" type="button" disabled>↻ 다시 시작</button>
             <p id="run-status" class="run-status" role="status" aria-live="polite">준비 중이에요</p>
         </section>
-
         <div id="notice" class="notice" role="alert" hidden></div>
-
         <div class="workspace">
-            <section class="panel stage-panel" aria-labelledby="stage-title">
-                <div class="panel-heading">
-                    <h2 id="stage-title">우리들의 무대</h2>
-                    <span class="stage-size" aria-label="무대 크기 800 곱하기 600">800 × 600</span>
-                </div>
-                <div class="stage-surface">
-                    <canvas id="stage" width="800" height="600" role="img"
-                            aria-label="고양이를 움직이는 무대. 가운데가 원점이며 오른쪽은 x의 양의 방향, 위쪽은 y의 양의 방향입니다."
-                            aria-describedby="position-report scene-message stage-description">
-                        실행 안내는 무대 아래와 코드의 이야기 영역에 표시됩니다.
-                    </canvas>
-                </div>
-                <p id="scene-message" class="scene-message" role="status" aria-live="polite" hidden></p>
-                <p id="position-report" class="position-report">
-                    <span>x <strong id="position-x">0</strong></span>
-                    <span>y <strong id="position-y">0</strong></span>
-                    <span>방향 <strong id="position-heading">0°</strong></span>
-                </p>
-                <p id="offstage-note" class="offstage-note" hidden>
-                    무대 밖에 있어요. 다시 시작하면 돌아와요.
-                </p>
-                <p id="stage-description" class="visually-hidden">
-                    main.py에 쓴 명령에 따라 캐릭터가 움직입니다. 저장한 뒤 시작하면 새 코드를 실행합니다.
-                </p>
-            </section>
-
-            <section class="panel output-panel" aria-labelledby="output-title">
-                <div class="panel-heading">
-                    <h2 id="output-title">코드의 이야기</h2>
-                    <span class="output-icon" aria-hidden="true">&gt;_</span>
-                </div>
-                <div class="console-area" tabindex="0" role="region" aria-label="Python 출력과 오류">
-                    <p id="output-placeholder" class="output-placeholder">
-                        <code>print()</code>로 쓴 말과<br>오류가 여기에 나와요.
+            <div class="stage-column">
+                <section class="panel stage-panel" aria-labelledby="stage-title">
+                    <div class="panel-heading">
+                        <h2 id="stage-title">우리들의 무대</h2><span class="stage-size">800 × 600</span>
+                    </div>
+                    <div class="stage-surface">
+                        <canvas id="stage" width="800" height="600" role="application" tabindex="0"
+                                aria-label="캐릭터를 움직이는 무대. 가운데가 원점이고 오른쪽과 위쪽이 양수입니다."
+                                aria-describedby="input-hint scene-message position-report">
+                            Python 출력과 오류는 무대 아래 로그에서 확인해요.
+                        </canvas>
+                    </div>
+                    <p id="input-hint" class="input-hint">시작한 뒤 무대를 눌러요.</p>
+                    <p id="scene-message" class="scene-message" role="status" aria-live="polite" hidden></p>
+                    <p id="position-report" class="position-report" hidden>
+                        <span>x <strong id="position-x">0</strong></span>
+                        <span>y <strong id="position-y">0</strong></span>
+                        <span>방향 <strong id="position-heading">0°</strong></span>
                     </p>
-                    <div id="output-lines" class="output-lines"></div>
+                </section>
+                <section class="panel output-panel" aria-labelledby="output-title">
+                    <div class="panel-heading"><h2 id="output-title">로그</h2><span class="output-icon">&gt;_</span></div>
+                    <div class="console-area" tabindex="0" role="region" aria-label="Python 출력과 오류">
+                        <p id="output-placeholder" class="output-placeholder">
+                            <code>print()</code>로 쓴 말과 오류가 여기에 나와요.
+                        </p>
+                        <div id="output-lines"></div>
+                    </div>
+                </section>
+            </div>
+            <aside class="panel palette-panel" aria-labelledby="palette-title">
+                <div class="palette-heading">
+                    <div><span class="eyebrow">PYTHON TOOLBOX</span><h2 id="palette-title">블록 모음</h2></div>
+                    <span class="copy-badge">클릭해서 복사</span>
                 </div>
-                <p class="output-note"><kbd>Ctrl</kbd> + <kbd>S</kbd>로 저장하고 실행해요.</p>
-            </section>
+                <div class="target-picker">
+                    <label for="target-select">누구의 코드를 쓸까요?</label>
+                    <select id="target-select" disabled><option>프로젝트를 읽고 있어요</option></select>
+                    <p>VS Code에서 <code id="target-file">…</code>에 붙여넣어요.</p>
+                </div>
+                <div class="palette-workspace">
+                    <nav id="categories" class="categories" aria-label="명령 종류"></nav>
+                    <div class="card-area">
+                        <p id="category-description" class="category-description"></p>
+                        <div id="command-cards"></div>
+                    </div>
+                </div>
+                <p id="copy-status" class="copy-status" role="status" aria-live="polite">
+                    코드 줄을 누르면 복사돼요.
+                </p>
+            </aside>
         </div>
     </main>
 </body>

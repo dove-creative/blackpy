@@ -1,0 +1,10 @@
+<Project>
+  <UsingTask TaskName="Microsoft.NET.Build.Tasks.CreateAppHost" AssemblyFile="$(BuildTasksAssembly)" />
+  <Target Name="CreateLauncher">
+    <CreateAppHost AppHostSourcePath="$(SourceAppHost)"
+                   AppHostDestinationPath="$(Destination)"
+                   AppBinaryName="$(ManagedDllRelativePath)"
+                   IntermediateAssembly="$(ManagedAssembly)"
+                   WindowsGraphicalUserInterface="true" />
+  </Target>
+</Project>

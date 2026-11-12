@@ -11,13 +11,6 @@ namespace BlackThunder.BlackPy
         public BlackPyException(int statusCode, string message) : base(message) => StatusCode = statusCode;
     }
 
-    public class CommandRequest
-    {
-        public string RunId { get; set; } = "";
-        public string Command { get; set; } = "";
-        public double[] Args { get; set; } = Array.Empty<double>();
-    }
-
     public class OutputLine
     {
         public string Stream { get; }
@@ -25,14 +18,23 @@ namespace BlackThunder.BlackPy
         public OutputLine(string stream, string text) { Stream = stream; Text = text; }
     }
 
+    public class SourceSnapshot
+    {
+        public string Source { get; }
+        public string Filename { get; }
+
+        public SourceSnapshot(byte[] source, string filename)
+        {
+            Source = Convert.ToBase64String(source);
+            Filename = filename;
+        }
+    }
+
     public class StateMessage
     {
         public string Type { get; set; } = "snapshot";
         public string Status { get; set; } = "ready";
         public string? RunId { get; set; }
-        public float X { get; set; }
-        public float Y { get; set; }
-        public double Heading { get; set; }
         public SceneState Scene { get; set; } = new();
         public string? Error { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -45,9 +47,6 @@ namespace BlackThunder.BlackPy
             Type = includeOutput ? "snapshot" : "state",
             Status = Status,
             RunId = RunId,
-            X = X,
-            Y = Y,
-            Heading = Heading,
             Scene = Scene,
             Error = Error,
             Output = includeOutput ? Output : null
