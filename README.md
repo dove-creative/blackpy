@@ -32,13 +32,12 @@ BlackPy는 배경과 캐릭터마다 작성한 Python 코드를 로컬 웹 무�
 | 소스 빌드·배포 | .NET 10 SDK, PowerShell 7, Git |
 | 전체 테스트 | 위 환경과 Node.js 22 이상 |
 
-설치형 wheel과 폴더 배포본을 지원한다. 둘 다 .NET·ASP.NET Core 런타임을 포함하며, BlackPy 외의 Python 실행 의존성은 없다. 현재 PyPI에는 공개하지 않았으므로 `pip install blackpy`는 공개 업로드 이후에 사용하는 명령이다.
+설치형 wheel과 폴더 배포본을 지원한다. 둘 다 .NET·ASP.NET Core 런타임을 포함하며, BlackPy 외의 Python 실행 의존성은 없다. 설치형은 [PyPI](https://pypi.org/project/blackpy/)에서 설치한다.
 
-wheel을 만들고 로컬 파일에서 설치하는 명령은 다음과 같다.
+설치하고 새 프로젝트를 실행하는 명령은 다음과 같다.
 
 ```powershell
-./scripts/Build-Wheel.ps1
-python -m pip install ./artifacts/wheels/blackpy-0.1.0-py3-none-win_amd64.whl
+python -m pip install blackpy
 blackpy new 내프로젝트
 blackpy run 내프로젝트
 ```

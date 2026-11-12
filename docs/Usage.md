@@ -19,7 +19,7 @@
 ## 학생 실행
 
 1. Windows x64 컴퓨터에 Python 3.10 이상과 VS Code 등 편집기를 준비한다.
-2. 받은 배포 폴더의 실습 폴더에서 시작.exe를 실행한다.
+2. pip 설치형은 `blackpy run 내프로젝트`, 폴더 배포본은 실습 폴더의 `시작.exe`로 연다.
 3. 웹에 표시된 대상 파일을 편집기에 열어 코드를 수정하고 저장한다.
 4. 웹에서 시작을 누르고 무대를 클릭해 입력 초점을 옮긴다.
 5. 저장한 변경을 적용하려면 다시 시작을 누른다. 중지는 현재 실행 전체를 멈춘다.
@@ -32,10 +32,10 @@
 
 ## pip 설치와 새 프로젝트
 
-설치형은 Windows x64의 Python 3.10 이상 환경에 wheel 파일을 설치한다. 현재 PyPI 공개 업로드 전이므로 전달받은 wheel의 경로로 설치한다.
+설치형은 Windows x64의 Python 3.10 이상 환경에서 [PyPI](https://pypi.org/project/blackpy/)의 `blackpy` 패키지를 설치한다.
 
 ```powershell
-python -m pip install ./blackpy-0.1.0-py3-none-win_amd64.whl
+python -m pip install blackpy
 blackpy new 내프로젝트
 blackpy run 내프로젝트
 ```
@@ -55,7 +55,7 @@ blackpy run 내프로젝트
 
 `blackpy`를 찾지 못하면 같은 Python으로 `python -m blackpy new 내프로젝트`, `python -m blackpy run 내프로젝트`를 사용한다. 가상환경에 설치했다면 해당 환경을 활성화하거나 그 환경의 Python 경로를 지정한다. 실행 옵션은 `--no-browser`, `--port <번호>`이며 기본 포트 0은 자동 선택이다.
 
-PyPI에 `blackpy` 이름으로 공개한 뒤에는 설치 명령을 `python -m pip install blackpy`로 바꿀 수 있다. 소스에서 wheel을 만드는 방법과 공개 절차는 [Development](Development.md)에 있다.
+전달받은 wheel 파일은 `python -m pip install ./blackpy-0.1.0-py3-none-win_amd64.whl`로 설치한다. 소스에서 wheel을 만드는 방법과 공개 절차는 [Development](Development.md)에 있다.
 
 ## VS Code 명령 안내
 
