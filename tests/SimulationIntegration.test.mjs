@@ -27,25 +27,43 @@ function blockingBackground(seconds, delay = 0.15) {
 }
 
 test("gravity and an ordinary move advance while Python is blocked in native code", async () => {
+    const probe = `
+import time
+original_exchange = script_runtime.remote_exchange
+blocked = False
+async def blocking_exchange(scene, actors, commands, ready, ack, contact_ack):
+    global blocked
+    if not blocked and ready and any(command["kind"] == "motion" for command in commands):
+        blocked = True
+        scene = dict(scene, message="NATIVE_BLOCK_BEGIN")
+        commands = [*commands,
+                    {"id": "actor-2", "kind": "teleport", "x": 200, "y": 180},
+                    {"id": "actor-2", "kind": "stop"}]
+        result = await original_exchange(scene, actors, commands, ready, ack, contact_ack)
+        time.sleep(2)
+        return result
+    return await original_exchange(scene, actors, commands, ready, ack, contact_ack)
+script_runtime.remote_exchange = blocking_exchange
+`;
     const project = defaultProject();
     Object.assign(project.actors[0], { x: -250, y: 0, physics: "없음" });
     Object.assign(project.actors[1], { kind: "ball", x: 200, y: 180, scale: 0.5, physics: "물리" });
     await host.write('def 시작():\n    앞으로(600)\n    print("MOVE_DONE", 위치[0])\n', "",
-        blockingBackground(2), project);
+        `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project);
     const frames = [];
     let began = false;
     let ended = false;
     const receive = ({ data }) => {
         const packet = JSON.parse(data);
-        if (packet.runId !== host.state.runId || packet.status !== "running") return;
-        const output = (packet.output || []).map(line => line.text).join("\n");
-        began ||= output.includes("NATIVE_BLOCK_BEGIN");
-        ended ||= output.includes("NATIVE_BLOCK_END");
-        if (began && !ended && packet.scene?.active) {
+        if (packet.runId !== host.state.runId || packet.status !== "running" || !packet.scene?.active) return;
+        const marked = packet.scene.message === "NATIVE_BLOCK_BEGIN";
+        began ||= marked;
+        ended ||= began && !marked;
+        if (began && !ended) {
             frames.push({ x: packet.scene.sprites[0].x, y: packet.scene.sprites[1].y });
         }
     };
-    // Preserve the first blocked scene even when the test runner resumes late.
+    // The marker, motion, and reset reach C# atomically; stdout has an independent delivery delay.
     host.socket.addEventListener("message", receive);
     try {
         await host.run();
