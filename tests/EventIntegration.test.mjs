@@ -87,7 +87,7 @@ test("same-key ordinary callbacks are suppressed while other keys and signals pr
     await host.input("pointerdown", { button: "왼쪽", x: 350, y: 250 });
     await host.input("pointerup", { button: "왼쪽", x: 350, y: 250 });
     await host.wait(() => host.text().includes("SIGNAL B"), "broadcast");
-    await pause(400);
+    await host.wait(() => Math.abs(host.sprite()?.x - 20) < 0.1, "both relative moves finish");
     assert.equal(host.text().match(/KEY 오른쪽/g)?.length, 1);
     assert.equal(host.text().match(/KEY 위/g)?.length, 1);
     assert.equal(host.text().match(/SIGNAL A/g)?.length, 1);
