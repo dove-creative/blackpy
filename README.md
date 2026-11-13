@@ -99,7 +99,7 @@ Python·Pylance 확장을 사용하는 VS Code는 프로젝트의 `__builtins__.
 
 ## 실행 예제
 
-[samples](samples/README.md)에 이동·키 입력·클릭·방송·접촉·물리 예제 6개가 있다. BlackPy를 설치한 뒤 각 폴더의 `시작.pyw`를 더블클릭하거나 `python -m blackpy run ./samples/01-movement`로 연다. 물리 예제는 이번 기능을 포함한 0.1.1 로컬 wheel이 필요하다. 설치되지 않았으면 샘플 실행기는 설치 방법을 안내한다. 조작 방법과 예상 결과는 예제별 README에 있다.
+[samples](samples/README.md)에 이동·키 입력·클릭·방송·접촉·물리 예제 6개가 있다. BlackPy 0.1.2 이상으로 갱신한 뒤 각 폴더의 `시작.pyw`를 더블클릭하거나 `python -m blackpy run ./samples/01-movement`로 연다. 이전 로컬 0.1.1 wheel에서 물리 명령을 찾지 못하면 위의 갱신 명령으로 공개본을 설치한다. 설치되지 않았으면 샘플 실행기는 설치 방법을 안내한다. 조작 방법과 예상 결과는 예제별 README에 있다.
 
 0.1.1을 설치한 Python에서는 샘플 폴더의 `배경.py`나 캐릭터 파일을 직접 실행해도 된다. 어떤 파일에서 열어도 `project.json`에 등록된 배경·캐릭터 전체를 실행한다.
 

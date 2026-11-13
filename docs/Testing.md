@@ -71,7 +71,7 @@ npm.cmd install --prefix .cache/editor-tools --no-package-lock --ignore-scripts 
 node --test tests/Packaging.test.mjs tests/Editor.test.mjs tests/Launchers.test.mjs tests/DirectRun.test.mjs
 ```
 
-wheel·샘플 진입점·직접 실행 테스트의 기본 입력은 `artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl`이며 다른 wheel은 `BLACKPY_WHEEL` 환경 변수로 지정한다. 이 테스트들은 wheel 빌드 뒤에 실행하며 임시 가상환경에 로컬 wheel을 설치하므로 PyPI 계정이 필요하지 않다. `Samples.test.mjs`는 개발용 배포 실행부로 예제 코드의 동작을 확인하고, `Launchers.test.mjs`는 학생이 사용하는 설치형 진입점의 설치 전제와 실행 수명을 확인한다. `DirectRun.test.mjs`는 실제 `python 학생파일.py` 호출이 설치 전·후·제거 후에 갖는 경계와 프로젝트 실행 수명을 확인한다. 편집기 검사는 `.cache/editor-tools`의 Pyright를 사용한다. 이 도구는 개발 검증용이며 학생의 실행 의존성이 아니다.
+wheel·샘플 진입점·직접 실행 테스트의 기본 입력은 `artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl`이며 다른 wheel은 `BLACKPY_WHEEL` 환경 변수로 지정한다. 이 테스트들은 wheel 빌드 뒤에 실행하며 임시 가상환경에 로컬 wheel을 설치하므로 PyPI 계정이 필요하지 않다. `Samples.test.mjs`는 개발용 배포 실행부로 예제 코드의 동작을 확인하고, `Launchers.test.mjs`는 학생이 사용하는 설치형 진입점의 설치 전제와 실행 수명을 확인한다. `DirectRun.test.mjs`는 실제 `python 학생파일.py` 호출이 설치 전·후·제거 후에 갖는 경계와 프로젝트 실행 수명을 확인한다. 편집기 검사는 `.cache/editor-tools`의 Pyright를 사용한다. 이 도구는 개발 검증용이며 학생의 실행 의존성이 아니다.
 
 다른 목적지에 만든 배포본은 다음과 같이 검증한다.
 

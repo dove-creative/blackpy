@@ -57,7 +57,7 @@ Windows x64에서 다음 명령을 실행한다. Python 빌드 도구는 `.cache
 
 ```powershell
 ./scripts/Build-Wheel.ps1
-python -m pip install ./artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl
+python -m pip install ./artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl
 ```
 
 `Build-Wheel.ps1`은 Python 빌드 도구를 준비한 뒤 wheel을 생성하고 Twine으로 메타데이터를 검사한다. `wheel_hook.py`는 새 임시 경로에 `Publish.ps1`을 실행하고 그 결과의 공통 실행부와 `distribution/project`의 원본을 묶는다. 기존 `artifacts/blackpy/실습`이나 학생 프로젝트의 수정 내용은 wheel의 원본으로 사용하지 않는다.
@@ -128,7 +128,7 @@ Workflow name에는 화면에 보이는 `Publish BlackPy`나 전체 경로가 �
 
 워크플로는 Windows에서 .NET 10, Python 3.13, Node.js 24로 전체 검증과 wheel 빌드를 순서대로 수행한다. `main`에 코드·빌드 관련 변경을 푸시해도 검증과 wheel 생성이 실행되지만 공개는 수행하지 않는다. Ubuntu 공개 작업은 같은 실행에서 검증한 wheel 산출물을 받아 재빌드 없이 업로드한다. `id-token: write` 권한은 `pypi` 환경을 사용하는 공개 작업에만 부여한다. 수동 실행에서 `publish=false`는 업로드를 생략하며, `publish=true`는 `main`이 저장소의 기본 브랜치일 때만 허용한다. 수동 입력한 `expected_version`은 소스 버전과 일치해야 한다.
 
-이후 공개는 패키지 버전을 올려 같은 절차로 수행한다. 이미 공개한 버전의 파일을 덮어쓰지 않는다. TestPyPI는 계정·publisher 설정·저장소가 PyPI와 별개이며, TestPyPI 업로드만으로 일반 `pip install blackpy`가 가능해지는 것은 아니다. 공개 성공 여부와 실제 설치 결과는 [검증 기록](Testing.md)에 따로 남긴다.
+이후 공개는 패키지 버전을 올려 같은 절차로 수행한다. 이미 공개한 버전의 파일을 덮어쓰지 않는다. 개발 wheel은 `0.1.3.dev1`, `0.1.3.dev2`처럼 개발 버전으로 구분하고 정식 공개 버전과 재사용하지 않는다. 로컬에서 같은 버전의 서로 다른 wheel을 설치하면 pip가 갱신 필요성을 구분하지 못하므로 정식 공개본은 새 버전으로 설치·갱신하는 것이 기준이다. TestPyPI는 계정·publisher 설정·저장소가 PyPI와 별개이며, TestPyPI 업로드만으로 일반 `pip install blackpy`가 가능해지는 것은 아니다. 공개 성공 여부와 실제 설치 결과는 [검증 기록](Testing.md)에 따로 남긴다.
 
 ## 서브모듈
 

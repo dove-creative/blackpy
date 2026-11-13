@@ -51,7 +51,7 @@ test("installed direct-file execution opens only the selected BlackPy project", 
     const workspace = path.join(root, "학생 프로젝트");
     const otherDirectory = path.join(root, "다른 작업 폴더");
     const wheel = process.env.BLACKPY_WHEEL ||
-        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl");
+        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl");
     const project = defaultProject();
     const sources = {
         "project.json": JSON.stringify(project),

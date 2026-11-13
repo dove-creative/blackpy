@@ -12,7 +12,7 @@ blackpy new 내프로젝트
 blackpy run 내프로젝트
 ```
 
-이미 설치했다면 학생 코드를 실행할 Python 환경에서 다음 명령으로 갱신한다.
+이미 설치했다면 학생 코드를 실행할 Python 환경에서 다음 명령으로 갱신한다. 0.1.2는 이전 로컬 0.1.1 wheel과 버전을 구분한 공개본이며, 물리 명령이 없는 이전 설치본도 갱신할 수 있다. 학생 파일과 `project.json`은 유지된다.
 
 ```powershell
 python -m pip install --upgrade blackpy

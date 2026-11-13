@@ -4,7 +4,7 @@
 
 ## 실행
 
-1. 사용할 Python에 `python -m pip install --upgrade blackpy`로 BlackPy 0.1.1 이상을 설치한다. 자세한 설치 조건은 [사용 안내](../../docs/Usage.md)에 있다.
+1. 사용할 Python에 `python -m pip install --upgrade blackpy`로 BlackPy 0.1.2 이상을 설치한다. 자세한 설치 조건은 [사용 안내](../../docs/Usage.md)에 있다.
 2. 이 폴더의 `시작.pyw`를 더블클릭한다. 저장소 루트에서 `python -m blackpy run ./samples/06-physics`로 실행해도 된다.
 3. 웹의 **시작**을 누르고 무대를 클릭하여 키보드 입력 초점을 옮긴다.
 4. 공이 발판 위에 내려앉은 뒤 스페이스를 눌러 위로 한 번 민다.

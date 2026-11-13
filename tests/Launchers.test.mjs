@@ -25,7 +25,7 @@ test("sample launchers require an installed package throughout install and unins
     const pythonEnvironment = path.join(temporaryRoot, "venv");
     const python = path.join(pythonEnvironment, "Scripts", "python.exe");
     const wheel = process.env.BLACKPY_WHEEL ||
-        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl");
+        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl");
     const canonical = await readFile(path.join(toolRoot, "scripts", "SampleLauncher.pyw"));
     const original = {};
 

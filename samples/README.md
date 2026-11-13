@@ -4,7 +4,7 @@
 
 ## 실행
 
-Windows x64와 Python 3.10 이상이 필요하다. 사용할 Python 환경에 BlackPy 0.1.1 이상을 설치하거나 갱신한 뒤 저장소 루트에서 예제를 연다. 설치는 Python 환경마다 한 번 수행하며 모든 샘플이 같은 설치를 사용한다.
+Windows x64와 Python 3.10 이상이 필요하다. 사용할 Python 환경에 BlackPy 0.1.2 이상을 설치하거나 갱신한 뒤 저장소 루트에서 예제를 연다. 설치는 Python 환경마다 한 번 수행하며 모든 샘플이 같은 설치를 사용한다.
 
 ```powershell
 python -m pip install --upgrade blackpy
@@ -40,7 +40,7 @@ python ./samples/01-movement/시작.pyw --console
 | [05-contact](05-contact/README.md) | 고양이를 별로 이동: 닿는 순간·닿는 동안·떨어지는 순간이다. |
 | [06-physics](06-physics/README.md) | 공을 발판에 떨어뜨리고 방향키·스페이스로 밀기: 중력·충격·무게·정지와 경계 충돌이다. |
 
-06-physics는 물리 기능을 포함한 0.1.1 이상의 실행부가 필요하다. 물리 엔진은 설치 패키지에 포함되어 있으며 Python 물리 패키지를 따로 설치하지 않는다.
+06-physics는 이전 로컬 0.1.1 wheel과 구분되는 0.1.2 이상의 공개본을 사용한다. 물리 엔진은 설치 패키지에 포함되어 있으며 Python 물리 패키지를 따로 설치하지 않는다.
 
 각 폴더는 `project.json`, `배경.py`, 캐릭터별 Python 파일과 편집기용 `__builtins__.pyi`를 가진 독립 프로젝트이다. VS Code에서 편집할 예제 폴더 자체를 열면 Python·Pylance 확장이 BlackPy 명령을 인식한다. Python 파일을 바꾸고 저장한 뒤 웹에서 다시 시작하면 반영된다. 직접 실행은 프로젝트 전체의 무대를 열고, 실제 실행 대상은 `project.json`에 등록된 파일로 정한다.
 

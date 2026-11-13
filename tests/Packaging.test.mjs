@@ -9,7 +9,7 @@ import { TestHost, toolRoot } from "./TestHost.mjs";
 test("installed wheel creates, runs, reinstalls and uninstalls without changing student files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "BlackPy pip 한글 "));
     const wheel = process.env.BLACKPY_WHEEL ||
-        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.1-py3-none-win_amd64.whl");
+        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl");
     const environment = path.join(root, "venv");
     const python = path.join(environment, "Scripts/python.exe");
     const command = path.join(environment, "Scripts/blackpy.exe");
@@ -44,7 +44,7 @@ with zipfile.ZipFile(sys.argv[1]) as wheel:
     assert.ok(inspection.names.every(name => !name.includes("__pycache__") && !name.endsWith(".pyc")));
     const install = ["-m", "pip", "install", "--no-index", "--no-deps", wheel];
     invoke(python, install);
-    assert.match(invoke(command, ["--version"]), /BlackPy 0\.1\.1/);
+    assert.match(invoke(command, ["--version"]), /BlackPy 0\.1\.2/);
     const workspace = path.join(root, "내 프로젝트");
     invoke(command, ["new", workspace]);
     const stub = await readFile(path.join(workspace, "__builtins__.pyi"));

@@ -63,7 +63,9 @@ python -m pip install --upgrade blackpy
 
 `blackpy`를 찾지 못하면 같은 Python으로 `python -m blackpy new 내프로젝트`, `python -m blackpy run 내프로젝트`를 사용한다. 가상환경에 설치했다면 해당 환경을 활성화하거나 그 환경의 Python 경로를 지정한다. 실행 옵션은 `--no-browser`, `--port <번호>`이며 기본 포트 0은 자동 선택이다.
 
-전달받은 wheel 파일은 `python -m pip install ./blackpy-0.1.1-py3-none-win_amd64.whl`로 설치한다. 소스에서 wheel을 만드는 방법과 공개 절차는 [Development](Development.md)에 있다.
+0.1.2는 이전 로컬 0.1.1 wheel과 버전을 구분한 공개본이다. 물리 명령을 찾지 못하는 이전 로컬 설치본도 위의 갱신 명령으로 교체할 수 있다. 학생 파일과 `project.json`은 그대로 유지된다.
+
+전달받은 wheel 파일은 `python -m pip install ./blackpy-0.1.2-py3-none-win_amd64.whl`로 설치한다. 소스에서 wheel을 만드는 방법과 공개 절차는 [Development](Development.md)에 있다.
 
 ### 학생 파일에서 무대 열기
 
