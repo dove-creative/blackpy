@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BlackThunder.BlackPy
 {
@@ -15,6 +16,8 @@ namespace BlackThunder.BlackPy
     {
         public string File { get; set; } = "";
         public string Kind { get; set; } = "plain";
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Image { get; set; }
     }
 
     public class ActorDefinition
@@ -29,7 +32,22 @@ namespace BlackThunder.BlackPy
         public double Speed { get; set; } = 1;
         public bool Visible { get; set; } = true;
         public string Physics { get; set; } = "충돌만";
+        public bool Trigger { get; set; }
         public double Mass { get; set; } = 1;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Image { get; set; }
+    }
+
+    public class ImageResource
+    {
+        public byte[] Bytes { get; }
+        public string ContentType { get; }
+
+        public ImageResource(byte[] bytes, string contentType)
+        {
+            Bytes = bytes;
+            ContentType = contentType;
+        }
     }
 
     public class ProjectSnapshot
@@ -46,11 +64,19 @@ namespace BlackThunder.BlackPy
 
     public static class ProjectLoader
     {
+        // Internal
+        public const long MaxImageBytes = 5 * 1024 * 1024;
+        private static readonly Dictionary<string, string> _imageTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            [".png"] = "image/png", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg",
+            [".gif"] = "image/gif", [".webp"] = "image/webp", [".svg"] = "image/svg+xml"
+        };
+
+
+        // Content --------------------
         public static ProjectDefinition ReadDefinition(string directory)
         {
-            var filename = Path.Combine(directory, "project.json");
-            if (!System.IO.File.Exists(filename))
-                throw Invalid("project.json이 있는 새 실습 프로젝트를 열어 주세요. 이전 main.py 형식은 지원하지 않습니다.");
+            var filename = DefinitionPath(directory);
 
             ProjectDefinition? project;
 
@@ -74,7 +100,68 @@ namespace BlackThunder.BlackPy
             }
 
             Validate(project);
+            ValidateImages(project!, Path.GetDirectoryName(filename)!);
             return project!;
+        }
+
+        /// <summary>Reads an image named by the project from the folder that holds project.json.</summary>
+        public static ImageResource ReadImage(string directory, ProjectDefinition project, string image)
+        {
+            if (string.IsNullOrEmpty(image) || (project.Background.Image != image
+                && Array.FindIndex(project.Actors, actor => actor.Image == image) < 0))
+                throw new BlackPyException(404, "프로젝트 설정에 없는 이미지입니다.");
+
+            var filename = ImagePath(Path.GetDirectoryName(DefinitionPath(directory))!, image);
+
+            try
+            {
+                var bytes = System.IO.File.ReadAllBytes(filename);
+                if (bytes.LongLength > MaxImageBytes) throw Invalid("이미지는 5MB 이하의 파일을 사용해 주세요: " + image);
+                return new ImageResource(bytes, _imageTypes[Path.GetExtension(image)]);
+            }
+            catch (IOException)
+            {
+                throw Invalid("이미지 파일을 읽지 못했습니다: " + image);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw Invalid("이미지 파일을 읽을 권한이 없습니다: " + image);
+            }
+        }
+
+        private static string DefinitionPath(string directory)
+        {
+            var filename = Path.Combine(directory, "_blackpy", "project.json");
+            if (!System.IO.File.Exists(filename)) filename = Path.Combine(directory, "project.json");
+            if (!System.IO.File.Exists(filename))
+                throw Invalid("project.json이 있는 새 실습 프로젝트를 열어 주세요. 이전 main.py 형식은 지원하지 않습니다.");
+            return filename;
+        }
+
+        private static void ValidateImages(ProjectDefinition project, string imageDirectory)
+        {
+            if (project.Background.Image != null) ImagePath(imageDirectory, project.Background.Image);
+
+            foreach (ActorDefinition actor in project.Actors)
+                if (actor.Image != null) ImagePath(imageDirectory, actor.Image);
+        }
+
+        // Images are plain file names beside project.json, never paths that leave that folder.
+        private static string ImagePath(string imageDirectory, string image)
+        {
+            if (string.IsNullOrWhiteSpace(image) || image.Length > 200 || image.StartsWith('.')
+                || image.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || image.Contains('/') || image.Contains('\\') || Path.IsPathRooted(image)
+                || !_imageTypes.ContainsKey(Path.GetExtension(image)))
+                throw Invalid("이미지는 project.json과 같은 _blackpy 폴더에 둔 png·jpg·gif·webp·svg 파일 이름으로 지정해 주세요.");
+
+            var filename = Path.Combine(imageDirectory, image);
+            var info = new FileInfo(filename);
+            if (!info.Exists) throw Invalid("이미지 파일을 찾지 못했습니다. _blackpy 폴더를 확인해 주세요: " + image);
+            if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw Invalid("연결 파일 대신 _blackpy 폴더에 저장한 이미지를 사용해 주세요: " + image);
+            if (info.Length > MaxImageBytes) throw Invalid("이미지는 5MB 이하의 파일을 사용해 주세요: " + image);
+            return filename;
         }
 
         public static ProjectSnapshot ReadSnapshot(string directory)

@@ -368,7 +368,7 @@
         ellipse(context, -16, -19, 8, 5, "#ffffff65");
     }
 
-    function drawSprite(context, sprite) {
+    function drawSprite(context, sprite, image = null) {
         if (!sprite.visible) return;
         const painters = {
             car: drawCar, cat: drawCat, rabbit: drawRabbit, ball: drawBall, bat: drawBat,
@@ -383,10 +383,16 @@
         context.save();
         context.translate(x, y);
         context.rotate(-sprite.heading * Math.PI / 180);
-        context.scale(sprite.width / 100, sprite.height / 100);
+        context.scale(sprite.width / 100 * (sprite.flipHorizontal ? -1 : 1),
+            sprite.height / 100 * (sprite.flipVertical ? -1 : 1));
         context.lineJoin = "round";
         context.lineCap = "round";
-        painter(context, sprite.color || defaults[sprite.kind] || defaults.cat);
+        if (image) {
+            // A project image fills the same box as the built-in drawing of its kind.
+            context.drawImage(image, -50, -50, 100, 100);
+        } else {
+            painter(context, sprite.color || defaults[sprite.kind] || defaults.cat);
+        }
         context.restore();
 
         if (sprite.label) {
@@ -433,11 +439,13 @@
         context.restore();
     }
 
-    function draw(context, scene) {
-        context.drawImage(background(scene.background), 0, 0, width, height);
+    function draw(context, scene, images = {}) {
+        const backgroundImage = images.background && scene.background === images.backgroundKind
+            ? images.background : null;
+        context.drawImage(backgroundImage || background(scene.background), 0, 0, width, height);
 
         for (const sprite of scene.sprites) {
-            drawSprite(context, sprite);
+            drawSprite(context, sprite, images.actors?.get(sprite.id) || null);
         }
 
         for (const sprite of scene.sprites) {

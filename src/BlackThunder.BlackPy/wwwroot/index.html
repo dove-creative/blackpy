@@ -45,11 +45,7 @@
                     </div>
                     <p id="input-hint" class="input-hint">시작한 뒤 무대를 눌러요.</p>
                     <p id="scene-message" class="scene-message" role="status" aria-live="polite" hidden></p>
-                    <p id="position-report" class="position-report" hidden>
-                        <span>x <strong id="position-x">0</strong></span>
-                        <span>y <strong id="position-y">0</strong></span>
-                        <span>방향 <strong id="position-heading">0°</strong></span>
-                    </p>
+                    <div id="position-report" class="position-report" hidden></div>
                 </section>
                 <section class="panel output-panel" aria-labelledby="output-title">
                     <div class="panel-heading"><h2 id="output-title">콘솔</h2><span class="output-icon">&gt;_</span></div>
@@ -76,10 +72,9 @@
                     <div><span class="eyebrow">PYTHON TOOLBOX</span><h2 id="palette-title">블록 모음</h2></div>
                     <span class="copy-badge">클릭해서 복사</span>
                 </div>
-                <div class="target-picker">
-                    <label for="target-select">누구의 코드를 쓸까요?</label>
-                    <select id="target-select" disabled><option>프로젝트를 읽고 있어요</option></select>
-                    <p>VS Code에서 <code id="target-file">…</code>에 붙여넣어요.</p>
+                <div class="palette-guide">
+                    <p>명령을 복사해 VS Code의 Python 파일에 붙여 넣어요.</p>
+                    <p>코드를 쓴 파일의 배경·캐릭터가 실행해요.<br>캐릭터 전용 명령은 배경에서 무시돼요.</p>
                 </div>
                 <div class="palette-workspace">
                     <nav id="categories" class="categories" aria-label="명령 종류"></nav>

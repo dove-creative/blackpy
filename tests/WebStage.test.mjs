@@ -149,46 +149,51 @@ test("focus loss resets held input and completed runs accept neither keys nor pr
     assert.equal(app.inputs().length, 2);
 });
 
-test("target selection changes palette and filename, without sending runtime input", async () => {
+test("common palette needs no object selection and does not send runtime input", async () => {
     const app = browser();
     await setImmediate();
-    assert.equal(app.element("target-file").textContent, "고양이.py");
     assert.equal(app.element("categories").children.length, 6);
-    const select = app.element("target-select");
-    select.value = "배경";
-    select.emit("change");
-    assert.equal(app.element("target-file").textContent, "배경.py");
-    assert.equal(app.element("categories").children.length, 4);
+    const html = await readFile(new URL("index.html", root), "utf8");
+    assert.doesNotMatch(html, /target-select|target-file|누구의 코드를/);
     assert.match(app.element("category-description").textContent, /빈 곳/);
+    app.element("categories").children[1].emit("click");
+    const forward = app.element("command-cards").children.find(card => card.children[0]?.textContent === "앞으로");
+    assert.equal(forward.children[0].children[0].textContent, "캐릭터 전용");
+    forward.children[1].emit("click");
+    await setImmediate();
+    assert.deepEqual(app.copied, ["앞으로(10)"]);
     assert.equal(app.inputs().length, 0);
 });
 
-test("renaming an actor keeps file selection and updates live lookup snippets", async () => {
+test("all actor positions and live lookup names update without object selection", async () => {
     const app = browser();
     await setImmediate();
     app.state("one", "running", {
         active: true,
         sprites: [
-            { id: "actor-1", label: "새 고양이", x: 15, y: 20, heading: 90 },
+            { id: "actor-1", label: '고양이 "하나"', x: 15, y: 20, heading: 90 },
             { id: "actor-2", label: '자동차 "둘"', x: 100, y: 40, heading: 0 }
         ]
     });
     await setImmediate();
-    assert.equal(app.element("target-select").value, "고양이");
-    assert.equal(app.element("target-file").textContent, "고양이.py");
-    assert.equal(app.element("target-select").children[1].textContent, "새 고양이");
     assert.equal(app.element("position-report").hidden, false);
-    assert.equal(app.element("position-x").textContent, "15");
+    assert.deepEqual(Array.from(app.element("position-report").children, row => row.textContent), [
+        '고양이 "하나" · x 15 · y 20 · 방향 90°', '자동차 "둘" · x 100 · y 40 · 방향 0°'
+    ]);
     app.element("categories").children[5].emit("click");
     const positionCard = app.element("command-cards").children
         .find(card => card.children[0]?.textContent === "다른 캐릭터의 위치");
     positionCard.children[1].emit("click");
     await setImmediate();
-    assert.deepEqual(app.copied, ['위치_구하기("자동차 \\"둘\\"")']);
+    assert.deepEqual(app.copied, ['위치_구하기("고양이 \\"하나\\"")']);
     app.state("two", "running", null);
     await setImmediate();
-    assert.equal(app.element("target-select").children[1].textContent, "고양이");
-    assert.equal(app.element("target-select").value, "고양이");
+    assert.match(app.element("position-report").children[0].textContent, /^고양이 ·/);
+    const resetCard = app.element("command-cards").children
+        .find(card => card.children[0]?.textContent === "다른 캐릭터의 위치");
+    resetCard.children[1].emit("click");
+    await setImmediate();
+    assert.equal(app.copied.at(-1), '위치_구하기("고양이")');
 });
 
 test("each code row copies a complete event template and announces success", async () => {
@@ -199,7 +204,7 @@ test("each code row copies a complete event template and announces success", asy
     await setImmediate();
     assert.deepEqual(app.copied, ["def 키_클릭_중(누른_키):\n    pass"]);
     assert.match(app.element("copy-status").textContent, /복사했어요/);
-    assert.match(app.element("copy-status").textContent, /고양이.py/);
+    assert.match(app.element("copy-status").textContent, /Python 파일/);
 });
 
 test("clipboard rejection is reported instead of claiming success", async () => {

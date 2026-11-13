@@ -36,6 +36,8 @@ namespace BlackThunder.BlackPy
         public double Heading { get; set; }
         public string Color { get; set; } = "#ffb347";
         public bool Visible { get; set; } = true;
+        public bool FlipHorizontal { get; set; }
+        public bool FlipVertical { get; set; }
         public string Label { get; set; } = "";
         public string Speech { get; set; } = "";
     }
@@ -144,6 +146,8 @@ namespace BlackThunder.BlackPy
                     Heading = sprite.Heading,
                     Color = sprite.Color,
                     Visible = sprite.Visible,
+                    FlipHorizontal = sprite.FlipHorizontal,
+                    FlipVertical = sprite.FlipVertical,
                     Label = sprite.Label,
                     Speech = sprite.Speech
                 };

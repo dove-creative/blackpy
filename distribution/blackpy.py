@@ -61,12 +61,16 @@ class ScriptObject:
         self.namespace = {}
         self.handlers = {}
         self.speech = ""
+        self._speech_revision = 0
         self._position = (0.0, 0.0)
         self._heading = 0.0
         self._speed = 1.0
         self._scale = 1.0
         self._visible = True
+        self._flip_horizontal = False
+        self._flip_vertical = False
         self._physics = "충돌만"
+        self._trigger = False
         self._mass = 1.0
         self._physics_commands = []
         self._absolute_revision = 0
@@ -83,12 +87,13 @@ class ScriptObject:
             self.scale = specification.get("scale", 1)
             self.visible = specification.get("visible", True)
             self.mass = specification.get("mass", 1)
-            self.physics = specification.get("physics", "충돌만")
+            self.set_physics(specification.get("physics", "충돌만"),
+                             specification.get("trigger", False))
             self._physics_baseline = self.physics_snapshot()
 
     def require_actor(self):
         if self.is_background:
-            raise ValueError("배경에서는 캐릭터의 움직임이나 크기를 사용할 수 없어요.")
+            raise ValueError("배경에는 캐릭터 전용 상태 값이 없어요.")
 
     @property
     def name(self):
@@ -99,7 +104,9 @@ class ScriptObject:
         raise ValueError("이름을 바꿀 때에는 이름_정하기(\"새이름\")를 사용해 주세요.")
 
     def set_name(self, value):
-        self.require_actor()
+        if self.is_background:
+            return
+
         self.runtime.rename(self, value)
 
     @property
@@ -124,6 +131,9 @@ class ScriptObject:
     @heading.setter
     def heading(self, value):
         self.require_actor()
+        movement = MOVEMENT.get()
+        if movement is not None and movement["actor"] is self:
+            movement["heading_fixed"] = True
         self._heading = number(value, "방향", -1000000, 1000000) % 360
         self._heading_revision += 1
         if self.runtime.remote_exchange is not None:
@@ -180,7 +190,7 @@ class ScriptObject:
             raise ValueError('물리에는 "없음", "충돌만", "물리" 중 하나를 넣어 주세요.')
         self.validate_physics_size(value, self._scale)
         self._physics = value
-        self.queue_physics("mode", mode=value)
+        self.queue_physics("mode", mode=value, trigger=self._trigger)
 
     @property
     def mass(self):
@@ -209,14 +219,28 @@ class ScriptObject:
             raise RuntimeError("한 프레임에 물리 명령이 너무 많아요. 반복문에 기다리기를 넣어 주세요.")
         self._physics_commands.append({"id": self.id, "kind": kind, "x": x, "y": y, "mode": mode, **fields})
 
-    def set_physics(self, value):
+    def set_physics(self, value, 트리거=False):
+        if self.is_background:
+            return
+
+        if not isinstance(트리거, bool):
+            raise TypeError("트리거에는 True 또는 False를 넣어 주세요.")
+        if not isinstance(value, str) or value not in PHYSICS_MODES:
+            raise ValueError('물리에는 "없음", "충돌만", "물리" 중 하나를 넣어 주세요.')
+        self.validate_physics_size(value, self._scale)
+        self._trigger = 트리거
         self.physics = value
 
     def set_mass(self, value):
+        if self.is_background:
+            return
+
         self.mass = value
 
     def impulse(self, angle, strength):
-        self.require_actor()
+        if self.is_background:
+            return
+
         if self._physics != "물리":
             raise ValueError('힘을 주기 전에 물리_설정("물리")로 설정해 주세요.')
         angle = number(angle, "힘의 방향", -1000000, 1000000)
@@ -225,7 +249,9 @@ class ScriptObject:
         self.queue_physics("impulse", math.cos(radians) * strength, math.sin(radians) * strength)
 
     def stop(self):
-        self.require_actor()
+        if self.is_background:
+            return
+
         self.queue_physics("stop")
 
     def physics_snapshot(self):
@@ -234,6 +260,7 @@ class ScriptObject:
             "id": self.id, "x": self._position[0], "y": self._position[1],
             "width": width, "height": height, "mode": self._physics,
             "mass": self._mass, "visible": self._visible,
+            "heading": self._heading, "trigger": self._trigger,
         }
 
     @property
@@ -266,7 +293,9 @@ class ScriptObject:
         self.heading = self._heading + heading
 
     async def forward(self, value):
-        self.require_actor()
+        if self.is_background:
+            return
+
         value = number(value, "이동 값")
         radians = math.radians(self._heading)
         x, y = math.cos(radians) * value, math.sin(radians) * value
@@ -276,14 +305,20 @@ class ScriptObject:
             if not self.runtime.movement_active(MOVEMENT.get()):
                 return
             if self.runtime.remote_exchange is not None:
-                self.runtime.change_rate(self, x * self._speed, y * self._speed)
+                movement = MOVEMENT.get()
+                if movement is not None and movement.get("heading_fixed"):
+                    self.runtime.change_rate(self, x * self._speed, y * self._speed)
+                else:
+                    self.runtime.change_rate(self, forward=value * self._speed)
             else:
                 self.apply_delta(x * self._speed * delta_time, y * self._speed * delta_time)
         else:
             await self.runtime.animate(self, x, y, 0, abs(value) / (200 * self._speed))
 
     async def left(self, value):
-        self.require_actor()
+        if self.is_background:
+            return
+
         value = number(value, "회전 값", -1000000, 1000000)
         continuous, delta_time = EXECUTION.get()
 
@@ -298,13 +333,34 @@ class ScriptObject:
             await self.runtime.animate(self, 0, 0, value, abs(value) / (180 * self._speed))
 
     async def right(self, value):
+        if self.is_background:
+            return
+
         await self.left(-number(value, "회전 값", -1000000, 1000000))
 
+    def flip(self, axis):
+        if self.is_background:
+            return
+
+        if not isinstance(axis, str):
+            raise TypeError('뒤집기에는 "가로" 또는 "세로"를 넣어 주세요.')
+        if axis == "가로":
+            self._flip_horizontal = not self._flip_horizontal
+        elif axis == "세로":
+            self._flip_vertical = not self._flip_vertical
+        else:
+            raise ValueError('뒤집기에는 "가로" 또는 "세로"를 넣어 주세요.')
+
     def goto(self, x, y):
+        if self.is_background:
+            return
+
         self.position = (x, y)
 
     def look(self, *values):
-        self.require_actor()
+        if self.is_background:
+            return
+
         if len(values) == 1:
             self.heading = values[0]
         elif len(values) == 2:
@@ -315,26 +371,55 @@ class ScriptObject:
             raise TypeError("바라보기에는 각도 하나 또는 가로·세로 위치를 넣어 주세요.")
 
     def change_speed(self, value):
+        if self.is_background:
+            return
+
         self.speed += number(value, "속도 변화량")
 
     def change_scale(self, value):
+        if self.is_background:
+            return
+
         self.scale += number(value, "크기 변화량")
 
     def set_scale(self, value):
+        if self.is_background:
+            return
+
         self.scale = value
 
     def set_visible(self, value):
+        if self.is_background:
+            return
+
         self.visible = value
 
-    def say(self, message):
-        if not isinstance(message, str):
-            raise TypeError("말하기에는 문자열을 넣어 주세요.")
+    def say(self, *messages, 시간=None):
+        message = " ".join(str(part) for part in messages)
         if len(message) > 200:
             raise ValueError("말하기는 200자까지 사용할 수 있어요.")
+        if 시간 is not None:
+            duration = number(시간, "말하기 시간", 0, 3600)
+            if not self.runtime.initialized:
+                raise RuntimeError(
+                    "시간을 정한 말하기는 시작 또는 이벤트 함수 안에서 사용해 주세요."
+                )
+            return self.say_for(message, duration)
+        self.set_speech(message)
+
+    def set_speech(self, message):
+        self._speech_revision += 1
         if self.is_background:
             self.runtime.message = message
         else:
             self.speech = message
+
+    async def say_for(self, message, duration):
+        self.set_speech(message)
+        revision = self._speech_revision
+        await self.runtime.wait(duration)
+        if self._speech_revision == revision:
+            self.set_speech("")
 
     def commands(self):
         return {
@@ -351,6 +436,7 @@ class ScriptObject:
             "힘_작용": self.impulse, "정지": self.stop,
             "이름_정하기": self.set_name,
             "왼쪽_돌기": self.left, "오른쪽_돌기": self.right,
+            "뒤집기": self.flip,
         }
 
     def snapshot(self):
@@ -360,5 +446,6 @@ class ScriptObject:
             "x": self._position[0], "y": self._position[1],
             "width": width, "height": height, "heading": self._heading,
             "color": STYLES[self.kind][2], "visible": self._visible,
+            "flipHorizontal": self._flip_horizontal, "flipVertical": self._flip_vertical,
             "label": self.name, "speech": self.speech,
         }

@@ -8,6 +8,19 @@ from test_runtime_support import make_runtime, settle, tick
 
 
 class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_trigger_keyword_default_and_validation(self):
+        runtime = await self.prepare('물리_설정("충돌만", 트리거=True)\n')
+        actor = runtime.actors[0]
+        self.assertTrue(actor.physics_snapshot()["trigger"])
+        actor.set_physics("충돌만")
+        self.assertFalse(actor.physics_snapshot()["trigger"])
+        for value in (1, 0, "True", None):
+            with self.assertRaises(TypeError):
+                actor.set_physics("충돌만", value)
+        runtime.background.set_physics("invalid", 트리거="ignored")
+        actor.heading = 35
+        self.assertEqual(actor.physics_snapshot()["heading"], 35)
+
     async def prepare(self, source="", other_source=None):
         runtime = make_runtime(source, other_source=other_source)
         self.addAsyncCleanup(runtime.close)
@@ -26,8 +39,8 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
                 actor.set_mass(value)
         with self.assertRaises(ValueError):
             actor.impulse(90, 10)
-        with self.assertRaises(ValueError):
-            runtime.background.set_physics("물리")
+        runtime.background.set_physics("물리")
+        self.assertEqual(runtime.background._physics_commands, [])
         actor.set_physics("물리")
         actor.set_mass(10)
         self.assertEqual((actor.physics, actor.mass), ("물리", 10))

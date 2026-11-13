@@ -15,6 +15,8 @@ namespace BlackThunder.BlackPy
         public string Id { get; set; } = "";
         public double X { get; set; }
         public double Y { get; set; }
+        public double Heading { get; set; }
+        public bool Trigger { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
         public string Mode { get; set; } = "충돌만";
@@ -27,6 +29,9 @@ namespace BlackThunder.BlackPy
         public string Id { get; set; } = "";
         public string Kind { get; set; } = "";
         public string Mode { get; set; } = "";
+        public bool Trigger { get; set; }
+        public double Rotation { get; set; }
+        public double Forward { get; set; }
         public double X { get; set; }
         public double Y { get; set; }
     }
@@ -41,6 +46,7 @@ namespace BlackThunder.BlackPy
         public string Id { get; set; } = "";
         public double X { get; set; }
         public double Y { get; set; }
+        public double Heading { get; set; }
         public string[] Contacts { get; set; } = Array.Empty<string>();
     }
 }

@@ -1,15 +1,22 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const toolRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packageVersion = readFileSync(path.join(toolRoot, "src/blackpy/__init__.py"), "utf8")
+    .match(/^__version__ = "([^"]+)"/m)[1];
+export const wheelPath = path.resolve(process.env.BLACKPY_WHEEL ||
+    path.join(toolRoot, "artifacts/wheels", `blackpy-${packageVersion}-py3-none-win_amd64.whl`));
 export const distributionRoot = path.resolve(process.env.BLACKPY_DISTRIBUTION ||
     path.join(toolRoot, "artifacts", "blackpy"));
-export const executable = path.join(distributionRoot, "실습", "_runtime", "BlackThunder.BlackPy.exe");
+export const distributionSupport = existsSync(path.join(distributionRoot, "실습", "_blackpy", "project.json"))
+    ? "_blackpy" : "";
+export const executable = path.join(distributionRoot, "실습", distributionSupport, "_runtime", "BlackThunder.BlackPy.exe");
 export const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 export const defaultProject = () => ({
     background: { file: "배경.py", kind: "plain" },

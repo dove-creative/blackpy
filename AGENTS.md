@@ -52,12 +52,13 @@
 
 ## 의존성과 배포
 
+- BlackPy 버전은 항상 `숫자.숫자.숫자` 형식만 사용한다. 개발·공개 구분을 위한 접미사는 붙이지 않으며, 다른 설치본을 구분해야 하면 세 자리 안에서 버전을 올린다.
 - UniEngine과 BlackboxSystem은 `packages`의 NuGet 패키지로 참조한다. 소스 서브모듈의 변경을 빌드에 반영하려면 패키지도 명시적으로 갱신한다.
 - UniEngine 소스 서브모듈은 접근 권한이 필요하다. 일반 빌드에 전체 서브모듈 초기화를 요구하지 않는다.
 - BlackPy가 BlackboxSystem을 직접 참조하여 최종 앱에서 UE와 같은 버전을 사용한다. 선택한 버전은 UE와 바이너리 호환성을 유지해야 한다.
 - 패키지를 갱신하면 서브모듈 커밋·버전·프로젝트 참조·`packages/source-manifest.json`·라이선스 고지를 함께 확인한다. 검증 후 참조되지 않는 이전 `.nupkg`는 제거한다.
 - 배포 스크립트는 기존 학생 Python 파일과 `project.json`을 덮어쓰거나 삭제하지 않는다. 새 기본 프로젝트 원본은 `distribution/project`이다.
-- 폴더 배포본은 `실습`의 배경·캐릭터 파일과 설정, `실습/_runtime`의 공통 실행부로 구성한다. 실습 폴더 전체를 함께 전달한다.
+- 새 학생 프로젝트는 바깥에 학생이 편집하는 Python 파일만 두고 설정·편집기 안내·실행 도구는 `_blackpy` 폴더에 모은다. 폴더 배포본의 공통 실행부는 `실습/_blackpy/_runtime`에 두며 실습 폴더 전체를 함께 전달한다. 기존 프로젝트의 파일은 자동 이동하거나 덮어쓰지 않는다.
 - pip 설치형은 Windows x64 wheel로 배포한다. 공통 실행부·기본 프로젝트 원본을 Python 패키지 안에 두고 학생 프로젝트는 설치 경로 밖에 생성한다. wheel은 새 임시 배포본에서 만들며 학생이 편집한 배포 폴더를 패키징하지 않는다.
 - 샘플 진입점은 해당 Python 환경에 설치된 BlackPy만 사용한다. 미설치 상태에서는 설치 안내 후 종료하며 저장소의 `artifacts` 실행부로 대체하지 않는다. 폴더 배포용 진입점을 샘플에 생성하지 않는다.
 - PyPI 공개는 `.github/workflows/publish.yml`의 GitHub Actions Trusted Publishing을 사용한다. 등록된 저장소·워크플로·`pypi` 환경을 일치시키고 장기 PyPI API 토큰을 저장하지 않는다. 공개 작업에만 `id-token: write`를 부여하며 전체 검증을 통과한 동일 wheel을 업로드한다. 공개 실행 조건과 최초 publisher 등록 절차는 `docs/Development.md`를 따른다.

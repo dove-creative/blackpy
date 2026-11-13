@@ -148,10 +148,74 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
         self.actor.say("안녕")
         self.assertEqual(self.runtime.snapshot()["message"], "무대 안내")
         self.assertEqual(self.runtime.snapshot()["sprites"][0]["speech"], "안녕")
-        with self.assertRaises(ValueError):
-            await background.forward(10)
+        await background.forward(10)
         with self.assertRaises(ValueError):
             self.actor.background = "city"
+
+    async def test_speech_joins_values_for_actors_and_background(self):
+        for target in (self.actor, self.runtime.background):
+            target.say("점수", 3, 1.5, True, None, [1, 2])
+        expected = "점수 3 1.5 True None [1, 2]"
+        self.assertEqual(self.actor.speech, expected)
+        self.assertEqual(self.runtime.message, expected)
+        self.actor.say()
+        self.runtime.background.say("")
+        self.assertEqual(self.actor.speech, "")
+        self.assertEqual(self.runtime.message, "")
+
+    async def test_speech_validates_combined_length(self):
+        for target in (self.actor, self.runtime.background):
+            target.say("가" * 99, "나" * 100)
+            for parts in (("가" * 201,), ("가" * 100, "나" * 100)):
+                with self.assertRaises(ValueError):
+                    target.say(*parts)
+            displayed = self.runtime.message if target.is_background else target.speech
+            self.assertEqual(displayed, "가" * 99 + " " + "나" * 100)
+
+    async def test_background_actor_commands_have_no_effect_or_wait(self):
+        background = self.runtime.background
+        before = self.runtime.snapshot()
+        commands = background.commands()
+        calls = {
+            "앞으로": (100,), "왼쪽으로돌기": (90,),
+            "오른쪽으로돌기": (90,), "왼쪽_돌기": (90,),
+            "오른쪽_돌기": (90,), "뒤집기": ("가로",), "좌표로": (10, 20),
+            "바라보기": (90,), "속도_변경": (2,),
+            "크기_바꾸기": (1,), "크기_정하기": (2,),
+            "가시성_설정": (False,), "물리_설정": ("물리",),
+            "무게_설정": (10,), "힘_작용": (90, 10),
+            "정지": (), "이름_정하기": ("새 배경",),
+        }
+        for continuous in (False, True):
+            context = EXECUTION.set((continuous, 0.1))
+            try:
+                for name, arguments in calls.items():
+                    for values in (arguments, (None,) * len(arguments)):
+                        with self.subTest(name=name, continuous=continuous):
+                            result = commands[name](*values)
+                            if asyncio.iscoroutine(result):
+                                result = await asyncio.wait_for(result, 1)
+                            self.assertIsNone(result)
+                background.look(10, 20)
+            finally:
+                EXECUTION.reset(context)
+        self.assertEqual(self.runtime.snapshot(), before)
+        self.assertEqual(background._physics_commands, [])
+        self.assertEqual(background.name, "배경")
+        self.assertEqual(background._position, (0, 0))
+        self.assertEqual(background._heading, 0)
+        self.assertEqual(background._speed, 1)
+        self.assertEqual(background._scale, 1)
+        self.assertTrue(background._visible)
+        self.assertEqual(background._mass, 1)
+        self.assertEqual(background._physics, "충돌만")
+
+    async def test_background_state_values_still_require_an_actor(self):
+        for name in ("position", "heading", "speed", "scale", "visible",
+                     "physics", "mass", "touching_names"):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, "상태 값"):
+                    getattr(self.runtime.background, name)
 
     async def test_lookup_and_calculations(self):
         self.actor.goto(10, 20)

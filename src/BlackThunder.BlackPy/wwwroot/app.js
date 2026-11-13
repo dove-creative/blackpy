@@ -14,14 +14,9 @@
     const startButton = document.getElementById("start-button");
     const stopButton = document.getElementById("stop-button");
     const restartButton = document.getElementById("restart-button");
-    const positionX = document.getElementById("position-x");
-    const positionY = document.getElementById("position-y");
-    const positionHeading = document.getElementById("position-heading");
     const positionReport = document.getElementById("position-report");
     const sceneMessage = document.getElementById("scene-message");
     const inputHint = document.getElementById("input-hint");
-    const targetSelect = document.getElementById("target-select");
-    const targetFile = document.getElementById("target-file");
     const categories = document.getElementById("categories");
     const commandCards = document.getElementById("command-cards");
     const categoryDescription = document.getElementById("category-description");
@@ -52,7 +47,10 @@
     let inputRunId = null;
     let capturedPointer = null;
     let project = null;
+    let projectImages = new Map();
     let selectedCategory = "events";
+    let lookupName = "고양이";
+    let positionSummary = "";
     let projectRequest = 0;
     let outputCount = 0;
     let pointerPosition = { x: 0, y: 0 };
@@ -75,36 +73,11 @@
         consoleArea.scrollTop = consoleArea.scrollHeight;
     });
 
-    function targets() {
-        if (!project) return [];
-        return [{ name: "배경", file: project.background.file, background: true }, ...project.actors];
-    }
-
-    function targetSprite(target) {
-        if (!target || target.background) return null;
-        const index = project.actors.findIndex(actor => actor.name === target.name);
-        const scene = state.scene || window.BlackPyPalette.previewScene(project);
-        return scene.sprites.find(sprite => sprite.id === `actor-${index + 1}`) || null;
-    }
-
-    function targetName(target) {
-        return targetSprite(target)?.label || target.name;
-    }
-
-    function updateTargetNames() {
-        let changed = false;
-
-        for (const option of targetSelect.children) {
-            const target = targets().find(item => item.name === option.value);
-            const name = target ? targetName(target) : option.value;
-
-            if (option.textContent !== name) {
-                option.textContent = name;
-                changed = true;
-            }
-        }
-
-        if (changed) renderPalette();
+    function updateLookupName() {
+        const name = state.scene?.sprites[0]?.label || project?.actors[0]?.name || "고양이";
+        if (lookupName === name) return;
+        lookupName = name;
+        renderPalette();
     }
 
     async function loadProject() {
@@ -120,21 +93,11 @@
                 throw new Error("프로젝트의 배경과 캐릭터 설정을 확인해 주세요.");
             }
 
-            const previous = targetSelect.value;
             project = body;
-            const options = targets().map(target => {
-                const option = document.createElement("option");
-                option.value = target.name;
-                option.textContent = targetName(target);
-                return option;
-            });
-            targetSelect.replaceChildren(...options);
-            targetSelect.value = targets().some(target => target.name === previous)
-                ? previous : (project.actors[0]?.name || "배경");
-            targetSelect.disabled = false;
-            renderPalette();
+            updateLookupName();
             updatePosition();
             requestDraw();
+            void loadImages(body, request);
         } catch (error) {
             if (request !== projectRequest) return;
             actionNotice = error instanceof Error ? error.message : "프로젝트를 확인해 주세요.";
@@ -142,12 +105,56 @@
         }
     }
 
+    async function loadImages(definition, request) {
+        const names = [...new Set([definition.background?.image, ...definition.actors.map(actor => actor.image)]
+            .filter(name => typeof name === "string" && name.length > 0))];
+        const loaded = new Map();
+
+        await Promise.all(names.map(async name => {
+            try {
+                const response = await fetch(`/api/image?name=${encodeURIComponent(name)}`,
+                    { headers: { "X-Playground-Token": token } });
+                if (!response.ok) {
+                    const body = await response.json().catch(() => ({}));
+                    throw new Error(body.error || `이미지를 불러오지 못했어요: ${name}`);
+                }
+                const url = URL.createObjectURL(await response.blob());
+                const image = new Image();
+                image.src = url;
+                loaded.set(name, { image, url });
+                await image.decode();
+            } catch (error) {
+                actionNotice = error instanceof Error ? error.message : `이미지를 확인해 주세요: ${name}`;
+                updateControls();
+            }
+        }));
+
+        if (request !== projectRequest) {
+            for (const entry of loaded.values()) URL.revokeObjectURL(entry.url);
+            return;
+        }
+
+        for (const entry of projectImages.values()) URL.revokeObjectURL(entry.url);
+        projectImages = loaded;
+        requestDraw();
+    }
+
+    function stageImages() {
+        const actors = new Map();
+        (project?.actors || []).forEach((actor, index) => {
+            const entry = projectImages.get(actor.image);
+            if (entry) actors.set(`actor-${index + 1}`, entry.image);
+        });
+        return {
+            backgroundKind: project?.background?.kind || "plain",
+            background: projectImages.get(project?.background?.image)?.image || null,
+            actors
+        };
+    }
+
     function renderPalette() {
-        const target = targets().find(item => item.name === targetSelect.value);
-        const isBackground = Boolean(target?.background);
-        targetFile.textContent = target?.file || "프로젝트의 Python 파일";
         const visibleCategories = window.BlackPyPalette.categories
-            .filter(item => window.BlackPyPalette.availableCards(item.id, isBackground).length > 0);
+            .filter(item => window.BlackPyPalette.availableCards(item.id).length > 0);
 
         if (!visibleCategories.some(item => item.id === selectedCategory)) {
             selectedCategory = "events";
@@ -170,26 +177,28 @@
         }));
 
         const descriptions = {
-            events: "‘중’ 함수는 누르거나 닿는 동안 매 프레임 실행돼요. 각 코드 줄을 눌러 복사해요.",
+            events: "‘중’ 함수는 매 프레임 실행돼요. 배경의 클릭 이벤트는 캐릭터가 없는 빈 곳을 클릭할 때 실행돼요.",
             motion: "일반 함수의 숫자는 거리·각도예요. ‘중’ 함수에서는 초당 이동량·회전량이고, 속도 배율도 곱해져요.",
             physics: "물리 모드와 무게를 정하고, 힘을 주거나 닿은 캐릭터를 확인해요. 충돌 때문에 회전하지는 않아요.",
-            looks: "내 캐릭터의 모습과 말을 바꿔요.",
+            looks: "캐릭터의 모습과 말을 바꿔요. 배경의 말하기는 무대 안내를 표시해요.",
             math: "숫자를 계산하고 조건을 만들어요.",
-            sensing: "캐릭터의 상태와 다른 캐릭터의 위치를 알아봐요."
+            sensing: "이름과 캐릭터의 위치를 알아봐요. 조회할 캐릭터 이름을 괄호 안에 넣어요."
         };
-        categoryDescription.textContent = isBackground && selectedCategory === "events"
-            ? "배경은 캐릭터가 없는 빈 곳의 클릭을 받아요. ‘중’ 함수는 매 프레임 실행돼요."
-            : descriptions[selectedCategory];
+        categoryDescription.textContent = descriptions[selectedCategory];
         const category = visibleCategories.find(item => item.id === selectedCategory);
-        const lookupTarget = project?.actors.find(actor => actor.name !== target?.name) || project?.actors[0];
-        const lookupName = lookupTarget ? targetName(lookupTarget) : "고양이";
-        const cards = window.BlackPyPalette.availableCards(selectedCategory, isBackground, lookupName);
+        const cards = window.BlackPyPalette.availableCards(selectedCategory, lookupName);
         commandCards.replaceChildren(...cards.flatMap(card => {
             const article = document.createElement("article");
             article.className = "command-card";
             article.style.setProperty("--category-color", category.color);
             const title = document.createElement("h3");
             title.textContent = card.title;
+            if (card.actor) {
+                const badge = document.createElement("span");
+                badge.className = "actor-badge";
+                badge.textContent = "캐릭터 전용";
+                title.appendChild(badge);
+            }
             article.appendChild(title);
 
             for (const row of card.rows) {
@@ -229,7 +238,7 @@
         try {
             await window.BlackPyPalette.copyCode(code, navigator.clipboard);
             copyStatus.classList.toggle("error", false);
-            copyStatus.textContent = `복사했어요! ${targetFile.textContent}에 붙여넣어요.`;
+            copyStatus.textContent = "복사했어요! 코드를 쓸 Python 파일에 붙여넣어요.";
         } catch (error) {
             copyStatus.classList.toggle("error", true);
             copyStatus.textContent = error instanceof Error ? error.message : "복사하지 못했어요. 다시 눌러 주세요.";
@@ -237,12 +246,18 @@
     }
 
     function updatePosition() {
-        const sprite = targetSprite(targets().find(target => target.name === targetSelect.value));
-        positionReport.hidden = !sprite;
-        if (!sprite) return;
-        positionX.textContent = numberLabel(sprite.x);
-        positionY.textContent = numberLabel(sprite.y);
-        positionHeading.textContent = `${numberLabel(sprite.heading)}°`;
+        const sprites = state.scene?.sprites || (project ? window.BlackPyPalette.previewScene(project).sprites : []);
+        positionReport.hidden = sprites.length === 0;
+        const labels = sprites.map(sprite =>
+            `${sprite.label} · x ${numberLabel(sprite.x)} · y ${numberLabel(sprite.y)} · 방향 ${numberLabel(sprite.heading)}°`);
+        const summary = JSON.stringify(labels);
+        if (positionSummary === summary) return;
+        positionSummary = summary;
+        positionReport.replaceChildren(...labels.map(label => {
+            const row = document.createElement("span");
+            row.textContent = label;
+            return row;
+        }));
     }
 
     function updateControls() {
@@ -448,7 +463,7 @@
             renderOutput(message.output, newRun);
         }
 
-        updateTargetNames();
+        updateLookupName();
         updatePosition();
         sceneMessage.hidden = state.scene === null || !state.scene.message;
 
@@ -600,7 +615,7 @@
         context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         context.clearRect(0, 0, logicalWidth, logicalHeight);
         const scene = state.scene?.active ? state.scene : window.BlackPyPalette.previewScene(project);
-        window.BlackPySceneRenderer.draw(context, scene);
+        window.BlackPySceneRenderer.draw(context, scene, stageImages());
     }
 
     startButton.addEventListener("click", () => sendAction("run"));
@@ -635,7 +650,6 @@
         if (document.hidden) releaseInput();
     });
     window.addEventListener("resize", resizeCanvas);
-    targetSelect.addEventListener("change", () => { renderPalette(); updatePosition(); });
     window.addEventListener("pagehide", () => {
         releaseInput();
         textInput.update(null, null);

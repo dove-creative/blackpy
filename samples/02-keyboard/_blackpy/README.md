@@ -4,9 +4,9 @@
 
 ## 실행
 
-`python -m pip install blackpy`로 설치한 뒤 이 폴더의 `시작.pyw`를 더블클릭한다. 명령줄에서는 저장소 루트에서 `python -m blackpy run ./samples/02-keyboard`로 연다. 웹의 시작 버튼을 누르고 무대를 클릭해 초점을 옮긴다. 설치 환경과 오류 확인 방법은 [샘플 실행 안내](../README.md)에 있다.
+`python -m pip install blackpy`로 설치한 뒤 이 폴더의 `시작.pyw`를 더블클릭한다. 명령줄에서는 저장소 루트에서 `python -m blackpy run ./samples/02-keyboard`로 연다. 웹의 시작 버튼을 누르고 무대를 클릭해 초점을 옮긴다. 설치 환경과 오류 확인 방법은 [샘플 실행 안내](../../README.md)에 있다.
 
-0.1.1 설치형에서는 이 폴더의 `고양이.py`나 `배경.py`에서 VS Code의 'Run Python File'을 눌러도 된다. 같은 폴더의 어느 `.py`에서 열어도 이 예제 전체를 실행한다. 설치와 직접 실행 조건은 [샘플 실행 안내](../README.md)에 있다.
+0.1.1 설치형에서는 이 폴더의 `고양이.py`나 `배경.py`에서 VS Code의 'Run Python File'을 눌러도 된다. 같은 폴더의 어느 `.py`에서 열어도 이 예제 전체를 실행한다. 설치와 직접 실행 조건은 [샘플 실행 안내](../../README.md)에 있다.
 
 ## 확인할 동작
 

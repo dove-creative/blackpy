@@ -4,7 +4,7 @@ import { access, cp, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } fro
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { TestHost, distributionRoot, toolRoot } from "./TestHost.mjs";
+import { TestHost, executable, distributionRoot, toolRoot, wheelPath } from "./TestHost.mjs";
 
 const names = ["01-movement", "02-keyboard", "03-click", "04-broadcast", "05-contact", "06-physics"];
 const basePython = process.env.PYTHON_EXE || "python";
@@ -14,8 +14,8 @@ const invoke = (executable, args, options = {}) => execFileSync(executable, args
 });
 
 async function studentFiles(directory) {
-    const files = (await readdir(directory)).filter(name => name.endsWith(".py") ||
-        name.endsWith(".pyi") || name === "project.json");
+    const files = (await readdir(directory, { recursive: true })).filter(name => name.endsWith(".py") ||
+        name.endsWith(".pyi") || path.basename(name) === "project.json");
     return Object.fromEntries(await Promise.all(files.map(async name =>
         [name, (await readFile(path.join(directory, name))).toString("base64")])));
 }
@@ -24,26 +24,26 @@ test("sample launchers require an installed package throughout install and unins
     const temporaryRoot = await mkdtemp(path.join(tmpdir(), "BlackPy 설치형 샘플 "));
     const pythonEnvironment = path.join(temporaryRoot, "venv");
     const python = path.join(pythonEnvironment, "Scripts", "python.exe");
-    const wheel = process.env.BLACKPY_WHEEL ||
-        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl");
+    const wheel = wheelPath;
     const canonical = await readFile(path.join(toolRoot, "scripts", "SampleLauncher.pyw"));
     const original = {};
 
     await mkdir(path.join(temporaryRoot, "artifacts"));
     await symlink(distributionRoot, path.join(temporaryRoot, "artifacts", "blackpy"), "junction");
-    await access(path.join(temporaryRoot, "artifacts", "blackpy", "실습", "_runtime", "BlackThunder.BlackPy.exe"));
+    await access(executable);
     for (const name of names) {
         const source = path.join(toolRoot, "samples", name);
         const workspace = path.join(temporaryRoot, "samples", name);
         assert.ok(!(await readdir(source)).includes("시작.exe"), "Samples must not retain a local-runtime launcher");
         original[name] = await studentFiles(source);
         await cp(source, workspace, { recursive: true });
-        assert.deepEqual(await readFile(path.join(workspace, "시작.pyw")), canonical);
+        assert.deepEqual(await readFile(path.join(workspace, "_blackpy", "시작.pyw")), canonical);
+        assert.ok((await readdir(source)).every(file => file === "_blackpy" || file.endsWith(".py")));
         await writeFile(path.join(workspace, "blackpy.py"), 'raise RuntimeError("LOCAL_BLACKPY_LOADED")\n');
     }
     invoke(basePython, ["-m", "venv", pythonEnvironment]);
 
-    const launcher = path.join(temporaryRoot, "samples", names[0], "시작.pyw");
+    const launcher = path.join(temporaryRoot, "samples", names[0], "_blackpy", "시작.pyw");
     const launchEnvironment = { ...environment, PYTHONPATH: path.join(toolRoot, "distribution") };
     const assertMissing = () => {
         const result = spawnSync(python, [launcher, "--console", "--no-browser"], {
@@ -61,17 +61,17 @@ test("sample launchers require an installed package throughout install and unins
     for (const name of names) {
         await context.test(`${name} uses its own project and exits with the last browser`, async () => {
             const workspace = path.join(temporaryRoot, "samples", name);
-            const expected = JSON.parse(await readFile(path.join(workspace, "project.json"), "utf8"));
+            const expected = JSON.parse(await readFile(path.join(workspace, "_blackpy", "project.json"), "utf8"));
             const host = new TestHost();
 
             try {
                 await host.open({ workspace, executable: python,
-                    args: [path.join(workspace, "시작.pyw"), "--console", "--no-browser", "--port", "0"],
+                    args: [path.join(workspace, "_blackpy", "시작.pyw"), "--console", "--no-browser", "--port", "0"],
                     cwd: toolRoot, env: launchEnvironment });
                 const metadata = await host.request("/api/project");
                 assert.equal(metadata.status, 200);
                 assert.deepEqual(metadata.body.actors, expected.actors.map(actor => ({
-                    heading: 0, scale: 1, speed: 1, visible: true, physics: "충돌만", mass: 1, ...actor
+                    heading: 0, scale: 1, speed: 1, visible: true, physics: "충돌만", trigger: false, mass: 1, ...actor
                 })));
                 assert.equal(metadata.body.background.kind, expected.background.kind);
                 await host.run();

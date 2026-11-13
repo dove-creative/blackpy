@@ -93,6 +93,9 @@ namespace BlackThunder.BlackPy
 
             var appearance = ValidateAppearance(request.Scene);
             var states = Initialized ? States() : CopyInitialActors(request.Actors);
+            if (!Initialized)
+                foreach (var state in states)
+                    state.Heading = appearance.Sprites.Single(sprite => sprite.Id == state.Id).Heading;
             var commands = ValidateCommands(request, states);
             var physics = new PhysicsStepRequest
             {
@@ -121,13 +124,9 @@ namespace BlackThunder.BlackPy
                 var actor = _actors[command.Id];
                 switch (command.Kind)
                 {
-                    case "heading":
-                        actor.Heading = Normalize(command.X);
-                        break;
                     case "motion":
                         if (command.Duration == 0)
                         {
-                            actor.Heading = Normalize(actor.Heading + command.Rotation);
                             Complete(command.Token);
                         }
                         else _motions.Add(new Motion { Command = Copy(command) });
@@ -137,6 +136,7 @@ namespace BlackThunder.BlackPy
                         break;
                     case "mode":
                         actor.State.Mode = command.Mode;
+                        actor.State.Trigger = command.Trigger;
                         break;
                     case "mass":
                         actor.State.Mass = command.X;
@@ -168,9 +168,20 @@ namespace BlackThunder.BlackPy
         {
             if (!Ready) return;
             Number(deltaTime, 0, double.MaxValue, "진행 시간");
-            var delta = Math.Min(deltaTime, 0.1);
-            var changes = new Dictionary<string, (double X, double Y, double Heading)>(StringComparer.Ordinal);
-            foreach (string id in _actors.Keys) changes.Add(id, (0, 0, 0));
+            var remaining = Math.Min(deltaTime, 0.1);
+            while (remaining > 1e-12)
+            {
+                var step = Math.Min(remaining, 1.0 / 120);
+                Advance(step);
+                remaining -= step;
+            }
+            TickNumber++;
+        }
+
+        private void Advance(double delta)
+        {
+            var changes = new Dictionary<string, (double X, double Y, double Heading, double Forward)>(StringComparer.Ordinal);
+            foreach (string id in _actors.Keys) changes.Add(id, (0, 0, 0, 0));
             var finished = new List<Motion>();
 
             foreach (Motion motion in _motions)
@@ -185,12 +196,15 @@ namespace BlackThunder.BlackPy
 
             foreach (Rate rate in _rates.Values) AddChange(rate.Command, delta);
             var commands = new List<PhysicsCommand>();
-            foreach (KeyValuePair<string, (double X, double Y, double Heading)> entry in changes)
+            foreach (var entry in changes)
             {
                 var change = entry.Value;
-                if (change.X != 0 || change.Y != 0)
-                    commands.Add(new PhysicsCommand { Id = entry.Key, Kind = "move", X = change.X, Y = change.Y });
-                _actors[entry.Key].Heading = Normalize(_actors[entry.Key].Heading + change.Heading);
+                if (change.X != 0 || change.Y != 0 || change.Heading != 0 || change.Forward != 0)
+                    commands.Add(new PhysicsCommand
+                    {
+                        Id = entry.Key, Kind = "move", X = change.X, Y = change.Y,
+                        Rotation = change.Heading, Forward = change.Forward
+                    });
             }
 
             var result = _physics.Step(new PhysicsStepRequest
@@ -204,13 +218,12 @@ namespace BlackThunder.BlackPy
                 Complete(motion.Command.Token);
             }
             Elapsed += delta;
-            TickNumber++;
 
             void AddChange(SimulationCommand command, double factor)
             {
                 var old = changes[command.Id];
                 changes[command.Id] = (old.X + command.X * factor, old.Y + command.Y * factor,
-                    old.Heading + command.Rotation * factor);
+                    old.Heading + command.Rotation * factor, old.Forward + command.Forward * factor);
             }
         }
 
@@ -330,6 +343,7 @@ namespace BlackThunder.BlackPy
                     {
                         Id = sprite.Id, Kind = sprite.Kind, X = state.X, Y = state.Y,
                         Width = state.Width, Height = state.Height, Heading = actor.Heading,
+                        FlipHorizontal = sprite.FlipHorizontal, FlipVertical = sprite.FlipVertical,
                         Visible = state.Visible, Color = sprite.Color, Label = sprite.Label, Speech = sprite.Speech
                     };
                 }).ToArray()
@@ -343,6 +357,8 @@ namespace BlackThunder.BlackPy
                 var actor = _actors[state.Id];
                 actor.State.X = state.X;
                 actor.State.Y = state.Y;
+                actor.State.Heading = state.Heading;
+                actor.Heading = state.Heading;
                 if (actor.Contacts.SequenceEqual(state.Contacts)) continue;
                 var exited = actor.Contacts.Except(state.Contacts).ToArray();
                 var entered = state.Contacts.Except(actor.Contacts).ToArray();
@@ -413,6 +429,7 @@ namespace BlackThunder.BlackPy
                     command.Kind == "rate" ? double.MaxValue : 100000, "세로 값");
                 Number(command.Rotation, command.Kind == "rate" ? -double.MaxValue : -1000000,
                     command.Kind == "rate" ? double.MaxValue : 1000000, "회전 값");
+                Number(command.Forward, -double.MaxValue, double.MaxValue, "앞으로 값");
                 if (command.Kind == "motion")
                 {
                     if (!Ready && !request.Ready) throw Invalid("이동은 시작 또는 이벤트 함수 안에서 사용해 주세요.");
@@ -421,7 +438,8 @@ namespace BlackThunder.BlackPy
                         throw Invalid("이동 완료 번호가 중복되거나 올바르지 않습니다.");
                     if (tokens.Count > HistoryLimit) throw Invalid("기다리는 이동 명령이 너무 많습니다.");
                     if (command.Duration == 0)
-                        physics.Add(new PhysicsCommand { Id = command.Id, Kind = "move", X = command.X, Y = command.Y });
+                        physics.Add(new PhysicsCommand
+                            { Id = command.Id, Kind = "move", X = command.X, Y = command.Y, Rotation = command.Rotation });
                 }
                 else if (command.Kind == "rate")
                 {
@@ -430,7 +448,6 @@ namespace BlackThunder.BlackPy
                             || command.Source == "pointer" || command.Source.StartsWith("contact:", StringComparison.Ordinal)))
                         throw Invalid("유지 이동의 입력과 순서 번호를 확인해 주세요.");
                 }
-                else if (command.Kind == "heading") Number(command.X, -1000000, 1000000, "방향");
                 else physics.Add(command);
             }
             return physics.ToArray();
@@ -441,13 +458,15 @@ namespace BlackThunder.BlackPy
         private static PhysicsActorState Copy(PhysicsActorState actor) => new()
         {
             Id = actor.Id, X = actor.X, Y = actor.Y, Width = actor.Width, Height = actor.Height,
-            Mode = actor.Mode, Mass = actor.Mass, Visible = actor.Visible
+            Mode = actor.Mode, Mass = actor.Mass, Visible = actor.Visible,
+            Heading = actor.Heading, Trigger = actor.Trigger
         };
 
         private static SimulationCommand Copy(SimulationCommand command) => new()
         {
             Id = command.Id, Kind = command.Kind, X = command.X, Y = command.Y, Mode = command.Mode,
             Token = command.Token, Duration = command.Duration, Rotation = command.Rotation,
+            Forward = command.Forward, Trigger = command.Trigger,
             Source = command.Source, Generation = command.Generation, Revision = command.Revision
         };
 

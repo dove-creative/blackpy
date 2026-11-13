@@ -43,8 +43,11 @@ namespace BlackThunder.BlackPy
             public double Height;
             public double X;
             public double Y;
+            public double Heading;
+            public bool Trigger;
             public B2ShapeId Shape;
             public bool Enabled => Visible && Mode != "없음";
+            public bool Solid => Enabled && !Trigger;
         }
 
 
@@ -118,13 +121,15 @@ namespace BlackThunder.BlackPy
                 var definition = b2DefaultBodyDef();
                 definition.type = B2BodyType.b2_kinematicBody;
                 definition.position = Vector(state.X, state.Y);
+                definition.rotation = Rotation(state.Heading);
                 definition.motionLocks.angularZ = true;
                 actor = new Actor
                 {
                     Id = state.Id,
                     Body = b2CreateBody(_world, definition),
                     X = state.X,
-                    Y = state.Y
+                    Y = state.Y,
+                    Heading = Normalize(state.Heading)
                 };
 
                 _actors.Add(state.Id, actor);
@@ -134,14 +139,16 @@ namespace BlackThunder.BlackPy
             var changedMode = actor.Mode != state.Mode;
             var changedVisibility = actor.Visible != state.Visible;
             var resized = actor.Width != state.Width || actor.Height != state.Height;
+            var changedTrigger = actor.Trigger != state.Trigger;
 
             if (!created && actor.Mode == "물리") ReadPosition(actor);
-            if (!created && resized) b2DestroyShape(actor.Shape, false);
+            if (!created && (resized || changedTrigger)) b2DestroyShape(actor.Shape, false);
 
-            if (created || resized)
+            if (created || resized || changedTrigger)
             {
                 ConfigureGeometry(actor, (float)(state.Width / 200), (float)(state.Height / 200));
                 var shape = b2DefaultShapeDef();
+                shape.isSensor = state.Trigger;
                 actor.Shape = b2CreatePolygonShape(body, shape, actor.Polygon);
                 actor.Width = state.Width;
                 actor.Height = state.Height;
@@ -163,6 +170,7 @@ namespace BlackThunder.BlackPy
 
             actor.Mode = state.Mode;
             actor.Visible = state.Visible;
+            actor.Trigger = state.Trigger;
 
             if (state.Mode == "물리" && (created || changedMode || resized || actor.Mass != state.Mass))
             {
@@ -171,6 +179,7 @@ namespace BlackThunder.BlackPy
             }
 
             actor.Mass = state.Mass;
+            if (created || changedMode || resized || changedTrigger) SetPosition(actor, actor.X, actor.Y);
             if (actor.Enabled && !b2Body_IsEnabled(body)) b2Body_Enable(body);
             if (!actor.Enabled && b2Body_IsEnabled(body)) b2Body_Disable(body);
         }
@@ -193,7 +202,14 @@ namespace BlackThunder.BlackPy
             switch (command.Kind)
             {
                 case "move":
-                    Move(actor, command.X, command.Y);
+                    Rotate(actor, command.Rotation);
+                    var radians = actor.Heading * Math.PI / 180;
+                    Move(actor, command.X + Math.Cos(radians) * command.Forward,
+                        command.Y + Math.Sin(radians) * command.Forward);
+                    break;
+                case "heading":
+                    actor.Heading = Normalize(command.X);
+                    SetPosition(actor, actor.X, actor.Y);
                     break;
                 case "teleport":
                     SetPosition(actor, command.X, command.Y);
@@ -219,7 +235,9 @@ namespace BlackThunder.BlackPy
                         Height = actor.Height,
                         Mode = actor.Mode,
                         Mass = actor.Mass,
-                        Visible = actor.Visible
+                        Visible = actor.Visible,
+                        Heading = actor.Heading,
+                        Trigger = actor.Trigger
                     };
 
                     ApplyConfiguration(state, command);
@@ -234,6 +252,7 @@ namespace BlackThunder.BlackPy
             {
                 case "mode":
                     state.Mode = command.Mode;
+                    state.Trigger = command.Trigger;
                     break;
                 case "mass":
                     state.Mass = command.X;
@@ -255,7 +274,7 @@ namespace BlackThunder.BlackPy
             if (actor.Mode == "물리") ReadPosition(actor);
             var fraction = 1.0f;
 
-            if (actor.Mode == "물리" && actor.Enabled && (x != 0 || y != 0))
+            if (actor.Solid && (x != 0 || y != 0))
             {
                 var translation = Vector(x, y);
                 foreach (Collider boundary in _boundaries)
@@ -263,13 +282,100 @@ namespace BlackThunder.BlackPy
 
                 foreach (Actor other in _actors.Values)
                 {
-                    if (other != actor && other.Enabled)
+                    if (other != actor && other.Solid)
                         fraction = Math.Min(fraction, CastFraction(actor, other, translation));
                 }
             }
 
             SetPosition(actor, actor.X + x * fraction, actor.Y + y * fraction);
         }
+
+        private void Rotate(Actor actor, double degrees)
+        {
+            if (degrees == 0) return;
+            if (actor.Mode == "물리") ReadPosition(actor);
+            if (!actor.Solid)
+            {
+                actor.Heading = Normalize(actor.Heading + degrees);
+                SetPosition(actor, actor.X, actor.Y);
+                return;
+            }
+
+            // Once a full turn is clear, additional full turns have the same swept geometry.
+            var sweep = Math.CopySign(Math.Min(Math.Abs(degrees), 360), degrees);
+            var radius = Math.Sqrt(actor.Width * actor.Width + actor.Height * actor.Height) / 2;
+            var steps = Math.Max(1, (int)Math.Ceiling(Math.Abs(sweep)
+                / Math.Min(2, 180 / (Math.PI * radius))));
+            var increment = sweep / steps;
+            var original = actor.Heading;
+            for (int i = 0; i < steps; i++)
+            {
+                var fraction = 1.0f;
+                foreach (Collider boundary in _boundaries)
+                    fraction = Math.Min(fraction, RotationFraction(actor, boundary, increment));
+                foreach (Actor other in _actors.Values)
+                    if (other != actor && other.Solid)
+                        fraction = Math.Min(fraction, RotationFraction(actor, other, increment));
+                actor.Heading = Normalize(actor.Heading + increment * fraction);
+                b2Body_SetTransform(actor.Body, Vector(actor.X, actor.Y), Rotation(actor.Heading));
+                if (fraction < 1) return;
+            }
+            actor.Heading = Normalize(original + degrees);
+            b2Body_SetTransform(actor.Body, Vector(actor.X, actor.Y), Rotation(actor.Heading));
+        }
+
+        private static float RotationFraction(Actor actor, Collider obstacle, double degrees)
+        {
+            var from = b2Body_GetTransform(actor.Body);
+            var target = from;
+            target.q = Rotation(actor.Heading + degrees);
+            var fixedTransform = b2Body_GetTransform(obstacle.Body);
+            var initialDepth = Penetration(actor, from, obstacle, fixedTransform);
+            var targetDepth = Penetration(actor, target, obstacle, fixedTransform);
+            var distance = Distance(actor, obstacle).distance;
+            var fraction = 1.0f;
+            if (distance > ContactTolerance)
+            {
+                var input = new B2TOIInput
+                {
+                    proxyA = obstacle.Proxy, proxyB = actor.Proxy, maxFraction = 1,
+                    sweepA = new B2Sweep
+                        { c1 = fixedTransform.p, c2 = fixedTransform.p, q1 = fixedTransform.q, q2 = fixedTransform.q },
+                    sweepB = new B2Sweep { c1 = from.p, c2 = from.p, q1 = from.q, q2 = target.q }
+                };
+                var hit = b2TimeOfImpact(input);
+                if (hit.state == B2TOIState.b2_toiStateHit) fraction = hit.fraction;
+                else if (hit.state == B2TOIState.b2_toiStateFailed) fraction = 0;
+            }
+
+            // TOI may miss glancing rotational contacts; reject any increase in penetration.
+            if (targetDepth > initialDepth + 0.00001f)
+            {
+                float low = 0, high = fraction;
+                for (int i = 0; i < 18; i++)
+                {
+                    var middle = (low + high) / 2;
+                    var probe = from;
+                    probe.q = Rotation(actor.Heading + degrees * middle);
+                    if (Penetration(actor, probe, obstacle, fixedTransform) > initialDepth + 0.00001f)
+                        high = middle;
+                    else low = middle;
+                }
+                fraction = low;
+            }
+            return fraction;
+        }
+
+        private static float Penetration(Collider actor, B2Transform pose, Collider obstacle, B2Transform fixedPose)
+        {
+            var manifold = b2CollidePolygons(ref obstacle.Polygon, fixedPose, ref actor.Polygon, pose);
+            var depth = 0.0f;
+            for (int i = 0; i < manifold.pointCount; i++) depth = Math.Max(depth, -manifold.points[i].separation);
+            return depth;
+        }
+
+        private static B2Rot Rotation(double degrees) => b2MakeRot((float)(degrees * Math.PI / 180));
+        private static double Normalize(double degrees) => (degrees % 360 + 360) % 360;
 
         private static float CastFraction(Actor actor, Collider obstacle, B2Vec2 translation)
         {
@@ -303,15 +409,20 @@ namespace BlackThunder.BlackPy
 
         private static void SetPosition(Actor actor, double x, double y)
         {
-            if (actor.Mode == "물리")
+            if (actor.Solid)
             {
-                x = Math.Clamp(x, -400 + actor.Width / 2, 400 - actor.Width / 2);
-                y = Math.Clamp(y, -300 + actor.Height / 2, 300 - actor.Height / 2);
+                var radians = actor.Heading * Math.PI / 180;
+                var halfWidth = (Math.Abs(Math.Cos(radians)) * actor.Width
+                    + Math.Abs(Math.Sin(radians)) * actor.Height) / 2;
+                var halfHeight = (Math.Abs(Math.Sin(radians)) * actor.Width
+                    + Math.Abs(Math.Cos(radians)) * actor.Height) / 2;
+                x = Math.Clamp(x, Math.Min(0, -400 + halfWidth), Math.Max(0, 400 - halfWidth));
+                y = Math.Clamp(y, Math.Min(0, -300 + halfHeight), Math.Max(0, 300 - halfHeight));
             }
 
             actor.X = x;
             actor.Y = y;
-            b2Body_SetTransform(actor.Body, Vector(x, y), b2Rot_identity);
+            b2Body_SetTransform(actor.Body, Vector(x, y), Rotation(actor.Heading));
             if (actor.Enabled) b2Body_SetAwake(actor.Body, true);
         }
 
@@ -324,7 +435,8 @@ namespace BlackThunder.BlackPy
             {
                 var actor = _actors["actor-" + (i + 1)];
                 if (actor.Mode == "물리") ReadPosition(actor);
-                results[i] = new PhysicsActorResult { Id = actor.Id, X = actor.X, Y = actor.Y };
+                results[i] = new PhysicsActorResult
+                    { Id = actor.Id, X = actor.X, Y = actor.Y, Heading = actor.Heading };
             }
 
             var contacts = new List<string>[results.Length];
@@ -397,6 +509,7 @@ namespace BlackThunder.BlackPy
 
                 ValidateNumber(actor.X, -100000, 100000, "가로 위치");
                 ValidateNumber(actor.Y, -100000, 100000, "세로 위치");
+                ValidateNumber(actor.Heading, -1000000, 1000000, "방향");
                 ValidateConfiguration(actor);
                 effective.Add(actor.Id, new PhysicsActorState
                 {
@@ -405,7 +518,7 @@ namespace BlackThunder.BlackPy
                     Height = actor.Height,
                     Mode = actor.Mode,
                     Mass = actor.Mass,
-                    Visible = actor.Visible
+                    Visible = actor.Visible, Trigger = actor.Trigger, Heading = actor.Heading
                 });
             }
 
@@ -416,11 +529,14 @@ namespace BlackThunder.BlackPy
                 if (command.Kind != "move" && command.Kind != "teleport"
                     && command.Kind != "impulse" && command.Kind != "stop"
                     && command.Kind != "mode" && command.Kind != "mass"
-                    && command.Kind != "visible" && command.Kind != "resize")
+                    && command.Kind != "visible" && command.Kind != "resize" && command.Kind != "heading")
                     throw Invalid("물리 명령의 종류를 확인해 주세요.");
 
-                ValidateNumber(command.X, -100000, 100000, "가로 값");
+                ValidateNumber(command.X, command.Kind == "heading" ? -1000000 : -100000,
+                    command.Kind == "heading" ? 1000000 : 100000, "가로 값");
                 ValidateNumber(command.Y, -100000, 100000, "세로 값");
+                ValidateNumber(command.Rotation, -1000000, 1000000, "회전 값");
+                ValidateNumber(command.Forward, -100000, 100000, "앞으로 값");
                 ApplyConfiguration(state, command);
                 ValidateConfiguration(state);
             }

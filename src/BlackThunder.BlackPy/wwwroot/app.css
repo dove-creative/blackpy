@@ -97,8 +97,8 @@ h2 { font-size: 20px; }
 .console-submit:not(:disabled):hover { background: #f0f5ed; }
 .text-input-status { flex-basis: 100%; color: #975f4b; overflow-wrap: anywhere; }
 .text-input-status:not(:empty) { margin-top: 4px; }
-.position-report { padding: 0 18px 15px; gap: 20px; font-size: 14px; color: #79867b; }
-.position-report strong { color: #385a4d; }
+.position-report { padding: 0 18px 15px; gap: 6px 20px; flex-wrap: wrap; font-size: 14px; color: #617568; }
+.position-report span { overflow-wrap: anywhere; }
 .output-panel .panel-heading { padding-bottom: 9px; }
 .output-icon { color: #9bad9f; }
 .console-area { min-height: 100px; height: 134px; overflow: auto; margin: 0 18px 15px; font-size: 15px; }
@@ -114,19 +114,8 @@ h2 { font-size: 20px; }
 .palette-heading { justify-content: space-between; gap: 8px; padding: 19px 20px 15px; }
 .eyebrow { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.6px; color: #809183; margin-bottom: 3px; }
 .copy-badge { background: #f0f5ed; border-radius: 16px; padding: 5px 10px; font-size: 12px; color: #617e63; }
-.target-picker { padding: 0 20px 17px; border-bottom: 1px solid #e8ece5; }
-.target-picker label { display: block; font-size: 13px; color: #617568; margin-bottom: 6px; }
-.target-picker select {
-    width: 100%;
-    border: 1px solid #d5e1d6;
-    border-radius: 9px;
-    padding: 8px 10px;
-    font-weight: 700;
-    color: #355544;
-    background: #fcfdf9;
-}
-.target-picker p { margin-top: 7px; font-size: 12px; color: #6c7b70; overflow-wrap: anywhere; }
-.target-picker code { color: #2e6c58; font-weight: 600; }
+.palette-guide { padding: 0 20px 17px; border-bottom: 1px solid #e8ece5; }
+.palette-guide p { margin-top: 7px; font-size: 12px; color: #6c7b70; overflow-wrap: anywhere; }
 .palette-workspace { display: grid; grid-template-columns: 75px minmax(0, 1fr); }
 .categories { background: #fafbf7; padding: 12px 5px; border-right: 1px solid #e8ece5; }
 .category-button {
@@ -158,6 +147,7 @@ h2 { font-size: 20px; }
     overflow: hidden;
 }
 .command-card h3 { font-size: 12px; font-weight: 700; background: #f9faf6; padding: 9px 11px; }
+.actor-badge { margin-left: 7px; color: #718071; font-size: 10px; font-weight: 400; white-space: nowrap; }
 .code-row {
     display: flex;
     align-items: flex-start;

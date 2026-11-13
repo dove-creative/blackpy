@@ -11,6 +11,19 @@ namespace BlackThunder.BlackPy.Tests
     public class ProjectLoaderTests
     {
         [Test]
+        public void SupportFolderConfigurationKeepsStudentSourcesAtProjectRoot()
+        {
+            using var project = new ProjectTestDirectory();
+            var support = Path.Combine(project.Path, "_blackpy");
+            Directory.CreateDirectory(support);
+            File.Move(Path.Combine(project.Path, "project.json"), Path.Combine(support, "project.json"));
+            File.WriteAllText(Path.Combine(project.Path, "project.json"), "invalid legacy configuration");
+            var snapshot = ProjectLoader.ReadSnapshot(project.Path);
+            Assert.That(snapshot.Sources[1].Filename, Is.EqualTo(Path.Combine(project.Path, "고양이.py")));
+            Assert.That(snapshot.Project.Actors[0].Name, Is.EqualTo("고양이"));
+        }
+
+        [Test]
         public void SnapshotRetainsEverySourceAndDefinitionUntilReadAgain()
         {
             using var project = new ProjectTestDirectory();
@@ -32,6 +45,61 @@ namespace BlackThunder.BlackPy.Tests
             Assert.That(json.RootElement.GetProperty("sources").GetArrayLength(), Is.EqualTo(2));
             Assert.That(json.RootElement.GetProperty("project").GetProperty("actors")[0]
                 .GetProperty("speed").GetDouble(), Is.EqualTo(1));
+            Assert.That(json.RootElement.GetProperty("project").GetProperty("actors")[0]
+                .TryGetProperty("image", out _), Is.False);
+            Assert.That(json.RootElement.GetProperty("project").GetProperty("background")
+                .TryGetProperty("image", out _), Is.False);
+        }
+
+        [Test]
+        public void ImagesBesideTheSupportConfigurationAreValidatedAndRead()
+        {
+            using var project = new ProjectTestDirectory();
+            var support = Path.Combine(project.Path, "_blackpy");
+            Directory.CreateDirectory(support);
+            var svg = Encoding.UTF8.GetBytes("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 8 6\"/>");
+            File.WriteAllBytes(Path.Combine(support, "낚시터.svg"), svg);
+            File.WriteAllBytes(Path.Combine(support, "로켓.PNG"), new byte[] { 137, 80, 78, 71 });
+            File.WriteAllBytes(Path.Combine(support, "비밀.svg"), svg);
+            project.Definition.Background.Image = "낚시터.svg";
+            project.Definition.Actors[0].Image = "로켓.PNG";
+            project.SaveDefinition();
+            File.Move(Path.Combine(project.Path, "project.json"), Path.Combine(support, "project.json"));
+
+            var definition = ProjectLoader.ReadSnapshot(project.Path).Project;
+            var background = ProjectLoader.ReadImage(project.Path, definition, "낚시터.svg");
+            var actor = ProjectLoader.ReadImage(project.Path, definition, "로켓.PNG");
+
+            Assert.That(background.Bytes, Is.EqualTo(svg));
+            Assert.That(background.ContentType, Is.EqualTo("image/svg+xml"));
+            Assert.That(actor.ContentType, Is.EqualTo("image/png"));
+            Assert.That(Assert.Throws<BlackPyException>(() =>
+                ProjectLoader.ReadImage(project.Path, definition, "비밀.svg"))!.StatusCode, Is.EqualTo(404));
+            Assert.That(Assert.Throws<BlackPyException>(() =>
+                ProjectLoader.ReadImage(project.Path, definition, "project.json"))!.StatusCode, Is.EqualTo(404));
+            using var json = JsonDocument.Parse(JsonSerializer.Serialize(definition, StateMessage.JsonOptions));
+            Assert.That(json.RootElement.GetProperty("background").GetProperty("image").GetString(),
+                Is.EqualTo("낚시터.svg"));
+        }
+
+        [TestCase("../outside.svg")]
+        [TestCase("sub/stage.svg")]
+        [TestCase("sub\\stage.svg")]
+        [TestCase("C:\\stage.svg")]
+        [TestCase("stage.txt")]
+        [TestCase("project.json")]
+        [TestCase(".svg")]
+        [TestCase("")]
+        [TestCase("없는그림.svg")]
+        public void ImagesMustBeExistingPictureFilesBesideProjectJson(string image)
+        {
+            using var project = new ProjectTestDirectory();
+            File.WriteAllText(Path.Combine(project.Path, "stage.txt"), "not an image");
+            project.Definition.Background.Image = image;
+            project.SaveDefinition();
+            var error = Assert.Throws<BlackPyException>(() => ProjectLoader.ReadDefinition(project.Path))!;
+            Assert.That(error.StatusCode, Is.EqualTo(400));
+            Assert.That(error.Message, Does.Contain("이미지"));
         }
 
         [TestCase("../outside.py")]

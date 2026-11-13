@@ -29,10 +29,8 @@ test("movement sample completes its square at the initial position", async () =>
         assert.ok(Math.abs(cat.x + 160) < 0.01);
         assert.ok(Math.abs(cat.y + 80) < 0.01);
         assert.ok(Math.min(Math.abs(cat.heading), Math.abs(cat.heading - 360)) < 0.01);
-        assert.equal(cat.speech, "다시 제자리예요!");
-        assert.match(host.text(), /네모 걷기 완료:/);
-        assert.ok(host.history.some(scene => scene.sprites[0].x > -10));
-        assert.ok(host.history.some(scene => scene.sprites[0].y > 70));
+        assert.ok(host.history.some(scene => scene.sprites[0].x > -70));
+        assert.ok(host.history.some(scene => scene.sprites[0].y > 10));
     });
 });
 

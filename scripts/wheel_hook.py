@@ -23,7 +23,7 @@ class WindowsRuntimeHook(BuildHookInterface):
                  "-Destination", self.staging.name],
                 cwd=root, check=True,
             )
-            runtime = Path(self.staging.name) / "실습" / "_runtime"
+            runtime = Path(self.staging.name) / "실습" / "_blackpy" / "_runtime"
             build_data["force_include"][str(runtime)] = "blackpy/_runtime"
             build_data["force_include"][str(root / "distribution" / "project")] = (
                 "blackpy/_templates"

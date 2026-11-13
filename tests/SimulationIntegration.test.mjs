@@ -174,6 +174,7 @@ test("contact enter and exit are retained when both occur during a Python stall"
     for (const actor of project.actors) Object.assign(actor, { kind: "ball", scale: 0.2, y: 0 });
     project.actors[0].x = -200;
     project.actors[1].x = 0;
+    project.actors[1].trigger = true;
     const cat = 'def 시작():\n    앞으로(400)\n' +
         '\ndef 닿았을_때(목록):\n    print("CONTACT_ENTER", 목록, flush=True)\n' +
         '\ndef 닿는_중_종료(목록):\n    print("CONTACT_EXIT", 목록, flush=True)\n';

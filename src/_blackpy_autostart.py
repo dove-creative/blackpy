@@ -63,8 +63,13 @@ def _project_directory(filename):
         return None
 
     directory = os.path.dirname(filename)
+    if os.path.basename(directory) == "_blackpy":
+        return None
+    configuration = os.path.join(directory, "_blackpy", "project.json")
+    if not os.path.isfile(configuration):
+        configuration = os.path.join(directory, "project.json")
     try:
-        with open(os.path.join(directory, "project.json"), encoding="utf-8-sig") as stream:
+        with open(configuration, encoding="utf-8-sig") as stream:
             source = stream.read()
         import json
         project = json.loads(source)

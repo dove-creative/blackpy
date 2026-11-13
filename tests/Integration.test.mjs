@@ -18,8 +18,10 @@ test("authentication and missing project never create student files", async () =
 });
 
 test("normal moves finish before the next line and actors move simultaneously", async () => {
+    const project = defaultProject();
+    for (const actor of project.actors) actor.physics = "없음";
     await host.write('def 시작():\n    print("CAT_BEGIN")\n    앞으로(100)\n    print("고양이 도착 🐱")\n',
-        'def 시작():\n    print("CAR_BEGIN")\n    앞으로(100)\n    print("자동차 도착")\n');
+        'def 시작():\n    print("CAR_BEGIN")\n    앞으로(100)\n    print("자동차 도착")\n', "", project);
     const started = Date.now();
     await host.run();
     await host.done();
@@ -111,6 +113,31 @@ test("project validation rejects unsafe paths and duplicate actors", async () =>
     await host.write("", "", "", config);
     assert.equal((await host.request("/api/run")).status, 400);
     await host.write("", "", "", { ...defaultProject(), actors: [defaultProject().actors[0], defaultProject().actors[0]] });
+    assert.equal((await host.request("/api/run")).status, 400);
+});
+
+test("project images are served only by name, with the token and a sandboxed type", async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 6"><rect width="8" height="6"/></svg>';
+    await writeFile(path.join(host.workspace, "무대.svg"), svg, "utf8");
+    await writeFile(path.join(host.workspace, "숨김.svg"), svg, "utf8");
+    const config = defaultProject();
+    config.background.image = "무대.svg";
+    await host.write("", "", "", config);
+    assert.equal((await host.request("/api/project")).body.background.image, "무대.svg");
+    const fetchImage = (name, token = host.token) => fetch(`${host.address}/api/image?name=${encodeURIComponent(name)}`,
+        { headers: { "X-Playground-Token": token }, signal: AbortSignal.timeout(15000) });
+
+    const image = await fetchImage("무대.svg");
+    assert.equal(image.status, 200);
+    assert.equal(image.headers.get("content-type"), "image/svg+xml");
+    assert.match(image.headers.get("content-security-policy"), /sandbox/);
+    assert.equal(await image.text(), svg);
+    assert.equal((await fetchImage("무대.svg", "wrong")).status, 401);
+    assert.equal((await fetchImage("숨김.svg")).status, 404);
+    assert.equal((await fetchImage("project.json")).status, 404);
+
+    config.background.image = "../무대.svg";
+    await host.write("", "", "", config);
     assert.equal((await host.request("/api/run")).status, 400);
 });
 

@@ -18,12 +18,14 @@ test("start-only physics stays alive, falls to the boundary and does not rotate"
     await host.write('def 시작():\n    방향 = 37\n    힘_작용(0, 2)\n', "", "", physicsProject());
     await host.run();
     await host.wait(() => host.sprite()?.x > 30 && host.sprite()?.y < 80, "impulse and gravity");
-    await host.wait(() => Math.abs(host.sprite()?.y + 284) < 1, "stage floor");
+    const halfHeight = 16 * (Math.cos(37 * Math.PI / 180) + Math.sin(37 * Math.PI / 180));
+    const floorY = -300 + halfHeight;
+    await host.wait(() => Math.abs(host.sprite()?.y - floorY) < 1, "rotated box on stage floor");
     assert.equal(host.state.status, "running");
     assert.equal(host.sprite().heading, 37);
     assert.ok(host.sprite().x <= 384.8);
     await pause(150);
-    assert.ok(Math.abs(host.sprite().y + 284) < 1);
+    assert.ok(Math.abs(host.sprite().y - floorY) < 1);
 });
 
 test("movement waits for the resolved wall position before the next student statement", async () => {

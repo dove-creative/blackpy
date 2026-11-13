@@ -49,6 +49,32 @@ namespace BlackThunder.BlackPy.Tests
         }
 
         [Test]
+        public void FlipAppearanceSurvivesPhysicsTicksAndResetsOnRestart()
+        {
+            var request = Begin(Actor(1, 20, 30));
+            request.Scene.Sprites[0].FlipHorizontal = true;
+            request.Scene.Sprites[0].FlipVertical = true;
+            Send(request);
+            request.Scene.Sprites[0].FlipHorizontal = false;
+            request.Scene.Sprites[0].FlipVertical = false;
+            _simulation.Tick(0.1);
+            var sprite = _simulation.Scene().Sprites[0];
+            Assert.That(sprite.FlipHorizontal, Is.True);
+            Assert.That(sprite.FlipVertical, Is.True);
+            Assert.That(sprite.X, Is.EqualTo(20));
+            Assert.That(sprite.Y, Is.EqualTo(30));
+            Assert.That(sprite.Heading, Is.Zero);
+            Assert.That(sprite.Width, Is.EqualTo(40));
+            Assert.That(sprite.Height, Is.EqualTo(40));
+            _simulation.BeginRun("next", 1);
+            var next = Request(Actor(1));
+            next.RunId = "next";
+            _simulation.Exchange(next);
+            Assert.That(_simulation.Scene().Sprites[0].FlipHorizontal, Is.False);
+            Assert.That(_simulation.Scene().Sprites[0].FlipVertical, Is.False);
+        }
+
+        [Test]
         public void LongPauseConsumesOnlyTheBoundedPhysicsBudget()
         {
             Begin(Actor(1, mode: "물리"));
@@ -155,7 +181,7 @@ namespace BlackThunder.BlackPy.Tests
             _simulation.Tick(0.1);
             _simulation.Accept(new InputEvent(new InputRequest { Kind = "pointerup", Button = "왼쪽" }));
             _simulation.Tick(0.1);
-            Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(110));
+            Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(110).Within(1e-9));
             Assert.That(_simulation.Snapshot().PointerId, Is.Null);
         }
 
@@ -263,7 +289,7 @@ namespace BlackThunder.BlackPy.Tests
         [Test]
         public void LongMotionsAndFiniteRatesAreValidatedAtTheirActualTickDisplacement()
         {
-            var request = Begin(Actor(1));
+            var request = Begin(Actor(1, mode: "없음"));
             var key = Accept("keydown", "오른쪽");
             request.Commands = new[]
             {
@@ -273,6 +299,30 @@ namespace BlackThunder.BlackPy.Tests
             _simulation.Tick(0.01);
             Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(2000.00001).Within(1e-6));
             Assert.That(_simulation.Snapshot().Completed, Is.Empty);
+        }
+
+        [Test]
+        public void HeldForwardFollowsTurningWithoutAnyMorePythonExchanges()
+        {
+            var request = Begin(Actor(1, mode: "없음"));
+            var up = Accept("keydown", "위");
+            var left = Accept("keydown", "왼쪽");
+            var forward = Rate("key:위", up.Generation, 1, 0, 0);
+            forward.Forward = 100;
+            var turn = Rate("key:왼쪽", left.Generation, 2, 0, 0);
+            turn.Rotation = 90;
+            request.Commands = new[] { forward, turn };
+            Send(request);
+            for (int i = 0; i < 60; i++) _simulation.Tick(1.0 / 60);
+            var car = _simulation.Snapshot().Actors[0];
+            Assert.That(car.Heading, Is.EqualTo(90).Within(0.001));
+            Assert.That(car.X, Is.InRange(62, 65));
+            Assert.That(car.Y, Is.InRange(62, 65));
+            Accept("keyup", "위");
+            Accept("keyup", "왼쪽");
+            _simulation.Tick(0.1);
+            Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(car.X));
+            Assert.That(_simulation.Snapshot().Actors[0].Heading, Is.EqualTo(car.Heading));
         }
 
         private SimulationExchangeRequest Begin(params PhysicsActorState[] actors)

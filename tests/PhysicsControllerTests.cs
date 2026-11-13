@@ -372,6 +372,78 @@ namespace BlackThunder.BlackPy.Tests
             Assert.That(state.Actors[0].Y, Is.EqualTo(50).Within(0.001));
         }
 
+        [Test]
+        public void SolidKinematicMoveStopsAtWallAndCanReverse()
+        {
+            _physics.BeginRun("run", 2);
+            var actors = new[] { Actor(1), Actor(2, x: 100) };
+            var hit = Step(0, actors, Command(1, "move", 500));
+            Assert.That(hit.Actors[0].X, Is.EqualTo(50).Within(0.8));
+            Assert.That(hit.Actors[0].Contacts, Is.EqualTo(new[] { "actor-2" }));
+            var back = Step(0, actors, Command(1, "move", -25));
+            Assert.That(back.Actors[0].X, Is.EqualTo(25).Within(0.8));
+            Assert.That(back.Actors[0].Contacts, Is.Empty);
+        }
+
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void EitherTriggerAllowsPassageAndStillReportsContact(bool first, bool second)
+        {
+            _physics.BeginRun("run", 2);
+            var actors = new[] { Actor(1), Actor(2, x: 100) };
+            actors[0].Trigger = first;
+            actors[1].Trigger = second;
+            var overlap = Step(0, actors, Command(1, "move", 100));
+            Assert.That(overlap.Actors[0].X, Is.EqualTo(100));
+            Assert.That(overlap.Actors[0].Contacts, Is.EqualTo(new[] { "actor-2" }));
+            Assert.That(Step(0, actors, Command(1, "move", 100)).Actors[0].Contacts, Is.Empty);
+        }
+
+        [Test]
+        public void RotatedRectangleUsesItsOrientedCollider()
+        {
+            _physics.BeginRun("run", 2);
+            var car = Actor(1);
+            car.Width = 120;
+            car.Height = 30;
+            car.Heading = 90;
+            var actors = new[] { car, Actor(2, x: 65) };
+            Assert.That(Step(0, actors).Actors[0].Contacts, Is.Empty);
+            var hit = Step(0, actors, Command(1, "move", 200));
+            Assert.That(hit.Actors[0].X, Is.EqualTo(25).Within(0.8));
+            Assert.That(hit.Actors[0].Heading, Is.EqualTo(90));
+        }
+
+        [Test]
+        public void RotationStopsBeforeCornerPenetratesAndCanTurnAway()
+        {
+            _physics.BeginRun("run", 2);
+            var car = Actor(1);
+            car.Width = 120;
+            car.Height = 30;
+            var wall = Actor(2, y: 65);
+            wall.Width = 300;
+            var actors = new[] { car, wall };
+            var hit = Step(0, actors, new PhysicsCommand { Id = car.Id, Kind = "move", Rotation = 180 });
+            Assert.That(hit.Actors[0].Heading, Is.InRange(10, 45));
+            Assert.That(hit.Actors[0].Contacts, Is.EqualTo(new[] { wall.Id }));
+            var released = Step(0, actors, new PhysicsCommand { Id = car.Id, Kind = "move", Rotation = -10 });
+            Assert.That(released.Actors[0].Heading, Is.LessThan(hit.Actors[0].Heading - 9));
+        }
+
+        [Test]
+        public void TriggerDynamicBodyFallsThroughSolidPlatformAndModeCanRestoreBlocking()
+        {
+            _physics.BeginRun("run", 2);
+            var body = Actor(1, "물리", y: 100);
+            body.Trigger = true;
+            var actors = new[] { body, Actor(2) };
+            Assert.That(Step(0.8, actors).Actors[0].Y, Is.LessThan(-100));
+            var mode = Mode(1, "충돌만");
+            var result = Step(0, actors, mode, Command(1, "teleport", -100), Command(1, "move", 200));
+            Assert.That(result.Actors[0].X, Is.EqualTo(-50).Within(0.8));
+        }
+
         private PhysicsStepResult Step(double time, PhysicsActorState[] actors, params PhysicsCommand[] commands) =>
             _physics.Step(new PhysicsStepRequest
             {

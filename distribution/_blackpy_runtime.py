@@ -135,14 +135,12 @@ class ProjectRuntime:
 
             for name, count in EVENT_ARGUMENTS.items():
                 function = namespace.get(name)
-                if function is None:
+                if function is None or (obj.is_background and name in CONTACT_EVENTS):
                     continue
                 line = getattr(getattr(function, "__code__", None), "co_firstlineno", 1)
                 try:
                     if not inspect.iscoroutinefunction(function):
                         raise TypeError("일반 def로 정의해야 합니다.")
-                    if obj.is_background and name in CONTACT_EVENTS:
-                        raise TypeError("배경에는 접촉 이벤트를 사용할 수 없어요.")
                     inspect.signature(function).bind(*([None] * count))
                 except (TypeError, ValueError) as error:
                     raise SyntaxError(
@@ -216,7 +214,8 @@ class ProjectRuntime:
             generation = self.contact_generations[actor.id]
         self.rate_revision += 1
         return {"actor": actor, "source": source, "generation": generation,
-                "revision": self.rate_revision, "x": 0.0, "y": 0.0, "rotation": 0.0}
+                "revision": self.rate_revision, "x": 0.0, "y": 0.0,
+                "rotation": 0.0, "forward": 0.0}
 
     def movement_active(self, movement):
         if movement is None:
@@ -234,17 +233,19 @@ class ProjectRuntime:
         if self.movement_active(movement) and not movement["actor"].is_background:
             movement["actor"].queue_physics(
                 "rate", movement["x"], movement["y"], rotation=movement["rotation"],
+                forward=movement["forward"],
                 source=movement["source"], generation=movement["generation"],
                 revision=movement["revision"],
             )
 
-    def change_rate(self, actor, x=0.0, y=0.0, rotation=0.0):
+    def change_rate(self, actor, x=0.0, y=0.0, rotation=0.0, forward=0.0):
         movement = MOVEMENT.get()
         if movement is None or not self.movement_active(movement):
             return
         movement["x"] += x
         movement["y"] += y
         movement["rotation"] += rotation
+        movement["forward"] += forward
         self.send_rate(movement)
 
     def finish(self, task, guard):

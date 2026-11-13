@@ -6,5 +6,5 @@ if not exist "%~dp0_runtime\BlackThunder.BlackPy.exe" (
     pause
     exit /b 1
 )
-"%~dp0_runtime\BlackThunder.BlackPy.exe" --project "%~dp0." %*
+"%~dp0_runtime\BlackThunder.BlackPy.exe" --project "%~dp0.." %*
 if errorlevel 1 pause

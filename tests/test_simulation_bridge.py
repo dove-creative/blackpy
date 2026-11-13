@@ -112,7 +112,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         runtime.dispatch(actor, "키_클릭_중", ("오른쪽",), 0.1)
         await settle()
         rates = actor._physics_commands
-        self.assertEqual([rate["x"] for rate in rates], [0, 100, 120])
+        self.assertEqual([rate["forward"] for rate in rates], [0, 100, 120])
         self.assertEqual(len({rate["revision"] for rate in rates}), 1)
         old_revision = rates[-1]["revision"]
         actor._physics_commands = []

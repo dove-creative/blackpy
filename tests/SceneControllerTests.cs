@@ -37,6 +37,30 @@ namespace BlackThunder.BlackPy.Tests
         }
 
         [Test]
+        public void FlipFlagsAreCopiedSerializedAndDefaultToFalse()
+        {
+            var scene = new SceneController();
+            scene.BeginRun("first");
+            var frame = Frame("first");
+            frame.Scene.Sprites[0].FlipHorizontal = true;
+            frame.Scene.Sprites[0].FlipVertical = true;
+            scene.Submit(frame);
+            frame.Scene.Sprites[0].FlipHorizontal = false;
+            frame.Scene.Sprites[0].FlipVertical = false;
+            Assert.That(scene.State.Sprites[0].FlipHorizontal, Is.True);
+            Assert.That(scene.State.Sprites[0].FlipVertical, Is.True);
+            using var json = JsonDocument.Parse(new StateMessage { Scene = scene.State }.Serialize(false));
+            var sprite = json.RootElement.GetProperty("scene").GetProperty("sprites")[0];
+            Assert.That(sprite.GetProperty("flipHorizontal").GetBoolean(), Is.True);
+            Assert.That(sprite.GetProperty("flipVertical").GetBoolean(), Is.True);
+            var original = JsonSerializer.Deserialize<SpriteState>("{\"id\":\"actor-1\"}", StateMessage.JsonOptions)!;
+            Assert.That(original.FlipHorizontal, Is.False);
+            Assert.That(original.FlipVertical, Is.False);
+            Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SpriteState>(
+                "{\"flipHorizontal\":\"가로\"}", StateMessage.JsonOptions));
+        }
+
+        [Test]
         public void SixtyFourSpritesWithFullUnicodeSpeechFitTheRequestLimit()
         {
             var scene = new SceneController();

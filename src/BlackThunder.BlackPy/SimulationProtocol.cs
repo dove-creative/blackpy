@@ -19,7 +19,6 @@ namespace BlackThunder.BlackPy
     {
         public string Token { get; set; } = "";
         public double Duration { get; set; }
-        public double Rotation { get; set; }
         public string Source { get; set; } = "";
         public long Generation { get; set; }
         public long Revision { get; set; }
@@ -27,7 +26,6 @@ namespace BlackThunder.BlackPy
 
     public class SimulationActorResult : PhysicsActorResult
     {
-        public double Heading { get; set; }
         public long ContactGeneration { get; set; }
     }
 

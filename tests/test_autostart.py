@@ -39,6 +39,15 @@ class AutostartTests(unittest.TestCase):
             replacement.start()
             self.addCleanup(replacement.stop)
 
+    def test_nested_configuration_uses_student_root_and_takes_precedence(self):
+        support = self.project / "_blackpy"
+        support.mkdir()
+        self.config.replace(support / "project.json")
+        self.config.write_text("invalid legacy configuration", encoding="utf-8")
+        self.assertEqual(autostart._project_directory(str(self.script)), str(self.project))
+        (support / "helper.py").write_text("", encoding="utf-8")
+        self.assertIsNone(autostart._project_directory(str(support / "helper.py")))
+
     def test_install_is_idempotent_and_does_not_import_runtime_package(self):
         before = sys.modules.get("blackpy")
         with patch.object(autostart.sys, "addaudithook") as register:

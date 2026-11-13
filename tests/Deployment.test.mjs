@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { cp, mkdir, mkdtemp, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,12 +11,13 @@ const toolRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const distributionRoot = path.resolve(process.env.BLACKPY_DISTRIBUTION ||
     path.join(toolRoot, "artifacts", "blackpy"));
 const practice = path.join(distributionRoot, "실습");
+const support = existsSync(path.join(practice, "_blackpy", "project.json")) ? "_blackpy" : "";
 const reportPath = path.join(toolRoot, "artifacts", "test-results", "deployment-verification.json");
 const pwsh = process.env.POWERSHELL_EXE || "pwsh";
 const report = {
     passed: false, checks: [], limits: ["Tested on a development machine, not a clean SDK-free machine."]
 };
-const sourceConfig = await readFile(path.join(practice, "project.json"));
+const sourceConfig = await readFile(path.join(practice, support, "project.json"));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 let launcher;
 let hostPid;
@@ -81,10 +83,13 @@ try {
     await mkdir(otherCwd);
     await mkdir(emptyDotnet);
     await cp(practice, copiedPractice, { recursive: true });
-    copiedRuntime = path.join(copiedPractice, "시작.exe");
-    assert.equal(digest(await readFile(path.join(copiedPractice, "project.json"))), digest(sourceConfig));
-    assert.ok((await readFile(path.join(copiedPractice, "_runtime", "Box2D.NET.dll"))).length > 0);
-    assert.deepEqual(await readFile(path.join(copiedPractice, "_runtime", "licenses", "Box2D.NET.LICENSE.md")),
+    if (support) {
+        assert.ok((await readdir(copiedPractice)).every(file => file === "_blackpy" || file.endsWith(".py")));
+    }
+    copiedRuntime = path.join(copiedPractice, support, "시작.exe");
+    assert.equal(digest(await readFile(path.join(copiedPractice, support, "project.json"))), digest(sourceConfig));
+    assert.ok((await readFile(path.join(copiedPractice, support, "_runtime", "Box2D.NET.dll"))).length > 0);
+    assert.deepEqual(await readFile(path.join(copiedPractice, support, "_runtime", "licenses", "Box2D.NET.LICENSE.md")),
         await readFile(path.join(toolRoot, "packages", "Box2D.NET.LICENSE.md")));
     report.checks.push("Box2D.NET assembly and pinned MIT notice are included in the folder distribution");
 
@@ -144,7 +149,7 @@ try {
     assert.equal(runtimeInfo.pid, launcher.pid);
     assert.equal(runtimeInfo.parentPid, process.pid);
     assert.equal(runtimeInfo.coreclr.toLowerCase(),
-        path.join(copiedPractice, "_runtime", "coreclr.dll").toLowerCase());
+        path.join(copiedPractice, support, "_runtime", "coreclr.dll").toLowerCase());
     report.runtime = runtimeInfo;
     report.checks.push("Running host loaded coreclr.dll from the copied self-contained _runtime directory");
 
@@ -185,10 +190,10 @@ try {
     await cp(path.join(toolRoot, "distribution", "project"), preserved, { recursive: true });
     const sentinel = Buffer.from('# 학생이 저장한 내용\ndef 시작():\n    print("보존 확인 123")\n', "utf8");
     await writeFile(path.join(preserved, "고양이.py"), sentinel);
-    const configuration = JSON.parse(await readFile(path.join(preserved, "project.json"), "utf8"));
+    const configuration = JSON.parse(await readFile(path.join(preserved, "_blackpy", "project.json"), "utf8"));
     configuration.actors[0].speed = 3;
-    await writeFile(path.join(preserved, "project.json"), JSON.stringify(configuration));
-    const filenames = ["project.json", "고양이.py", "자동차.py", "배경.py"];
+    await writeFile(path.join(preserved, "_blackpy", "project.json"), JSON.stringify(configuration));
+    const filenames = ["_blackpy/project.json", "고양이.py", "자동차.py", "배경.py"];
     const originalHashes = await Promise.all(filenames.map(async file => digest(await readFile(path.join(preserved, file)))));
     for (let i = 0; i < 2; i++) {
         const published = await run(pwsh, ["-NoLogo", "-NoProfile", "-File",
@@ -201,6 +206,20 @@ try {
         assert.deepEqual(hashes, originalHashes);
     }
     report.checks.push("Two publications preserved all existing actor scripts and project settings byte-for-byte");
+
+    const compatible = path.join(workspace, "이전 설정 배치 보존");
+    const compatiblePractice = path.join(compatible, "실습");
+    await cp(path.join(toolRoot, "distribution", "project"), compatiblePractice, { recursive: true });
+    await rename(path.join(compatiblePractice, "_blackpy", "project.json"),
+        path.join(compatiblePractice, "project.json"));
+    const compatibleConfig = await readFile(path.join(compatiblePractice, "project.json"));
+    const compatibleResult = await run(pwsh, ["-NoLogo", "-NoProfile", "-File",
+        path.join(toolRoot, "scripts", "Publish.ps1"), "-Destination", compatible, "-SkipRestore"]);
+    assert.equal(compatibleResult.code, 0, compatibleResult.stderr + compatibleResult.stdout);
+    assert.deepEqual(await readFile(path.join(compatiblePractice, "project.json")), compatibleConfig);
+    assert.ok(existsSync(path.join(compatiblePractice, "시작.exe")));
+    assert.ok(!existsSync(path.join(compatiblePractice, "_blackpy", "project.json")));
+    report.checks.push("Existing root-level project settings and launcher layout are retained without migration");
 
     const legacy = path.join(workspace, "이전 프로젝트");
     await mkdir(path.join(legacy, "실습"), { recursive: true });
@@ -239,7 +258,7 @@ try {
     }
 
     if (launcher && launcher.exitCode === null && launcher.signalCode === null) launcher.kill();
-    report.distributionConfigUnchanged = digest(await readFile(path.join(practice, "project.json"))) === digest(sourceConfig);
+    report.distributionConfigUnchanged = digest(await readFile(path.join(practice, support, "project.json"))) === digest(sourceConfig);
 
     if (!report.distributionConfigUnchanged) {
         report.passed = false;

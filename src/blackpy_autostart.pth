@@ -1,1 +1,2 @@
+blackpy/_editor
 import _blackpy_autostart; _blackpy_autostart.install()

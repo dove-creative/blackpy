@@ -260,10 +260,46 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(SyntaxError):
                     await runtime.initialize()
 
-    async def test_background_rejects_contact_handlers(self):
-        runtime = make_runtime(background_source='def 닿는_중(목록):\n    pass\n')
-        with self.assertRaisesRegex(SyntaxError, "배경에는 접촉"):
-            await runtime.initialize()
+    async def test_background_ignores_contact_handlers(self):
+        for name in ("닿았을_때", "닿는_중", "닿는_중_종료"):
+            with self.subTest(name=name):
+                runtime = make_runtime(background_source=(
+                    f'def {name}(목록):\n    raise RuntimeError("호출 안 함")\n'
+                    'def 시작():\n    말하기("계속 실행")\n'
+                ))
+                self.addAsyncCleanup(runtime.close)
+                await runtime.initialize()
+                self.assertNotIn(name, runtime.background.handlers)
+                runtime.start()
+                await tick(runtime)
+                self.assertIsNone(runtime.error)
+                self.assertEqual(runtime.message, "계속 실행")
+
+    async def test_background_skips_movement_but_keeps_waits_and_broadcasts(self):
+        runtime = make_runtime(
+            actor_source='def 방송_받기(신호):\n    말하기(신호)\n',
+            background_source=(
+                '앞으로(100)\n오른쪽_돌기(90)\n'
+                'def 시작():\n    앞으로(100)\n    말하기("기다려요")\n'
+                '    기다리기(0.1)\n    크기_정하기(2)\n'
+                '    방송하기("끝")\n    말하기("완료")\n'
+                'def 키_클릭_중(키):\n    앞으로(200)\n'
+                '    왼쪽_돌기(90)\n    말하기(키)\n'
+            ),
+        )
+        self.addAsyncCleanup(runtime.close)
+        await runtime.initialize()
+        runtime.start()
+        await settle()
+        self.assertEqual(runtime.message, "기다려요")
+        await tick(runtime, 0.2)
+        self.assertEqual(runtime.message, "완료")
+        self.assertEqual(runtime.actors[0].speech, "끝")
+        await tick(runtime, events=[{"kind": "keydown", "key": "오른쪽"}])
+        self.assertEqual(runtime.message, "오른쪽")
+        self.assertEqual(runtime.actors[0].position, (0, 0))
+        self.assertEqual(runtime.actors[0].heading, 0)
+        self.assertIsNone(runtime.error)
 
     async def test_bad_signature_is_reported_before_start(self):
         runtime = make_runtime('def 키_클릭():\n    pass\n')

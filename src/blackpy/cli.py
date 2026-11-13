@@ -20,15 +20,19 @@ def new_project(destination):
     ):
         raise ValueError("새 프로젝트는 비어 있는 폴더에 만들어 주세요.")
 
-    shutil.copytree(PACKAGE_ROOT / "_templates", destination, dirs_exist_ok=True)
+    shutil.copytree(
+        PACKAGE_ROOT / "_templates", destination, dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
     print(f"프로젝트를 만들었어요: {destination}")
     print(f'실행: blackpy run "{destination}"')
-    print("VS Code에서 이 폴더를 열면 BlackPy 명령 안내를 사용할 수 있어요.")
+    print("VS Code에서 같은 Python을 선택하면 파일만 열어도 명령 안내를 사용할 수 있어요.")
 
 
 def require_project(directory):
     directory = Path(directory).resolve()
-    if not (directory / "project.json").is_file():
+    if not ((directory / "_blackpy" / "project.json").is_file()
+            or (directory / "project.json").is_file()):
         raise ValueError("project.json이 있는 프로젝트 폴더를 지정해 주세요.")
 
     return directory
@@ -36,8 +40,9 @@ def require_project(directory):
 
 def configure_editor(directory):
     directory = require_project(directory)
-    source = (PACKAGE_ROOT / "_templates" / STUB_NAME).read_bytes()
-    destination = directory / STUB_NAME
+    source = (PACKAGE_ROOT / "_templates" / "_blackpy" / STUB_NAME).read_bytes()
+    support = directory / "_blackpy" if (directory / "_blackpy" / "project.json").is_file() else directory
+    destination = support / STUB_NAME
     if destination.exists():
         if destination.read_bytes() != source:
             raise ValueError(
@@ -49,7 +54,7 @@ def configure_editor(directory):
             stream.write(source)
 
     print(f"편집기 명령 안내를 준비했어요: {directory}")
-    print("VS Code에서 이 폴더를 열고 Python·Pylance 확장을 사용해 주세요.")
+    print("VS Code에서 Python·Pylance 확장과 BlackPy를 설치한 Python을 사용해 주세요.")
 
 
 def run_project(directory, no_browser=False, port=0):

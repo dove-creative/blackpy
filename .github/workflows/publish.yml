@@ -22,7 +22,7 @@ on:
       expected_version:
         description: Exact package version to validate or publish
         required: true
-        default: 0.1.1
+        default: 0.1.7
         type: string
       publish:
         description: Publish the tested Windows wheel to PyPI

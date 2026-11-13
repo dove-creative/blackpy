@@ -1,6 +1,7 @@
 import contextlib
 import importlib.util
 import io
+import shutil
 from pathlib import Path
 import sys
 import tempfile
@@ -27,9 +28,7 @@ class PackageCliTests(unittest.TestCase):
         self.package.mkdir()
         templates = self.package / "_templates"
         templates.mkdir()
-        for source in (ROOT / "distribution" / "project").iterdir():
-            if source.is_file():
-                (templates / source.name).write_bytes(source.read_bytes())
+        shutil.copytree(ROOT / "distribution" / "project", templates, dirs_exist_ok=True)
 
         self.patch = patch.object(cli, "PACKAGE_ROOT", self.package)
         self.patch.start()
@@ -42,9 +41,13 @@ class PackageCliTests(unittest.TestCase):
 
     def test_new_copies_templates_and_editor_support_outside_package(self):
         project = self.root / "한글 실습"
+        cache = self.package / "_templates" / "__pycache__"
+        cache.mkdir()
+        (cache / "cached.pyc").write_bytes(b"compiled cache")
         self.assertEqual(cli.main(["new", str(project)]), 0)
-        self.assertTrue((project / "project.json").is_file())
-        self.assertIn("def 말하기", (project / cli.STUB_NAME).read_text(encoding="utf-8"))
+        self.assertTrue((project / "_blackpy" / "project.json").is_file())
+        self.assertIn("def 말하기", (project / "_blackpy" / cli.STUB_NAME).read_text(encoding="utf-8"))
+        self.assertTrue(all(path.name == "_blackpy" or path.suffix == ".py" for path in project.iterdir()))
         self.assertFalse((project / "_runtime").exists())
         self.assertFalse((project / "시작.exe").exists())
 

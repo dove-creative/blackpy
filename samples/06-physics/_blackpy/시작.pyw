@@ -50,7 +50,8 @@ def main(argv=None):
         return 1
 
     python = python_executable()
-    project = str(Path(__file__).resolve().parent)
+    directory = Path(__file__).resolve().parent
+    project = str(directory.parent if directory.name == "_blackpy" else directory)
     # Ignore PYTHONPATH and the working directory, but retain installed user packages.
     command = [python, "-E", "-X", "utf8", "-c", BOOTSTRAP,
                project, *arguments]

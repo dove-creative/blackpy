@@ -2,6 +2,12 @@
 
 BlackPy는 배경과 캐릭터마다 작성한 Python 코드를 로컬 웹 무대에서 실행하는 교육용 프로그램이다. 학생은 VS Code에서 일반 `def`와 한글 명령으로 코드를 작성하고, 웹의 명령 목록을 클릭해 필요한 코드를 복사한다. `class`, `self`, `async`, `await`나 BlackPy용 `import`를 직접 작성할 필요가 없다.
 
+명령 팔레트는 모든 객체가 함께 사용하며, 실행 대상은 코드를 쓴 파일로 정한다. 배경에서 이동·회전·크기·물리 등 캐릭터 전용 함수를 호출하면 무시하고 다음 코드를 실행한다.
+
+0.1.4의 `말하기("점수:", 3, 시간=1.5)`는 여러 값을 공백으로 이어 1.5초 동안 표시한다. 시간 없이 호출하면 계속 표시하며, `말하기()`로 지울 수 있다.
+
+0.1.6부터는 프로젝트의 `_blackpy` 폴더에 png·jpg·gif·webp·svg 그림을 두고 `_blackpy/project.json`의 배경·캐릭터에 `"image": "우주센터.svg"`처럼 파일 이름을 적어 무대 그림으로 사용할 수 있다. 크기와 충돌 판정은 `kind`의 기본 모양을 따른다.
+
 ## 설치와 실행
 
 Windows x64와 Python 3.10 이상, 웹 브라우저가 필요하다. 패키지에는 .NET·ASP.NET Core 런타임이 포함되어 있으며 BlackPy 외의 Python 실행 의존성은 없다.
@@ -20,7 +26,7 @@ python -m pip install --upgrade blackpy
 
 `new`는 없거나 비어 있는 폴더에 새 프로젝트를 만든다. 기존 학생 파일은 덮어쓰지 않는다. `blackpy` 명령을 찾지 못하면 `python -m blackpy new 내프로젝트`와 `python -m blackpy run 내프로젝트`를 사용한다.
 
-0.1.1부터는 `project.json`과 같은 폴더의 어느 `.py` 파일이든 실행하여 웹 무대를 열 수 있다. VS Code에서 BlackPy를 설치한 Python을 선택한 뒤 `고양이.py`나 `배경.py`의 'Run Python File'을 누르거나 다음 명령을 사용한다.
+0.1.1부터는 학생 프로젝트의 어느 `.py` 파일이든 실행하여 웹 무대를 열 수 있다. VS Code에서 BlackPy를 설치한 Python을 선택한 뒤 `고양이.py`나 `배경.py`의 'Run Python File'을 누르거나 다음 명령을 사용한다.
 
 ```powershell
 python 내프로젝트/고양이.py
@@ -30,11 +36,12 @@ python 내프로젝트/고양이.py
 
 ```text
 내프로젝트/
-├─ project.json
 ├─ 배경.py
 ├─ 고양이.py
 ├─ 자동차.py
-└─ __builtins__.pyi
+└─ _blackpy/
+   ├─ project.json
+   └─ __builtins__.pyi
 ```
 
 공통 실행부는 설치한 Python 환경에 들어가며 학생 파일은 프로젝트 폴더에 남는다. `run`은 웹 브라우저를 열고 실행부의 별도 콘솔 창은 만들지 않는다. 명령을 입력한 터미널은 실행부가 끝날 때까지 기다린다. BlackPy의 마지막 브라우저 탭이나 창을 닫으면 약 3초 뒤 실행부도 종료된다.
@@ -76,11 +83,13 @@ C# 실행부는 등록된 이동·물리·장면을 Python과 독립적으로 �
 
 Python 파일 실행은 웹 무대를 여는 동작이다. 한글 명령과 이벤트는 BlackPy 실행기가 연결하며 열린 무대의 시작·중지·다시 시작으로 제어한다. 코드 변경은 웹에서 다시 시작할 때 반영된다.
 
-직접 실행은 사용 중인 Python에 BlackPy가 설치되어 있고 파일 바로 옆에 읽을 수 있는 BlackPy 형식의 `project.json`이 있을 때 동작한다. 다른 Python 환경이나 BlackPy를 제거한 환경에서는 일반 Python 실행으로 돌아간다. 하위 폴더의 파일, 선택 코드 실행, 모듈·명령 문자열·대화형 실행과 `-S` 실행은 이 연결의 대상이 아니다. 설정 오류는 `blackpy run 내프로젝트`로 확인할 수 있다.
+직접 실행은 사용 중인 Python에 BlackPy가 설치되어 있고 학생 파일 옆에 `_blackpy/project.json` 또는 기존 `project.json`이 있을 때 동작한다. 다른 Python 환경이나 BlackPy를 제거한 환경에서는 일반 Python 실행으로 돌아간다. 하위 폴더의 파일, 선택 코드 실행, 모듈·명령 문자열·대화형 실행과 `-S` 실행은 이 연결의 대상이 아니다. 설정 오류는 `blackpy run 내프로젝트`로 확인할 수 있다.
 
 ## VS Code 명령 안내
 
-VS Code의 Python·Pylance 확장을 사용하고 `project.json`이 있는 개별 프로젝트 폴더를 열면 `__builtins__.pyi`가 `말하기` 등의 명령과 인자를 알린다. 정의되지 않은 이름의 진단을 끄지 않으므로 명령 이름의 오타도 확인할 수 있다. 기존 프로젝트에는 다음 명령으로 안내 파일을 추가한다.
+0.1.3의 pip 설치형은 VS Code의 Python·Pylance 확장에서 BlackPy를 설치한 Python을 선택하면 폴더 없이 학생 파일만 열어도 `말하기` 등의 명령과 인자를 안내한다. 학생 코드의 import나 VS Code 설정 변경은 필요하지 않다. 일반 이름·타입 오류는 계속 검사하므로 명령 이름의 오타도 확인할 수 있다.
+
+환경 안내는 같은 Python을 사용하는 일반 Python 파일에도 적용되지만, 실제 한글 명령 실행은 BlackPy 프로젝트에서만 제공한다. 사용자 정의 안내 파일은 덮어쓰지 않으며 기존 정의를 우선한다. 프로젝트 폴더를 여는 기존 방식도 지원하며, 이전 프로젝트에는 다음 명령으로 안내 파일을 추가한다.
 
 ```powershell
 blackpy editor 내프로젝트

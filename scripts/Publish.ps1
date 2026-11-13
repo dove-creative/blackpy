@@ -24,9 +24,12 @@ foreach ($licenseSource in $licenseSources.Values) {
 
 $destinationPath = [IO.Path]::GetFullPath($Destination)
 $practicePath = Join-Path $destinationPath '실습'
-$runtimePath = Join-Path $practicePath '_runtime'
+$legacyProject = (Test-Path -LiteralPath (Join-Path $practicePath 'project.json')) -and
+    -not (Test-Path -LiteralPath (Join-Path $practicePath '_blackpy/project.json'))
+$supportPath = if ($legacyProject) { $practicePath } else { Join-Path $practicePath '_blackpy' }
+$runtimePath = Join-Path $supportPath '_runtime'
 if ((Test-Path -LiteralPath (Join-Path $practicePath 'main.py')) -and
-    -not (Test-Path -LiteralPath (Join-Path $practicePath 'project.json'))) {
+    -not $legacyProject -and -not (Test-Path -LiteralPath (Join-Path $practicePath '_blackpy/project.json'))) {
     throw '기존 main.py 프로젝트는 자동 변환하지 않습니다. -Destination으로 새 배포 폴더를 지정해 주세요.'
 }
 $project = Join-Path $toolRoot 'src\BlackThunder.BlackPy\BlackThunder.BlackPy.csproj'
@@ -38,16 +41,23 @@ if ($SkipRestore) { $publishArguments += '--no-restore' }
 if ($LASTEXITCODE -ne 0) { throw 'Runtime publishing failed.' }
 
 $launcherScript = Join-Path $PSScriptRoot 'New-Launcher.ps1'
-& $launcherScript -Destination (Join-Path $practicePath '시작.exe') `
+& $launcherScript -Destination (Join-Path $supportPath '시작.exe') `
     -ManagedDllRelativePath '_runtime/BlackThunder.BlackPy.dll'
 
 $templates = Join-Path $toolRoot 'distribution'
 $batchEncoding = [Text.UTF8Encoding]::new($false)
 $debugBatch = [IO.File]::ReadAllText((Join-Path $templates 'Debug.bat')).Replace("`r`n", "`n").Replace("`n", "`r`n")
-[IO.File]::WriteAllText((Join-Path $practicePath 'Debug.bat'), $debugBatch, $batchEncoding)
-foreach ($template in (Get-ChildItem -LiteralPath (Join-Path $templates 'project') -File)) {
-    $studentFile = Join-Path $practicePath $template.Name
+if ($legacyProject) { $debugBatch = $debugBatch.Replace('--project "%~dp0.."', '--project "%~dp0."') }
+[IO.File]::WriteAllText((Join-Path $supportPath 'Debug.bat'), $debugBatch, $batchEncoding)
+$projectTemplates = Join-Path $templates 'project'
+foreach ($template in (Get-ChildItem -LiteralPath $projectTemplates -File -Recurse)) {
+    $relativePath = [IO.Path]::GetRelativePath($projectTemplates, $template.FullName)
+    if ($legacyProject -and $relativePath.StartsWith('_blackpy' + [IO.Path]::DirectorySeparatorChar)) {
+        $relativePath = $relativePath.Substring('_blackpy'.Length + 1)
+    }
+    $studentFile = Join-Path $practicePath $relativePath
     if (-not (Test-Path -LiteralPath $studentFile)) {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $studentFile) -Force | Out-Null
         Copy-Item -LiteralPath $template.FullName -Destination $studentFile
     }
 }

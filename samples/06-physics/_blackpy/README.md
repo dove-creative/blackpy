@@ -4,14 +4,14 @@
 
 ## 실행
 
-1. 사용할 Python에 `python -m pip install --upgrade blackpy`로 BlackPy 0.1.2 이상을 설치한다. 자세한 설치 조건은 [사용 안내](../../docs/Usage.md)에 있다.
+1. 사용할 Python에 `python -m pip install --upgrade blackpy`로 BlackPy 0.1.3을 설치한다. 자세한 설치 조건은 [사용 안내](../../../docs/Usage.md)에 있다.
 2. 이 폴더의 `시작.pyw`를 더블클릭한다. 저장소 루트에서 `python -m blackpy run ./samples/06-physics`로 실행해도 된다.
 3. 웹의 **시작**을 누르고 무대를 클릭하여 키보드 입력 초점을 옮긴다.
 4. 공이 발판 위에 내려앉은 뒤 스페이스를 눌러 위로 한 번 민다.
 5. 왼쪽·오른쪽 방향키로 옆으로 밀고 무대 경계에 막히는지 확인한다.
 6. 움직이는 공을 클릭하여 현재 속도를 지운다. 엔터는 속도를 지우고 공을 처음 위치로 돌린다.
 
-VS Code에서 이 폴더를 열고 BlackPy를 설치한 Python을 선택하면 `공.py`의 'Run Python File'로도 같은 무대를 열 수 있다. 학생 파일에 import를 추가하지 않으며 별도 Python 물리 패키지를 설치하지 않는다. `Debug.bat`은 같은 실행기를 콘솔 모드로 실행한다.
+VS Code에서 상위 학생 프로젝트 폴더를 열고 BlackPy를 설치한 Python을 선택하면 `공.py`의 'Run Python File'로도 같은 무대를 열 수 있다. 학생 파일에 import를 추가하지 않으며 별도 Python 물리 패키지를 설치하지 않는다. `Debug.bat`은 같은 실행기를 콘솔 모드로 실행한다.
 
 ## 확인할 동작
 

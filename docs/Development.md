@@ -43,9 +43,9 @@ dotnet build src/BlackThunder.BlackPy/BlackThunder.BlackPy.csproj -c Release
 | `docs` | 개요·구현·사용·개발·검증 문서이다. |
 | `artifacts` | 생성된 배포본과 검증 보고서이다. Git에서 제외한다. |
 
-`Publish.ps1`은 폴더 배포본의 `실습/시작.exe`를 생성한다. 샘플에는 실행 파일을 생성하지 않는다. 샘플별 `시작.pyw`는 실행에 사용한 Python 환경의 설치된 BlackPy를 호출하며, 저장소의 빌드 결과를 대신 사용하지 않는다.
+`Publish.ps1`은 폴더 배포본의 `실습/_blackpy/시작.exe`를 생성한다. 샘플에는 실행 파일을 생성하지 않는다. 샘플별 `_blackpy/시작.pyw`는 실행에 사용한 Python 환경의 설치된 BlackPy를 호출하며, 저장소의 빌드 결과를 대신 사용하지 않는다.
 
-샘플 진입점의 원본은 `scripts/SampleLauncher.pyw`이다. 원본을 수정하면 각 샘플의 `시작.pyw`도 함께 갱신한다. `Debug.bat`은 같은 진입점을 콘솔 모드로 실행하며 설치 오류와 실행 오류를 확인하는 용도이다. 학생의 배경·캐릭터 파일과 `project.json`은 진입점 변경과 별도로 보존한다.
+샘플 진입점의 원본은 `scripts/SampleLauncher.pyw`이다. 원본을 수정하면 각 샘플의 `_blackpy/시작.pyw`도 함께 갱신한다. `Debug.bat`은 같은 진입점을 콘솔 모드로 실행하며 설치 오류와 실행 오류를 확인하는 용도이다. 학생의 배경·캐릭터 파일과 `project.json`은 진입점 변경과 별도로 보존한다.
 
 `New-Launcher.ps1`과 `Launcher.proj`는 선택된 .NET SDK의 MSBuild 태스크에서 raw apphost를 GUI 진입점으로 만들고 관리 DLL의 상대경로를 내장한다. 생성 도구는 SDK의 런타임에서 실행하므로 PowerShell을 실행하는 .NET 버전에 묶이지 않는다. 배포 폴더를 옮겨도 상대경로로 공통 런타임을 찾는다. 생성 API의 기준은 [.NET HostWriter 구현](https://github.com/dotnet/runtime/blob/main/src/installer/managed/Microsoft.NET.HostModel/AppHost/HostWriter.cs)이다. 기존 `Debug.bat`은 콘솔 진단용으로 함께 제공한다.
 
@@ -57,7 +57,7 @@ Windows x64에서 다음 명령을 실행한다. Python 빌드 도구는 `.cache
 
 ```powershell
 ./scripts/Build-Wheel.ps1
-python -m pip install ./artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl
+python -m pip install ./artifacts/wheels/blackpy-0.1.3-py3-none-win_amd64.whl
 ```
 
 `Build-Wheel.ps1`은 Python 빌드 도구를 준비한 뒤 wheel을 생성하고 Twine으로 메타데이터를 검사한다. `wheel_hook.py`는 새 임시 경로에 `Publish.ps1`을 실행하고 그 결과의 공통 실행부와 `distribution/project`의 원본을 묶는다. 기존 `artifacts/blackpy/실습`이나 학생 프로젝트의 수정 내용은 wheel의 원본으로 사용하지 않는다.
@@ -71,12 +71,15 @@ site-packages/
 └─ blackpy/
    ├─ cli.py
    ├─ __main__.py
+   ├─ _editor/
+   │  └─ __builtins__.pyi
    ├─ _templates/
-   │  ├─ project.json
    │  ├─ 배경.py
    │  ├─ 고양이.py
    │  ├─ 자동차.py
-   │  └─ __builtins__.pyi
+   │  └─ _blackpy/
+   │     ├─ project.json
+   │     └─ __builtins__.pyi
    └─ _runtime/
       ├─ BlackThunder.BlackPy.exe
       ├─ blackpy.py
@@ -87,9 +90,11 @@ site-packages/
 
 실제 `_runtime`에는 다른 Python 지원 모듈과 동봉 .NET·ASP.NET Core의 DLL·설정도 들어간다. `blackpy` 명령 진입점은 해당 Python 환경의 Scripts 폴더에 설치된다. 설치형 명령과 실행부 내부의 `blackpy.py`는 서로 다른 Python 프로세스에서 사용한다. 실행기는 자신의 지원 모듈 경로를 우선하여 가져온다.
 
+0.1.3의 `_editor/__builtins__.pyi`는 프로젝트 안내 파일과 같은 원본으로 묶는다. `.pth`의 `blackpy/_editor` 정적 경로로 선택한 Python 환경에 등록하여 폴더 없이 연 파일에도 안내한다. 실행 코드가 없는 타입 정의 디렉터리이며 기존 사용자 정의 안내와 VS Code 설정은 수정하지 않는다.
+
 0.1.1의 직접 실행 연결은 설치 경로의 `.pth`가 독립된 시작 모듈을 등록하고 CPython의 `cpython.run_file` 이벤트에서 프로젝트를 판별하는 방식이다. `.pth` 처리 중에는 실행부를 시작하거나 설치형 `blackpy` 패키지를 미리 가져오지 않는다. 내부 실행기가 자신의 `blackpy.py`를 가져오는 동작과 충돌하지 않아야 한다. Python이 선택한 학생 파일을 구문 분석하거나 실행하기 전에 설치형 명령에 위임하므로 문법 오류도 무대의 학생 실행 오류로 확인할 수 있다. 기준은 [Python의 site 초기화](https://docs.python.org/3.10/library/site.html)와 [audit 이벤트](https://docs.python.org/3.10/library/audit_events.html)이다.
 
-직접 실행 대상은 실제 `.py` 파일이며, 바로 옆의 `project.json`에 문자열인 `background.file`과 배열인 `actors`가 있어야 한다. 설정의 상세 유효성은 실행부가 검사한다. `.pyw` 샘플 실행기는 원래 진입점을 그대로 사용한다. 일반 Python 작업을 명시적으로 실행하려면 해당 프로세스의 `BLACKPY_AUTO_RUN` 환경 변수를 `0`으로 둔다. `-S`도 설치 초기화를 생략하지만 다른 패키지 경로에 영향을 주므로 직접 실행 연결만 끌 때는 환경 변수를 사용한다.
+직접 실행 대상은 실제 `.py` 파일이며, 학생 파일 옆의 `_blackpy/project.json` 또는 기존 `project.json`에 문자열인 `background.file`과 배열인 `actors`가 있어야 한다. 설정의 상세 유효성은 실행부가 검사한다. `.pyw` 샘플 실행기는 원래 진입점을 그대로 사용한다. 일반 Python 작업을 명시적으로 실행하려면 해당 프로세스의 `BLACKPY_AUTO_RUN` 환경 변수를 `0`으로 둔다. `-S`도 설치 초기화를 생략하지만 다른 패키지 경로에 영향을 주므로 직접 실행 연결만 끌 때는 환경 변수를 사용한다.
 
 ```powershell
 $env:BLACKPY_AUTO_RUN = '0'
@@ -128,7 +133,7 @@ Workflow name에는 화면에 보이는 `Publish BlackPy`나 전체 경로가 �
 
 워크플로는 Windows에서 .NET 10, Python 3.13, Node.js 24로 전체 검증과 wheel 빌드를 순서대로 수행한다. `main`에 코드·빌드 관련 변경을 푸시해도 검증과 wheel 생성이 실행되지만 공개는 수행하지 않는다. Ubuntu 공개 작업은 같은 실행에서 검증한 wheel 산출물을 받아 재빌드 없이 업로드한다. `id-token: write` 권한은 `pypi` 환경을 사용하는 공개 작업에만 부여한다. 수동 실행에서 `publish=false`는 업로드를 생략하며, `publish=true`는 `main`이 저장소의 기본 브랜치일 때만 허용한다. 수동 입력한 `expected_version`은 소스 버전과 일치해야 한다.
 
-이후 공개는 패키지 버전을 올려 같은 절차로 수행한다. 이미 공개한 버전의 파일을 덮어쓰지 않는다. 개발 wheel은 `0.1.3.dev1`, `0.1.3.dev2`처럼 개발 버전으로 구분하고 정식 공개 버전과 재사용하지 않는다. 로컬에서 같은 버전의 서로 다른 wheel을 설치하면 pip가 갱신 필요성을 구분하지 못하므로 정식 공개본은 새 버전으로 설치·갱신하는 것이 기준이다. TestPyPI는 계정·publisher 설정·저장소가 PyPI와 별개이며, TestPyPI 업로드만으로 일반 `pip install blackpy`가 가능해지는 것은 아니다. 공개 성공 여부와 실제 설치 결과는 [검증 기록](Testing.md)에 따로 남긴다.
+이후 공개는 패키지 버전을 올려 같은 절차로 수행한다. 이미 공개한 버전의 파일을 덮어쓰지 않는다. 버전은 개발·공개 여부와 관계없이 `숫자.숫자.숫자` 형식만 사용하며 접미사를 붙이지 않는다. 서로 다른 설치본을 구분할 때는 세 자리 안에서 버전을 올린다. 로컬에서 같은 버전의 서로 다른 wheel을 설치하면 pip가 갱신 필요성을 구분하지 못하므로 정식 공개본은 새 버전으로 설치·갱신하는 것이 기준이다. TestPyPI는 계정·publisher 설정·저장소가 PyPI와 별개이며, TestPyPI 업로드만으로 일반 `pip install blackpy`가 가능해지는 것은 아니다. 공개 성공 여부와 실제 설치 결과는 [검증 기록](Testing.md)에 따로 남긴다.
 
 ## 서브모듈
 
@@ -185,7 +190,7 @@ BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.jso
 
 ## 문서와 변경 검증
 
-기본 프로젝트는 project.json, 배경·캐릭터 파일과 편집기용 `__builtins__.pyi`로 구성한다. Publish는 artifacts/blackpy/실습에 프로젝트를, 그 아래 _runtime에 실행부와 지원 모듈을 배치한다. 기존 학생 코드·설정을 보존하고 없는 기본 파일만 추가한다. 구형 main.py만 있는 목적지는 거절하며 별도의 새 배포 경로를 사용한다. 설치형의 프로젝트 생성·실행·편집기 설정은 [Usage](Usage.md)에 있다.
+기본 프로젝트는 project.json, 배경·캐릭터 파일과 편집기용 `__builtins__.pyi`로 구성한다. Publish는 artifacts/blackpy/실습에 프로젝트를, 그 아래 `_blackpy/_runtime`에 실행부와 지원 모듈을 배치한다. 기존 학생 코드·설정을 보존하고 없는 기본 파일만 추가한다. 구형 main.py만 있는 목적지는 거절하며 별도의 새 배포 경로를 사용한다. 설치형의 프로젝트 생성·실행·편집기 설정은 [Usage](Usage.md)에 있다.
 
 이전 15개 놀이와 Actor·stage·playground 예제는 현재 실행부와 호환되지 않으므로 새 파일 구성·명령·이벤트 의미에 맞춰 재작성해야 한다. 실행부 배포가 외부 수업 자료를 자동 수정하지 않는다.
 

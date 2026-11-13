@@ -112,6 +112,14 @@ namespace BlackThunder.BlackPy
                 await context.Response.WriteAsJsonAsync(await session!.GetStateAsync()));
             app.MapGet("/api/project", async context =>
                 await context.Response.WriteAsJsonAsync(await session!.GetProjectAsync()));
+            app.MapGet("/api/image", async context =>
+            {
+                var image = await session!.GetImageAsync(context.Request.Query["name"].ToString());
+                context.Response.ContentType = image.ContentType;
+                // Project images are drawn on the canvas only; never let an SVG run as a document.
+                context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+                await context.Response.Body.WriteAsync(image.Bytes, context.RequestAborted);
+            });
             app.MapGet("/api/source", async context =>
                 await context.Response.WriteAsJsonAsync(
                     await session!.GetSourceAsync(context.Request.Query["runId"].ToString())));
@@ -262,7 +270,11 @@ namespace BlackThunder.BlackPy
             {
                 var options = new Options();
                 var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath);
-                if (executableDirectory != null && File.Exists(Path.Combine(executableDirectory, "project.json")))
+                if (executableDirectory != null && Path.GetFileName(executableDirectory) == "_blackpy")
+                    executableDirectory = Path.GetDirectoryName(executableDirectory);
+
+                if (executableDirectory != null && (File.Exists(Path.Combine(executableDirectory, "_blackpy", "project.json"))
+                    || File.Exists(Path.Combine(executableDirectory, "project.json"))))
                     options.Project = executableDirectory;
 
                 for (int i = 0; i < args.Length; i++)

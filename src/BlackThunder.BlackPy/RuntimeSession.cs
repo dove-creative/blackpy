@@ -71,6 +71,9 @@ namespace BlackThunder.BlackPy
         public Task<StateMessage> RunAsync() => DispatchAsync(StartRun);
         public Task<ProjectDefinition> GetProjectAsync() => DispatchAsync(() =>
             _source?.Project ?? ProjectLoader.ReadDefinition(_projectDirectory));
+        public Task<ImageResource> GetImageAsync(string image) => DispatchAsync(() =>
+            ProjectLoader.ReadImage(_projectDirectory,
+                _source?.Project ?? ProjectLoader.ReadDefinition(_projectDirectory), image));
         public Task<ProjectSnapshot> GetSourceAsync(string runId) => DispatchAsync(() =>
         {
             RequireActiveRun(runId);

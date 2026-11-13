@@ -4,7 +4,7 @@ import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { defaultProject, TestHost, toolRoot } from "./TestHost.mjs";
+import { defaultProject, TestHost, wheelPath } from "./TestHost.mjs";
 
 const environment = { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" };
 delete environment.BLACKPY_AUTO_RUN;
@@ -50,8 +50,7 @@ test("installed direct-file execution opens only the selected BlackPy project", 
     const python = path.join(venv, "Scripts", "python.exe");
     const workspace = path.join(root, "학생 프로젝트");
     const otherDirectory = path.join(root, "다른 작업 폴더");
-    const wheel = process.env.BLACKPY_WHEEL ||
-        path.join(toolRoot, "artifacts/wheels/blackpy-0.1.2-py3-none-win_amd64.whl");
+    const wheel = wheelPath;
     const project = defaultProject();
     const sources = {
         "project.json": JSON.stringify(project),
@@ -116,7 +115,7 @@ test("installed direct-file execution opens only the selected BlackPy project", 
             const metadata = await host.request("/api/project");
             assert.equal(metadata.status, 200);
             assert.deepEqual(metadata.body.actors, project.actors.map(actor => ({
-                physics: "충돌만", mass: 1, ...actor
+                physics: "충돌만", trigger: false, mass: 1, ...actor
             })));
             assert.equal(metadata.body.background.file, project.background.file);
             await host.run();
@@ -148,6 +147,15 @@ test("installed direct-file execution opens only the selected BlackPy project", 
             });
         });
     }
+
+    await context.test("nested settings keep direct execution rooted at the student files", async () => {
+        await mkdir(path.join(workspace, "_blackpy"));
+        await writeFile(path.join(workspace, "_blackpy", "project.json"), sources["project.json"]);
+        await launchFile("고양이.py", async host => {
+            assert.equal(host.state.status, "completed", host.text());
+            assert.equal(host.sprite("고양이").speech, "고양이 전체 실행");
+        });
+    });
 
     await context.test("a selected registered file with invalid syntax reports its error in the stage", async () => {
         const source = path.join(workspace, "고양이.py");
