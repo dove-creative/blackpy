@@ -20,13 +20,14 @@ from _blackpy_compiler import compile_script
 
 EVENT_ARGUMENTS = {
     "시작": 0,
-    "키_클릭": 1, "키_클릭_중": 1, "키_클릭_끝": 1,
+    "키_누름": 1, "키_누름_중": 1, "키_누름_끝": 1,
     "자신_클릭": 0, "자신_클릭_중": 0, "자신_클릭_끝": 0,
     "방송_받기": 1,
     "닿았을_때": 1, "닿는_중": 1, "닿는_중_종료": 1,
 }
-CONTINUOUS_EVENTS = {"키_클릭_중", "자신_클릭_중", "닿는_중"}
+CONTINUOUS_EVENTS = {"키_누름_중", "자신_클릭_중", "닿는_중"}
 CONTACT_EVENTS = {"닿았을_때", "닿는_중", "닿는_중_종료"}
+RENAMED_EVENTS = {"키_클릭": "키_누름", "키_클릭_중": "키_누름_중", "키_클릭_끝": "키_누름_끝"}
 
 
 async def invoke(function, *args, **kwargs):
@@ -133,6 +134,15 @@ class ProjectRuntime:
             finally:
                 EXECUTION.reset(context)
 
+            for old, new in RENAMED_EVENTS.items():
+                function = namespace.get(old)
+                if inspect.iscoroutinefunction(function):
+                    line = function.__code__.co_firstlineno
+                    raise SyntaxError(
+                        f"{old} 이벤트의 이름이 {new}(으)로 바뀌었어요. def {new}(누른_키):로 고쳐 주세요.",
+                        (filename, line, 1, source.splitlines()[line - 1]),
+                    )
+
             for name, count in EVENT_ARGUMENTS.items():
                 function = namespace.get(name)
                 if function is None or (obj.is_background and name in CONTACT_EVENTS):
@@ -163,6 +173,15 @@ class ProjectRuntime:
     def persistent(self):
         return (any(name != "시작" for obj in self.objects for name in obj.handlers)
                 or any(actor.physics == "물리" for actor in self.actors))
+
+    @property
+    def speech_pending(self):
+        return any(obj._speech_deadline is not None for obj in self.objects)
+
+    def expire_speech(self):
+        for obj in self.objects:
+            if obj._speech_deadline is not None and self.elapsed + 1e-12 >= obj._speech_deadline:
+                obj.set_speech("")
 
     def dispatch(self, obj, event, args=(), delta_time=0.0, queued=False):
         function = obj.handlers.get(event)
@@ -204,7 +223,7 @@ class ProjectRuntime:
             EXECUTION.reset(context)
 
     def movement_context(self, actor, event, args):
-        if event == "키_클릭_중":
+        if event == "키_누름_중":
             source = "key:" + args[0]
             generation = self.key_generations.get(args[0], 0)
         elif event == "자신_클릭_중":
@@ -402,14 +421,14 @@ class ProjectRuntime:
                     if self.remote_exchange is None:
                         self.input_generation += 1
                         self.key_generations[key] = event.get("generation", self.input_generation)
-                    self.key_event("키_클릭", key)
+                    self.key_event("키_누름", key)
             elif kind == "keyup":
                 key = event["key"]
                 if key in self.event_keys:
                     self.event_keys.remove(key)
                     if self.remote_exchange is None:
                         self.key_generations.pop(key, None)
-                    self.key_event("키_클릭_끝", key)
+                    self.key_event("키_누름_끝", key)
             elif kind == "pointerdown":
                 if self.event_pointer_target is None and event.get("button", "왼쪽") == "왼쪽":
                     self.event_pointer_target = next(
@@ -424,7 +443,7 @@ class ProjectRuntime:
                 self.release_pointer()
             elif kind == "reset":
                 for key in sorted(self.event_keys):
-                    self.key_event("키_클릭_끝", key)
+                    self.key_event("키_누름_끝", key)
                 self.event_keys.clear()
                 if self.remote_exchange is None:
                     self.key_generations.clear()
@@ -539,10 +558,11 @@ class ProjectRuntime:
         for future in completed:
             if not future.done():
                 future.set_result(None)
+        self.expire_speech()
         self.update_contacts(delta_time, current)
         for key in sorted(self.held_keys):
             for obj in self.objects:
-                self.dispatch(obj, "키_클릭_중", (key,), delta_time)
+                self.dispatch(obj, "키_누름_중", (key,), delta_time)
         if self.pointer_target is not None:
             self.dispatch(self.pointer_target, "자신_클릭_중", delta_time=delta_time)
         await asyncio.sleep(0)
@@ -611,7 +631,7 @@ class ProjectRuntime:
                     self.accept(events)
                 previous = now
                 await transport.publish(self.snapshot())
-                if started and not self.persistent and not self.tasks:
+                if started and not self.persistent and not self.tasks and not self.speech_pending:
                     break
                 # Keep short scheduler delays from shifting every later frame.
                 next_frame += frame_interval
@@ -700,7 +720,7 @@ class ProjectRuntime:
                 self.dispatch(actor, "닿는_중", (names,), delta_time)
         for key in sorted(self.held_keys):
             for obj in self.objects:
-                self.dispatch(obj, "키_클릭_중", (key,), delta_time)
+                self.dispatch(obj, "키_누름_중", (key,), delta_time)
         if self.pointer_target is not None:
             self.dispatch(self.pointer_target, "자신_클릭_중", delta_time=delta_time)
 
@@ -726,9 +746,10 @@ class ProjectRuntime:
                 for deadline, future in list(self.timers):
                     if self.elapsed + 1e-12 >= deadline and not future.done():
                         future.set_result(None)
+                self.expire_speech()
                 self.accept_remote(result, delta_time, started)
                 await asyncio.sleep(0)
-                if started and not self.persistent and not self.tasks:
+                if started and not self.persistent and not self.tasks and not self.speech_pending:
                     break
                 next_poll += poll_interval
                 now = time.perf_counter()

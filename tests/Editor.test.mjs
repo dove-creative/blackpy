@@ -80,7 +80,7 @@ test("implicit commands are recognized while misspellings and wrong argument typ
         + '    왼쪽_돌기(10)\n    오른쪽_돌기(10)\n    물리_설정("물리")\n    무게_설정(10)\n'
         + '    힘_작용(90, 10)\n    정지()\n    이름_정하기("새 고양이")\n'
         + '    print(len(이름), 위치_구하기("고양이"), 물리, 무게, 닿은_객체_리스트)\n'
-        + 'def 키_클릭(누른_키):\n    말하기(누른_키, "키를 눌렀구나!")\n'
+        + 'def 키_누름(누른_키):\n    말하기(누른_키, "키를 눌렀구나!")\n'
         + '    말하기("점수", 3, True, None, 시간=0.5)\n    말하기()\n');
     const valid = analyze(directory);
     assert.equal(valid.summary.errorCount, 0, JSON.stringify(valid.generalDiagnostics));

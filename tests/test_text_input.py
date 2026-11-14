@@ -71,7 +71,7 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
     async def test_game_events_and_motion_continue_while_waiting(self):
         runtime = await self.prepare(
             'def 시작():\n    말하기(input("질문"))\n'
-            'def 키_클릭(키):\n    앞으로(20)\n',
+            'def 키_누름(키):\n    앞으로(20)\n',
         )
         await tick(runtime, 0, [{"kind": "keydown", "key": "오른쪽"}])
         await tick(runtime, 0.1)
@@ -94,7 +94,7 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
     async def test_continuous_helper_input_fails_without_enqueuing(self):
         runtime = await self.prepare(
             'def 질문():\n    return input("질문")\n'
-            'def 키_클릭_중(키):\n    질문()\n',
+            'def 키_누름_중(키):\n    질문()\n',
         )
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "오른쪽"}])
         self.assertIsInstance(runtime.error, RuntimeError)
@@ -125,7 +125,7 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
     async def test_run_pumps_top_level_input_before_start_events(self):
         runtime = make_runtime(
             '대답 = int(input("초기값"))\n'
-            'def 시작():\n    말하기(str(대답 + int(input("더할 값"))))\n',
+            'def 시작():\n    말하기(str(대답 + int(input("더할 값"))), 시간=None)\n',
         )
         transport = AnsweringTransport(["10", "2"])
         await asyncio.wait_for(runtime.run(transport), timeout=2)
@@ -148,7 +148,7 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
         runtime = make_runtime(
             '기록 = []\nfor 값 in range(2):\n    pass\n'
             'def 시작():\n    기록.append("시작")\n'
-            'def 키_클릭(키):\n    기록.append("키")\n',
+            'def 키_누름(키):\n    기록.append("키")\n',
         )
 
         class DelayedTransport(AnsweringTransport):

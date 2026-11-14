@@ -54,10 +54,10 @@ test("installed direct-file execution opens only the selected BlackPy project", 
     const project = defaultProject();
     const sources = {
         "project.json": JSON.stringify(project),
-        "배경.py": '말하기("배경 초기화")\ndef 시작():\n    말하기("배경 전체 실행")\n',
-        "고양이.py": '좌표로(23, 45)\ndef 시작():\n    말하기("고양이 전체 실행")\n',
+        "배경.py": '말하기("배경 초기화")\ndef 시작():\n    말하기("배경 전체 실행", 시간=None)\n',
+        "고양이.py": '좌표로(23, 45)\ndef 시작():\n    말하기("고양이 전체 실행", 시간=None)\n',
         "자동차.py": 'import student_helper\ndef 시작():\n    좌표로(67, 89)\n' +
-            '    말하기("자동차 전체 실행")\n    print(student_helper.MESSAGE)\n',
+            '    말하기("자동차 전체 실행", 시간=None)\n    print(student_helper.MESSAGE)\n',
         "student_helper.py": 'MESSAGE = "학생 모듈 유지"\n',
         "직접 실행.py": 'print("PLAIN_PYTHON")\n',
         "blackpy.py": 'This is intentionally invalid Python !!!\n',

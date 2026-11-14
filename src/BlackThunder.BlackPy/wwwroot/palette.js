@@ -19,7 +19,7 @@
     const cards = [
         { category: "events", title: "시작했을 때", rows: rows(event("시작")) },
         { category: "events", title: "키 · 눌렀을 때 / 누르는 중 / 놓았을 때", rows: rows(
-            event("키_클릭", "누른_키"), event("키_클릭_중", "누른_키"), event("키_클릭_끝", "누른_키")) },
+            event("키_누름", "누른_키"), event("키_누름_중", "누른_키"), event("키_누름_끝", "누른_키")) },
         { category: "events", title: "자신 클릭 · 시작 / 누르는 중 / 끝", rows: rows(
             event("자신_클릭"), event("자신_클릭_중"), event("자신_클릭_끝")) },
         { category: "events", title: "방송하기", sectionStart: true, rows: rows('방송하기("신호")') },
@@ -28,9 +28,10 @@
             rows: rows(value("속도"), "속도_변경(1)") },
         { category: "motion", title: "위치", actor: true, sectionStart: true, rows: rows(value("위치")) },
         { category: "motion", title: "방향", actor: true, rows: rows(value("방향")) },
-        { category: "motion", title: "앞으로", actor: true, rows: rows("앞으로(10)") },
-        { category: "motion", title: "왼쪽으로 돌기", actor: true, rows: rows("왼쪽_돌기(10)") },
-        { category: "motion", title: "오른쪽으로 돌기", actor: true, rows: rows("오른쪽_돌기(10)") },
+        { category: "motion", title: "앞으로", actor: true, rows: rows("앞으로(100)"),
+            note: "‘중’ 이벤트에서는 속도예요. 앞으로(1)은 1초에 200만큼 가요." },
+        { category: "motion", title: "왼쪽으로 돌기", actor: true, rows: rows("왼쪽_돌기(90)") },
+        { category: "motion", title: "오른쪽으로 돌기", actor: true, rows: rows("오른쪽_돌기(90)") },
         { category: "motion", title: "뒤집기", actor: true, rows: rows('뒤집기("가로")') },
         { category: "motion", title: "좌표로 바로 가기", actor: true, rows: rows("좌표로(0, 0)") },
         { category: "motion", title: "방향 보기 · 각도", actor: true, rows: rows("바라보기(0)") },

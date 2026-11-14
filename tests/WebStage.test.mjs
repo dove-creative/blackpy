@@ -130,6 +130,27 @@ test("left press captures pointer and an outside release uses bounded stage coor
     ]);
 });
 
+test("start and restart move focus to the stage so the first key reaches the new run", async () => {
+    const app = browser();
+    app.state("one", "completed");
+    const canvas = app.element("stage");
+    for (const [button, action, runId] of [["start-button", "/api/run", "two"], ["restart-button", "/api/restart", "three"]]) {
+        app.document.activeElement = app.element(button);
+        app.element(button).emit("click");
+        assert.equal(app.document.activeElement, canvas);
+        await setImmediate();
+        assert.ok(app.requests.some(request => request.url === action));
+        app.state(runId);
+        assert.equal(canvas.emit("keydown", { key: "ArrowUp", code: "ArrowUp" }), true);
+        app.window.emit("keyup", { key: "ArrowUp", code: "ArrowUp" });
+        await setImmediate();
+        assert.deepEqual(app.inputs().filter(packet => packet.runId === runId).map(packet => packet.kind),
+            ["keydown", "keyup"]);
+        app.state(runId, "completed");
+    }
+    assert.match(app.element("input-hint").textContent, /바로 키보드/);
+});
+
 test("focus loss resets held input and completed runs accept neither keys nor presses", async () => {
     const app = browser();
     app.state("one");
@@ -155,13 +176,14 @@ test("common palette needs no object selection and does not send runtime input",
     assert.equal(app.element("categories").children.length, 6);
     const html = await readFile(new URL("index.html", root), "utf8");
     assert.doesNotMatch(html, /target-select|target-file|누구의 코드를/);
+    assert.match(html, /<link rel="icon" href="favicon\.svg" type="image\/svg\+xml">/);
     assert.match(app.element("category-description").textContent, /빈 곳/);
     app.element("categories").children[1].emit("click");
     const forward = app.element("command-cards").children.find(card => card.children[0]?.textContent === "앞으로");
     assert.equal(forward.children[0].children[0].textContent, "캐릭터 전용");
     forward.children[1].emit("click");
     await setImmediate();
-    assert.deepEqual(app.copied, ["앞으로(10)"]);
+    assert.deepEqual(app.copied, ["앞으로(100)"]);
     assert.equal(app.inputs().length, 0);
 });
 
@@ -202,7 +224,7 @@ test("each code row copies a complete event template and announces success", asy
     const cards = app.element("command-cards").children;
     cards[1].children[2].emit("click");
     await setImmediate();
-    assert.deepEqual(app.copied, ["def 키_클릭_중(누른_키):\n    pass"]);
+    assert.deepEqual(app.copied, ["def 키_누름_중(누른_키):\n    pass"]);
     assert.match(app.element("copy-status").textContent, /복사했어요/);
     assert.match(app.element("copy-status").textContent, /Python 파일/);
 });

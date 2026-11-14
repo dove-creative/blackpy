@@ -61,11 +61,54 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
             context = EXECUTION.set((True, 1 / frames))
             try:
                 for _ in range(frames):
-                    await self.actor.forward(100)
+                    await self.actor.forward(0.5)
             finally:
                 EXECUTION.reset(context)
             self.assertAlmostEqual(self.actor.position[0], 200)
             self.assertEqual(self.runtime.motions, [])
+
+    async def test_held_forward_uses_speed_with_default_one(self):
+        context = EXECUTION.set((True, 0.25))
+        try:
+            await self.actor.forward()
+            self.assertAlmostEqual(self.actor.position[0], 50)
+            await self.actor.forward(2)
+            self.assertAlmostEqual(self.actor.position[0], 150)
+            await self.actor.forward(-0.5)
+            self.assertAlmostEqual(self.actor.position[0], 125)
+            with self.assertRaisesRegex(TypeError, "이동 속도"):
+                await self.actor.forward(None)
+        finally:
+            EXECUTION.reset(context)
+
+    async def test_default_distance_and_turn(self):
+        movement = asyncio.create_task(self.actor.forward())
+        await settle()
+        await tick(self.runtime, 0.5)
+        await movement
+        self.assertAlmostEqual(self.actor.position[0], 100)
+        rotation = asyncio.create_task(self.actor.left())
+        await settle()
+        await tick(self.runtime, 0.5)
+        await rotation
+        self.assertAlmostEqual(self.actor.heading, 90)
+        rotation = asyncio.create_task(self.actor.right())
+        await settle()
+        await tick(self.runtime, 0.5)
+        await rotation
+        self.assertAlmostEqual(self.actor.heading, 0)
+        with self.assertRaisesRegex(TypeError, "이동 값"):
+            await self.actor.forward(None)
+
+    async def test_held_turn_default_is_ninety_degrees_per_second(self):
+        context = EXECUTION.set((True, 0.5))
+        try:
+            await self.actor.left()
+            self.assertAlmostEqual(self.actor.heading, 45)
+            await self.actor.right()
+            self.assertAlmostEqual(self.actor.heading, 0)
+        finally:
+            EXECUTION.reset(context)
 
     async def test_continuous_rotation_uses_degrees_per_second(self):
         context = EXECUTION.set((True, 0.25))
@@ -144,8 +187,8 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
     async def test_background_capabilities_and_speech(self):
         background = self.runtime.background
         background.background = "city"
-        background.say("무대 안내")
-        self.actor.say("안녕")
+        background.say("무대 안내", 시간=None)
+        self.actor.say("안녕", 시간=None)
         self.assertEqual(self.runtime.snapshot()["message"], "무대 안내")
         self.assertEqual(self.runtime.snapshot()["sprites"][0]["speech"], "안녕")
         await background.forward(10)
@@ -154,7 +197,7 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_speech_joins_values_for_actors_and_background(self):
         for target in (self.actor, self.runtime.background):
-            target.say("점수", 3, 1.5, True, None, [1, 2])
+            target.say("점수", 3, 1.5, True, None, [1, 2], 시간=None)
         expected = "점수 3 1.5 True None [1, 2]"
         self.assertEqual(self.actor.speech, expected)
         self.assertEqual(self.runtime.message, expected)
@@ -165,7 +208,7 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_speech_validates_combined_length(self):
         for target in (self.actor, self.runtime.background):
-            target.say("가" * 99, "나" * 100)
+            target.say("가" * 99, "나" * 100, 시간=None)
             for parts in (("가" * 201,), ("가" * 100, "나" * 100)):
                 with self.assertRaises(ValueError):
                     target.say(*parts)

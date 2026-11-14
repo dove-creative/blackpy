@@ -319,7 +319,7 @@
         inputHint.textContent = runId
             ? (focused ? "무대에 입력하고 있어요. 마우스나 키보드로 놀아요."
                 : "무대를 누른 뒤 마우스나 키보드로 놀아요.")
-            : "시작한 뒤 무대를 눌러요. 코드를 바꾼 뒤 다시 시작해요.";
+            : "시작하면 바로 키보드로 놀 수 있어요. 코드를 바꾼 뒤 다시 시작해요.";
     }
 
     async function sendInput(packet, signal) {
@@ -618,9 +618,16 @@
         window.BlackPySceneRenderer.draw(context, scene, stageImages());
     }
 
-    startButton.addEventListener("click", () => sendAction("run"));
+    // Moving focus before the request lets the first key press reach the new run.
+    startButton.addEventListener("click", () => {
+        canvas.focus({ preventScroll: true });
+        void sendAction("run");
+    });
     stopButton.addEventListener("click", () => sendAction("stop"));
-    restartButton.addEventListener("click", () => sendAction("restart"));
+    restartButton.addEventListener("click", () => {
+        canvas.focus({ preventScroll: true });
+        void sendAction("restart");
+    });
     canvas.addEventListener("pointerdown", pressPointer);
     canvas.addEventListener("pointerup", releasePointer);
     canvas.addEventListener("pointercancel", releaseInput);

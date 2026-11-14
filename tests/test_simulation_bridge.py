@@ -102,14 +102,14 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_next_held_callback_replaces_rate_and_sums_its_own_commands(self):
         runtime = await self.prepare(
-            '움직임 = True\ndef 키_클릭_중(키):\n'
-            '    if 움직임:\n        앞으로(100)\n        앞으로(20)\n'
+            '움직임 = True\ndef 키_누름_중(키):\n'
+            '    if 움직임:\n        앞으로(0.5)\n        앞으로(0.1)\n'
         )
         runtime.remote_exchange = object()
         runtime.key_generations = {"오른쪽": 7}
         actor = runtime.actors[0]
         actor._physics_commands = []
-        runtime.dispatch(actor, "키_클릭_중", ("오른쪽",), 0.1)
+        runtime.dispatch(actor, "키_누름_중", ("오른쪽",), 0.1)
         await settle()
         rates = actor._physics_commands
         self.assertEqual([rate["forward"] for rate in rates], [0, 100, 120])
@@ -117,7 +117,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         old_revision = rates[-1]["revision"]
         actor._physics_commands = []
         actor.namespace["움직임"] = False
-        runtime.dispatch(actor, "키_클릭_중", ("오른쪽",), 0.1)
+        runtime.dispatch(actor, "키_누름_중", ("오른쪽",), 0.1)
         await settle()
         self.assertEqual(len(actor._physics_commands), 1)
         self.assertEqual(actor._physics_commands[0]["x"], 0)
@@ -125,13 +125,13 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_old_callback_finishes_but_cannot_move_a_repressed_key(self):
         runtime = await self.prepare(
-            '완료 = []\ndef 키_클릭_중(키):\n'
+            '완료 = []\ndef 키_누름_중(키):\n'
             '    앞으로(100)\n    기다리기(1)\n    앞으로(900)\n    완료.append(True)\n'
         )
         runtime.remote_exchange = object()
         runtime.key_generations = {"오른쪽": 7}
         actor = runtime.actors[0]
-        runtime.dispatch(actor, "키_클릭_중", ("오른쪽",), 0.1)
+        runtime.dispatch(actor, "키_누름_중", ("오른쪽",), 0.1)
         await settle()
         actor._physics_commands = []
         runtime.key_generations = {"오른쪽": 8}
@@ -183,7 +183,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
                          ["시작", "끝", "시작", "끝", "시작 완료", "시작 완료"])
 
     async def test_slow_poll_dispatches_one_held_callback_without_tick_replay(self):
-        runtime = await self.prepare('기록 = []\ndef 키_클릭_중(키):\n    기록.append(키)\n')
+        runtime = await self.prepare('기록 = []\ndef 키_누름_중(키):\n    기록.append(키)\n')
         runtime.remote_exchange = object()
         for tick in (10, 10, 30):
             runtime.accept_remote(reply(runtime, tick=tick, keys={"오른쪽": 7}), 0.1, True)
@@ -192,8 +192,8 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_current_input_snapshot_does_not_consume_queued_transitions(self):
         runtime = await self.prepare(
-            '기록 = []\ndef 키_클릭(키):\n    기록.append("키 시작")\n'
-            'def 키_클릭_끝(키):\n    기록.append("키 끝")\n'
+            '기록 = []\ndef 키_누름(키):\n    기록.append("키 시작")\n'
+            'def 키_누름_끝(키):\n    기록.append("키 끝")\n'
             'def 자신_클릭():\n    기록.append("포인터 시작")\n'
             'def 자신_클릭_끝():\n    기록.append("포인터 끝")\n'
         )

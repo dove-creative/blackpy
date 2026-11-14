@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>BlackPy</title>
+  <rect width="64" height="64" rx="14" fill="#244f46"/>
+  <path d="M15 12h17c9 0 14 4.5 14 11 0 4-2 7-5.5 8.5 4.8 1.4 7.5 5 7.5 10 0 7.5-5.8 12.5-15 12.5H15z M24 20v9h7c3.4 0 5.2-1.6 5.2-4.5S34.4 20 31 20z M24 36.5v9.5h8.2c3.8 0 6-1.8 6-4.8s-2.2-4.7-6-4.7z" fill="#fff5d2" fill-rule="evenodd"/>
+  <rect x="44" y="47" width="11" height="5" rx="2.5" fill="#ffd65a"/>
+</svg>

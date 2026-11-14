@@ -49,7 +49,7 @@ with zipfile.ZipFile(sys.argv[1]) as wheel:
     assert.ok((await readdir(workspace)).every(name => name === "_blackpy" || name.endsWith(".py")));
     const stub = await readFile(path.join(workspace, "_blackpy", "__builtins__.pyi"));
     assert.match(stub.toString(), /def 말하기/);
-    const source = 'import sys\ndef 시작():\n    print(sys.executable)\n    말하기("wheel에서 실행")\n    좌표로(23, 45)\n';
+    const source = 'import sys\ndef 시작():\n    print(sys.executable)\n    말하기("wheel에서 실행", 시간=None)\n    좌표로(23, 45)\n';
     await writeFile(path.join(workspace, "고양이.py"), source);
     const host = new TestHost();
 

@@ -29,7 +29,7 @@ async function answer(prompt, text) {
 test("top-level input preserves text and supports sequential numeric conversion before start", async () => {
     await host.write('대답 = input("이름은?")\nprint("NAME", repr(대답))\n' +
         '거리 = int(input("거리?"))\n비율 = float(input())\n' +
-        'def 시작():\n    print("RESULT", 거리 * 비율)\n    말하기(대답)\n');
+        'def 시작():\n    print("RESULT", 거리 * 비율)\n    말하기(대답, 시간=None)\n');
     await host.run();
     const name = await waitForPrompt("이름은?");
     assert.equal(name.actor, "고양이");
@@ -86,8 +86,8 @@ test("input in an event helper suspends only its caller while movement and other
     await host.write('def 시작():\n    print("READY")\n' +
         '\ndef 질문하기():\n    return input("클릭 질문")\n' +
         '\ndef 자신_클릭():\n    대답 = 질문하기()\n    print("ANSWER", 대답)\n' +
-        '\ndef 키_클릭(누른_키):\n    print("KEY", 누른_키)\n',
-        'def 키_클릭(누른_키):\n    앞으로(60)\n    print("CAR_MOVED")\n');
+        '\ndef 키_누름(누른_키):\n    print("KEY", 누른_키)\n',
+        'def 키_누름(누른_키):\n    앞으로(60)\n    print("CAR_MOVED")\n');
     await host.run();
     await host.wait(() => host.text().includes("READY"), "event handlers ready");
     await host.input("pointerdown", { button: "왼쪽", x: -100 });
@@ -177,7 +177,7 @@ test("stop clears a pending prompt and restart rejects answers from the previous
 
 test("continuous events report a student error instead of queuing input every frame", async () => {
     await host.write('def 시작():\n    print("READY")\n' +
-        '\ndef 키_클릭_중(누른_키):\n    input("반복 질문")\n');
+        '\ndef 키_누름_중(누른_키):\n    input("반복 질문")\n');
     await host.run();
     await host.wait(() => host.text().includes("READY"), "continuous handler ready");
     await host.input("keydown", { key: "오른쪽" });

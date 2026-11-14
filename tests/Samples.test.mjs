@@ -88,12 +88,14 @@ test("broadcast sample includes its sender and moves both actors together", asyn
         await host.input("pointerup", { button: "왼쪽", x: 0, y: 200 });
         await host.wait(() => host.sprite().speech === "고양이가 제자리로 돌아왔어요!" &&
             host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "broadcast round trip");
-        assert.equal(host.state.scene.message, "방송한 배경도 출발 신호를 받았어요!");
+        assert.ok(host.history.some(scene => scene.message === "방송한 배경도 출발 신호를 받았어요!"));
         assert.ok(Math.abs(host.sprite().x + 180) < 0.01);
         assert.ok(Math.abs(host.sprite("자동차").x - 180) < 0.01);
         assert.ok(host.history.some(scene =>
             scene.sprites.find(actor => actor.label === "고양이").x > -140 &&
             scene.sprites.find(actor => actor.label === "자동차").x < 140), "concurrent movement");
+        // The one-second closing speech keeps each receiver busy before the same signal can restart it.
+        await host.wait(() => host.sprite().speech === "" && host.sprite("자동차").speech === "", "round trip speech ends");
 
         await host.input("keydown", { key: "스페이스" });
         await host.input("keyup", { key: "스페이스" });

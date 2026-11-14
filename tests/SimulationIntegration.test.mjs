@@ -95,11 +95,11 @@ test("gravity and an ordinary move advance while Python is blocked in native cod
 test("held movement survives blocked Python, releases immediately and rejects an old press generation", async () => {
     const project = defaultProject();
     Object.assign(project.actors[0], { x: -250, physics: "없음" });
-    const cat = '첫번째 = True\ndef 키_클릭_중(키):\n    global 첫번째\n' +
-        '    if 키 == "오른쪽":\n        앞으로(120)\n        if 첫번째:\n' +
-        '            첫번째 = False\n            기다리기(0.65)\n            앞으로(1000)\n' +
+    const cat = '첫번째 = True\ndef 키_누름_중(키):\n    global 첫번째\n' +
+        '    if 키 == "오른쪽":\n        앞으로(0.6)\n        if 첫번째:\n' +
+        '            첫번째 = False\n            기다리기(0.65)\n            앞으로(5)\n' +
         '            print("OLD_CALLBACK_FINISHED", flush=True)\n';
-    const background = 'import time\ndef 키_클릭(키):\n    if 키 == "스페이스":\n' +
+    const background = 'import time\ndef 키_누름(키):\n    if 키 == "스페이스":\n' +
         '        print("NATIVE_BLOCK_BEGIN", flush=True)\n        time.sleep(0.9)\n' +
         '        print("NATIVE_BLOCK_END", flush=True)\n';
     await host.write(cat, "", background, project);
@@ -150,7 +150,7 @@ script_runtime.remote_exchange = slow_exchange
 `;
     const project = defaultProject();
     Object.assign(project.actors[0], { physics: "없음", x: -250 });
-    await host.write('def 시작():\n    앞으로(500)\n\ndef 키_클릭(키):\n    pass\n', "",
+    await host.write('def 시작():\n    앞으로(500)\n\ndef 키_누름(키):\n    pass\n', "",
         `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project);
     await host.run();
     await host.wait(() => host.sprite()?.x > -240, "slow Python starts the independent move");

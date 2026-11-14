@@ -106,7 +106,7 @@
         <mxCell id="6rdRbKHFx0KbhlcGq44E-57" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="시작했을 때" vertex="1">
           <mxGeometry height="20" width="120" x="580" y="180" as="geometry" />
         </mxCell>
-        <mxCell id="6rdRbKHFx0KbhlcGq44E-58" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 키_클릭(누른_키):" vertex="1">
+        <mxCell id="6rdRbKHFx0KbhlcGq44E-58" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 키_누름(누른_키):" vertex="1">
           <mxGeometry height="20" width="140" x="570" y="260" as="geometry" />
         </mxCell>
         <mxCell id="6rdRbKHFx0KbhlcGq44E-59" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="키" vertex="1">
@@ -637,10 +637,10 @@
         <mxCell id="6rdRbKHFx0KbhlcGq44E-377" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 닿는_중_종료(이름_리스트):" vertex="1">
           <mxGeometry height="20" width="180" x="1059.9999999999998" y="530" as="geometry" />
         </mxCell>
-        <mxCell id="6rdRbKHFx0KbhlcGq44E-385" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 키_클릭_중(누른_키):" vertex="1">
+        <mxCell id="6rdRbKHFx0KbhlcGq44E-385" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 키_누름_중(누른_키):" vertex="1">
           <mxGeometry height="20" width="140" x="570" y="280" as="geometry" />
         </mxCell>
-        <mxCell id="6rdRbKHFx0KbhlcGq44E-386" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 키_클릭_끝(누른_키):" vertex="1">
+        <mxCell id="6rdRbKHFx0KbhlcGq44E-386" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="def 키_누름_끝(누른_키):" vertex="1">
           <mxGeometry height="20" width="140" x="570" y="300" as="geometry" />
         </mxCell>
         <mxCell id="S6dvIorDuQm0EAU32tyG-2" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;aspect=fixed;fillColor=light-dark(#3D75FF,#0FAA0F);" value="" vertex="1">

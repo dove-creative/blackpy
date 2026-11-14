@@ -17,14 +17,14 @@ test("one common palette exposes all commands and marks actor-only cards", () =>
     const cards = allCards();
     const codes = cards.flatMap(card => card.rows.map(row => row.code));
     assert.ok(codes.includes("def 자신_클릭():\n    pass"));
-    assert.ok(codes.includes("def 키_클릭_끝(누른_키):\n    pass"));
+    assert.ok(codes.includes("def 키_누름_끝(누른_키):\n    pass"));
     assert.ok(codes.includes("def 방송_받기(신호_이름):\n    pass"));
     assert.ok(codes.includes("def 닿는_중_종료(이름_리스트):\n    pass"));
     assert.ok(["위치", "방향", "속도", "크기", "가시성", "속도_변경(1)", "가시성_설정(True)",
         "크기_정하기(1)", "크기_바꾸기(2)"].every(code => codes.includes(code)));
     assert.ok(codes.every(code => !/^(위치|방향|속도|크기|가시성|배경|물리|무게)\s*=/.test(code)));
     assert.equal(new Set(codes).size, codes.length);
-    for (const code of ["앞으로(10)", '이름_정하기("새이름")', "정지()", "가시성_설정(True)"]) {
+    for (const code of ["앞으로(100)", '이름_정하기("새이름")', "정지()", "가시성_설정(True)"]) {
         assert.equal(cards.find(card => card.rows.some(row => row.code === code)).actor, true);
     }
     for (const code of ["이름", "기다리기(1)", '말하기("안녕!")', '위치_구하기("고양이")']) {
@@ -43,7 +43,7 @@ test("physics modes, actions and contacts have one category while variables and 
     assert.equal(physics.filter(row => row.kind === "event").length, 3);
     assert.ok(availableCards("sensing").every(card => !card.title.startsWith("충돌")));
     const motion = availableCards("motion").flatMap(card => card.rows.map(row => row.code));
-    assert.ok(["왼쪽_돌기(10)", "오른쪽_돌기(10)", "바라보기(0)", "바라보기(10, 0)"].every(code => motion.includes(code)));
+    assert.ok(["왼쪽_돌기(90)", "오른쪽_돌기(90)", "바라보기(0)", "바라보기(10, 0)"].every(code => motion.includes(code)));
     assert.equal(motion.at(-1), "기다리기(1)");
     assert.ok(availableCards("events").every(card => !card.rows.some(row => row.code === "기다리기(1)")));
 });

@@ -41,8 +41,8 @@ test("normal moves finish before the next line and actors move simultaneously", 
 
 test("state assignments and helper calls bind to their own actor", async () => {
     await host.write('def 돌기():\n    방향 += 90\n\ndef 시작():\n    위치 = (12, 25)\n' +
-        '    크기 = 2\n    속도 = 2\n    돌기()\n    앞으로(20)\n    말하기("내 말풍선")\n',
-        'def 시작():\n    위치 = (100, -25)\n    말하기("자동차 말풍선")\n');
+        '    크기 = 2\n    속도 = 2\n    돌기()\n    앞으로(20)\n    말하기("내 말풍선", 시간=None)\n',
+        'def 시작():\n    위치 = (100, -25)\n    말하기("자동차 말풍선", 시간=None)\n');
     await host.run();
     await host.done();
     assert.equal(host.state.status, "completed", host.text());
@@ -139,6 +139,16 @@ test("project images are served only by name, with the token and a sandboxed typ
     config.background.image = "../무대.svg";
     await host.write("", "", "", config);
     assert.equal((await host.request("/api/run")).status, 400);
+});
+
+test("the stage page links its own BlackPy tab icon", async () => {
+    const page = await fetch(host.address + "/", { signal: AbortSignal.timeout(15000) });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<link rel="icon" href="favicon\.svg" type="image\/svg\+xml">/);
+    const icon = await fetch(host.address + "/favicon.svg", { signal: AbortSignal.timeout(15000) });
+    assert.equal(icon.status, 200);
+    assert.equal(icon.headers.get("content-type"), "image/svg+xml");
+    assert.match(await icon.text(), /<title>BlackPy<\/title>/);
 });
 
 test("last browser disconnect stops execution and reconnect retains the scene", async () => {

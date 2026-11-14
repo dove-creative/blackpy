@@ -10,7 +10,7 @@ from test_runtime_support import make_runtime
 
 class FramePacingTests(unittest.IsolatedAsyncioTestCase):
     async def run_frames(self, work_times, oversleep):
-        runtime = make_runtime('def 키_클릭(키):\n    pass\n')
+        runtime = make_runtime('def 키_누름(키):\n    pass\n')
         clock = [100.0]
         frames = []
         real_sleep = asyncio.sleep

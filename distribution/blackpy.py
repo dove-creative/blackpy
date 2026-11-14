@@ -23,6 +23,14 @@ STATE_NAMES = {
     "닿은_객체_리스트": "touching_names",
 }
 PHYSICS_MODES = {"없음", "충돌만", "물리"}
+# 속도 배율 1에서 일반 이동은 초당 200, 일반 회전은 초당 180도로 진행한다.
+MOVE_SPEED = 200
+TURN_SPEED = 180
+DEFAULT_DISTANCE = 100
+DEFAULT_HELD_SPEED = 1
+DEFAULT_TURN = 90
+DEFAULT_SPEECH_SECONDS = 1
+UNSET = object()
 
 
 def number(value, label, minimum=-100000, maximum=100000):
@@ -62,13 +70,13 @@ class ScriptObject:
         self.handlers = {}
         self.speech = ""
         self._speech_revision = 0
+        self._speech_deadline = None
         self._position = (0.0, 0.0)
         self._heading = 0.0
         self._speed = 1.0
         self._scale = 1.0
         self._visible = True
-        self._flip_horizontal = False
-        self._flip_vertical = False
+        self._mirrored = False
         self._physics = "충돌만"
         self._trigger = False
         self._mass = 1.0
@@ -292,14 +300,20 @@ class ScriptObject:
             self.queue_physics("move", x, y)
         self.heading = self._heading + heading
 
-    async def forward(self, value):
+    async def forward(self, value=UNSET):
         if self.is_background:
             return
 
-        value = number(value, "이동 값")
-        radians = math.radians(self._heading)
-        x, y = math.cos(radians) * value, math.sin(radians) * value
         continuous, delta_time = EXECUTION.get()
+        if continuous:
+            # 유지 이벤트의 값은 속도이다. 1은 일반 이동과 같은 초당 200이다.
+            value = number(DEFAULT_HELD_SPEED if value is UNSET else value, "이동 속도")
+            distance = value * MOVE_SPEED
+        else:
+            value = number(DEFAULT_DISTANCE if value is UNSET else value, "이동 값")
+            distance = value
+        radians = math.radians(self._heading)
+        x, y = math.cos(radians) * distance, math.sin(radians) * distance
 
         if continuous:
             if not self.runtime.movement_active(MOVEMENT.get()):
@@ -309,13 +323,13 @@ class ScriptObject:
                 if movement is not None and movement.get("heading_fixed"):
                     self.runtime.change_rate(self, x * self._speed, y * self._speed)
                 else:
-                    self.runtime.change_rate(self, forward=value * self._speed)
+                    self.runtime.change_rate(self, forward=distance * self._speed)
             else:
                 self.apply_delta(x * self._speed * delta_time, y * self._speed * delta_time)
         else:
-            await self.runtime.animate(self, x, y, 0, abs(value) / (200 * self._speed))
+            await self.runtime.animate(self, x, y, 0, abs(value) / (MOVE_SPEED * self._speed))
 
-    async def left(self, value):
+    async def left(self, value=DEFAULT_TURN):
         if self.is_background:
             return
 
@@ -330,9 +344,9 @@ class ScriptObject:
             else:
                 self.apply_delta(heading=value * self._speed * delta_time)
         else:
-            await self.runtime.animate(self, 0, 0, value, abs(value) / (180 * self._speed))
+            await self.runtime.animate(self, 0, 0, value, abs(value) / (TURN_SPEED * self._speed))
 
-    async def right(self, value):
+    async def right(self, value=DEFAULT_TURN):
         if self.is_background:
             return
 
@@ -345,11 +359,15 @@ class ScriptObject:
         if not isinstance(axis, str):
             raise TypeError('뒤집기에는 "가로" 또는 "세로"를 넣어 주세요.')
         if axis == "가로":
-            self._flip_horizontal = not self._flip_horizontal
+            heading = 180 - self._heading
         elif axis == "세로":
-            self._flip_vertical = not self._flip_vertical
+            heading = -self._heading
         else:
             raise ValueError('뒤집기에는 "가로" 또는 "세로"를 넣어 주세요.')
+
+        # A world mirror equals reflecting the heading and flipping the drawing across it.
+        self._mirrored = not self._mirrored
+        self.heading = heading
 
     def goto(self, x, y):
         if self.is_background:
@@ -394,21 +412,26 @@ class ScriptObject:
 
         self.visible = value
 
-    def say(self, *messages, 시간=None):
+    def say(self, *messages, 시간=DEFAULT_SPEECH_SECONDS):
         message = " ".join(str(part) for part in messages)
         if len(message) > 200:
             raise ValueError("말하기는 200자까지 사용할 수 있어요.")
-        if 시간 is not None:
-            duration = number(시간, "말하기 시간", 0, 3600)
-            if not self.runtime.initialized:
-                raise RuntimeError(
-                    "시간을 정한 말하기는 시작 또는 이벤트 함수 안에서 사용해 주세요."
-                )
-            return self.say_for(message, duration)
-        self.set_speech(message)
+        if 시간 is None:
+            self.set_speech(message)
+            return None
+        duration = number(시간, "말하기 시간", 0, 3600)
+        if not message:
+            self.set_speech("")
+            return None
+        if not self.runtime.initialized or EXECUTION.get()[0]:
+            # 파일 초기화와 매 프레임의 '중' 이벤트는 기다리지 않고 지울 시각만 정한다.
+            self.set_speech(message, duration)
+            return None
+        return self.say_for(message, duration)
 
-    def set_speech(self, message):
+    def set_speech(self, message, duration=None):
         self._speech_revision += 1
+        self._speech_deadline = None if duration is None else self.runtime.elapsed + duration
         if self.is_background:
             self.runtime.message = message
         else:
@@ -446,6 +469,7 @@ class ScriptObject:
             "x": self._position[0], "y": self._position[1],
             "width": width, "height": height, "heading": self._heading,
             "color": STYLES[self.kind][2], "visible": self._visible,
-            "flipHorizontal": self._flip_horizontal, "flipVertical": self._flip_vertical,
+            # The renderer flips in the rotated sprite frame.
+            "flipHorizontal": False, "flipVertical": self._mirrored,
             "label": self.name, "speech": self.speech,
         }

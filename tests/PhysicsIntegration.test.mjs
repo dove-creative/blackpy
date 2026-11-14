@@ -49,7 +49,7 @@ test("renaming keeps contact identity and lookup uses the new name", async () =>
     project.actors[1].x = 0;
     await host.write('이름_정하기("새 고양이")\n' +
         'def 닿았을_때(목록):\n    print("CONTACT", 닿은_객체_리스트)\n' +
-        'def 키_클릭(키):\n    가시성_설정(False)\n',
+        'def 키_누름(키):\n    가시성_설정(False)\n',
     'def 닿았을_때(목록):\n    print("LOOKUP", 목록, 위치_구하기("새 고양이"))\n' +
         'def 닿는_중_종료(목록):\n    print("EXIT", 목록, 닿은_객체_리스트)\n', "", project);
     await host.run();
