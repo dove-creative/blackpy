@@ -87,7 +87,7 @@ class FlipTests(unittest.IsolatedAsyncioTestCase):
         actor._physics_commands = []
         actor.flip("가로")
         self.assertEqual([(command["kind"], command["x"]) for command in actor._physics_commands],
-                         [("heading", 180)])
+                         [("heading", 180)],)
 
     async def test_student_commands_flip_then_move_forward_to_return(self):
         runtime = await self.prepare(
@@ -95,7 +95,7 @@ class FlipTests(unittest.IsolatedAsyncioTestCase):
             '    앞으로(100)\n'
             '    뒤집기("가로")\n'
             '    앞으로(100)\n'
-            '    말하기("집에 왔어요!", 시간=None)\n'
+            '    말하기("집에 왔어요!", 시간=None)\n',
         )
         runtime.start()
         await settle()
@@ -109,7 +109,7 @@ class FlipTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_held_flip_turns_the_registered_movement(self):
         runtime = await self.prepare(
-            'def 키_누름_중(키):\n    뒤집기("가로")\n    앞으로()\n'
+            'def 키_누름_중(키):\n    뒤집기("가로")\n    앞으로()\n',
         )
         await tick(runtime, 0.25, [{"kind": "keydown", "key": "스페이스"}])
         actor = runtime.actors[0]

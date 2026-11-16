@@ -16,14 +16,14 @@
             elements.form.addEventListener("submit", event => {
                 event.preventDefault();
                 if (!this.composing) void this.submit();
-            });
+            },);
             elements.answer.addEventListener("compositionstart", () => { this.composing = true; });
             elements.answer.addEventListener("compositionend", () => { this.composing = false; });
             elements.answer.addEventListener("keydown", event => {
                 if (event.key === "Enter" && (this.composing || event.isComposing || event.keyCode === 229)) {
                     event.preventDefault();
                 }
-            });
+            },);
         }
 
         update(runId, prompt, disabled = false) {

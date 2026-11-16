@@ -14,9 +14,9 @@ const copyProject = async (source, directory) => {
 const analyze = (directory, options = {}) => {
     const result = spawnSync(process.execPath,
         [pyright, "--outputjson", "--pythonversion", "3.10",
-            ...(options.python ? ["--pythonpath", options.python] : []), directory], {
-            cwd: options.cwd || directory, windowsHide: true, encoding: "utf8", timeout: 30000
-        });
+            ...(options.python ? ["--pythonpath", options.python] : []), directory,], {
+            cwd: options.cwd || directory, windowsHide: true, encoding: "utf8", timeout: 30000,
+        },);
     assert.ok(result.status === 0 || result.status === 1, result.stderr || String(result.error));
     return JSON.parse(result.stdout);
 };
@@ -32,8 +32,8 @@ test("installed commands work outside a workspace while ordinary diagnostics and
         + '    힘_작용(90, 6)\n    정지()\n    말하기("점수", 3, 시간=1.5)\n    print(len("공"), int("1"))\n';
     const invoke = (executable, args) => execFileSync(executable, args, {
         cwd: unrelated, windowsHide: true, encoding: "utf8", timeout: 120000,
-        env: { ...process.env, PYTHONUTF8: "1" }
-    });
+        env: { ...process.env, PYTHONUTF8: "1" },
+    },);
     await mkdir(directory);
     await mkdir(unrelated);
     await writeFile(source, valid);
@@ -67,10 +67,10 @@ test("installed commands work outside a workspace while ordinary diagnostics and
     assert.equal(await readFile(custom, "utf8"), customSource);
     assert.equal(await readFile(source, "utf8"), "print(사용자_이름)\n");
     await assert.rejects(access(path.join(venv, "Lib/site-packages/blackpy/_editor/__builtins__.pyi")),
-        { code: "ENOENT" });
+        { code: "ENOENT" },);
     const paths = JSON.parse(invoke(python, ["-c", "import json, sys; print(json.dumps(sys.path))"]));
     assert.ok(paths.every(entry => !entry.replaceAll("\\", "/").endsWith("blackpy/_editor")));
-});
+},);
 
 test("implicit commands are recognized while misspellings and wrong argument types remain errors", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "BlackPy editor "));
@@ -81,27 +81,27 @@ test("implicit commands are recognized while misspellings and wrong argument typ
         + '    힘_작용(90, 10)\n    정지()\n    이름_정하기("새 고양이")\n'
         + '    print(len(이름), 위치_구하기("고양이"), 물리, 무게, 닿은_객체_리스트)\n'
         + 'def 키_누름(누른_키):\n    말하기(누른_키, "키를 눌렀구나!")\n'
-        + '    말하기("점수", 3, True, None, 시간=0.5)\n    말하기()\n');
+        + '    말하기("점수", 3, True, None, 시간=0.5)\n    말하기()\n',);
     const valid = analyze(directory);
     assert.equal(valid.summary.errorCount, 0, JSON.stringify(valid.generalDiagnostics));
     assert.equal(valid.summary.warningCount, 0, JSON.stringify(valid.generalDiagnostics));
     await writeFile(path.join(directory, "test.py"),
-        'def 시작():\n    말하가("오타")\n    말하기("키", 시간="1")\n    말하기("키", 없는_옵션=1)\n');
+        'def 시작():\n    말하가("오타")\n    말하기("키", 시간="1")\n    말하기("키", 없는_옵션=1)\n',);
     const invalid = analyze(directory);
     assert.equal(invalid.summary.errorCount, 3, JSON.stringify(invalid.generalDiagnostics));
     assert.ok(invalid.generalDiagnostics.some(item => item.rule === "reportUndefinedVariable"));
     assert.ok(invalid.generalDiagnostics.some(item => item.rule === "reportArgumentType"));
-});
+},);
 
 test("physics mode choices and command argument types remain checked", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "BlackPy physics editor "));
     await copyProject(path.join(toolRoot, "distribution/project"), directory);
     await writeFile(path.join(directory, "test.py"),
-        'def 시작():\n    물리_설정("다른")\n    무게_설정("무거움")\n    힘_작용("위", 10)\n');
+        'def 시작():\n    물리_설정("다른")\n    무게_설정("무거움")\n    힘_작용("위", 10)\n',);
     const result = analyze(directory);
     assert.equal(result.summary.errorCount, 3, JSON.stringify(result.generalDiagnostics));
     assert.ok(result.generalDiagnostics.every(item => item.rule === "reportArgumentType"));
-});
+},);
 
 for (const name of ["01-movement", "02-keyboard", "03-click", "04-broadcast", "05-contact", "06-physics"]) {
     test(`${name} has no unknown BlackPy command diagnostics`, async () => {
@@ -110,5 +110,5 @@ for (const name of ["01-movement", "02-keyboard", "03-click", "04-broadcast", "0
         const result = analyze(directory);
         assert.equal(result.summary.errorCount, 0, JSON.stringify(result.generalDiagnostics));
         assert.equal(result.summary.warningCount, 0, JSON.stringify(result.generalDiagnostics));
-    });
+    },);
 }

@@ -196,7 +196,7 @@ class ProjectRuntime:
         if len(self.tasks) >= self.maximum_calls:
             raise RuntimeError(
                 f"동시에 실행하는 함수가 {self.maximum_calls}개를 넘었어요. "
-                "'중' 함수의 긴 기다리기나 반복을 확인해 주세요."
+                "'중' 함수의 긴 기다리기나 반복을 확인해 주세요.",
             )
         if guarded:
             self.guards.add(guard)
@@ -234,7 +234,7 @@ class ProjectRuntime:
         self.rate_revision += 1
         return {"actor": actor, "source": source, "generation": generation,
                 "revision": self.rate_revision, "x": 0.0, "y": 0.0,
-                "rotation": 0.0, "forward": 0.0}
+                "rotation": 0.0, "forward": 0.0,}
 
     def movement_active(self, movement):
         if movement is None:
@@ -789,13 +789,13 @@ class HttpTransport:
             "runId": self.run_id, "sequence": self.sequence, "ready": ready,
             "scene": scene, "actors": actors, "commands": commands,
             "acknowledgedCompletions": acknowledged_completions, "contactAck": contact_ack,
-        })
+        },)
 
     async def physics_step(self, delta_time, actors, commands):
         return await asyncio.to_thread(self.request, self.writer, "POST", "/api/physics/step", {
             "runId": self.run_id, "deltaTime": delta_time,
             "actors": actors, "commands": commands,
-        })
+        },)
 
     def request(self, connection, method, path, payload=None):
         body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -814,7 +814,7 @@ class HttpTransport:
     async def publish(self, scene):
         await asyncio.to_thread(self.request, self.writer, "POST", "/api/frame", {
             "runId": self.run_id, "scene": scene,
-        })
+        },)
 
     def close(self):
         self.reader.close()

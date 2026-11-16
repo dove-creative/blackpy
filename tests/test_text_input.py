@@ -28,13 +28,13 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
         runtime.accept([{
             "kind": "answer", "text": text,
             "promptId": prompt["id"] if prompt_id is None else prompt_id,
-        }])
+        },],)
 
     async def test_nested_helper_returns_exact_text_and_numeric_conversion(self):
         runtime = await self.prepare(
             '결과 = []\ndef 질문():\n    return input("몇 칸?")\n'
             'def 시작():\n    결과.append(int(질문()) + 3)\n'
-            '    결과.append(input())\n    결과.append(input(123))\n'
+            '    결과.append(input())\n    결과.append(input(123))\n',
         )
         self.assertEqual(runtime.snapshot()["textInput"]["message"], "몇 칸?")
         self.answer(runtime, "12")
@@ -57,7 +57,7 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first["actor"], "고양이")
         for text, prompt_id in (("wrong", first["id"] + 1), (None, first["id"]),
                                 ("a\nb", first["id"]), ("x" * 4097, first["id"]),
-                                ("wrong", True)):
+                                ("wrong", True),):
             self.answer(runtime, text, prompt_id)
             self.assertEqual(runtime.snapshot()["textInput"], first)
         self.answer(runtime, "첫 답")
@@ -188,4 +188,4 @@ class AnsweringTransport:
                 self.pending.append({
                     "kind": "answer", "promptId": prompt["id"],
                     "text": self.answers.pop(0),
-                })
+                },)

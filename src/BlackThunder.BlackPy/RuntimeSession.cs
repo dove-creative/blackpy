@@ -531,7 +531,7 @@ namespace BlackThunder.BlackPy
                 Scene = _scene.State,
                 Error = _error,
                 Output = _outputSnapshot,
-                OutputRevision = _outputRevision
+                OutputRevision = _outputRevision,
             };
         }
 

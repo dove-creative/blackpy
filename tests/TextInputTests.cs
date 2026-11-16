@@ -179,7 +179,7 @@ namespace BlackThunder.BlackPy.Tests
 
         private static InputRequest Answer(string runId, int promptId, string? text) => new()
         {
-            RunId = runId, Kind = "answer", PromptId = promptId, Text = text
+            RunId = runId, Kind = "answer", PromptId = promptId, Text = text,
         };
 
         private static SceneFrameRequest Frame(string runId, int promptId) => new()
@@ -188,8 +188,8 @@ namespace BlackThunder.BlackPy.Tests
             Scene = new SceneState
             {
                 Message = "계속 움직여요",
-                TextInput = new TextInputPrompt { Id = promptId, Message = "이름은?", Actor = "고양이" }
-            }
+                TextInput = new TextInputPrompt { Id = promptId, Message = "이름은?", Actor = "고양이" },
+            },
         };
 
         private static void AssertStatus(int status, TestDelegate action) =>

@@ -3,7 +3,7 @@
 (() => {
     const keyNames = {
         ArrowLeft: "왼쪽", ArrowRight: "오른쪽", ArrowUp: "위", ArrowDown: "아래",
-        " ": "스페이스", Enter: "엔터", Escape: "탈출"
+        " ": "스페이스", Enter: "엔터", Escape: "탈출",
     };
 
     function normalizeKey(key) {

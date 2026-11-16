@@ -15,7 +15,7 @@ class ScriptTransformer(ast.NodeTransformer):
         raise SyntaxError(message, (
             self.filename, node.lineno, node.col_offset + 1,
             self.source.splitlines()[node.lineno - 1],
-        ))
+        ),)
 
     def visit_Name(self, node):
         if node.id.startswith("__blackpy_"):
@@ -26,7 +26,7 @@ class ScriptTransformer(ast.NodeTransformer):
             return ast.copy_location(ast.Attribute(
                 value=ast.Name(id="__blackpy_actor__", ctx=ast.Load()),
                 attr=STATE_NAMES[node.id], ctx=node.ctx,
-            ), node)
+            ), node,)
         return node
 
     def visit_Call(self, node):
@@ -43,7 +43,7 @@ class ScriptTransformer(ast.NodeTransformer):
         return ast.copy_location(ast.Expr(value=ast.Await(value=ast.Call(
             func=ast.Name(id="__blackpy_checkpoint__", ctx=ast.Load()),
             args=[], keywords=[],
-        ))), node)
+        ),),), node,)
 
     def visit_FunctionDef(self, node):
         if node.name in STATE_NAMES or node.name.startswith("__blackpy_"):
@@ -57,7 +57,7 @@ class ScriptTransformer(ast.NodeTransformer):
         node = self.generic_visit(node)
         body = node.body
         insertion = 1 if body and isinstance(body[0], ast.Expr) and isinstance(
-            body[0].value, ast.Constant
+            body[0].value, ast.Constant,
         ) and isinstance(body[0].value.value, str) else 0
         body.insert(insertion, self.checkpoint(node))
         replacement = ast.AsyncFunctionDef(

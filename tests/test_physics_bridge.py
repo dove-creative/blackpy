@@ -50,7 +50,7 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
         runtime = await self.prepare(
             '물리_설정("물리")\n무게_설정(10)\n'
             'def 시작():\n    힘_작용(90, 10)\n    정지()\n'
-            '    말하기(str((물리, 무게, 닿은_객체_리스트)))\n'
+            '    말하기(str((물리, 무게, 닿은_객체_리스트)))\n',
         )
         runtime.start()
         await settle()
@@ -99,7 +99,7 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_motion_completion_reads_resolved_position(self):
         runtime = await self.prepare(
             '물리_설정("물리")\n결과 = []\ndef 시작():\n'
-            '    앞으로(100)\n    결과.append(위치)\n'
+            '    앞으로(100)\n    결과.append(위치)\n',
         )
 
         async def physics_step(delta_time, actors, commands):

@@ -131,7 +131,7 @@ namespace BlackThunder.BlackPy.Tests
             {
                 Rate("key:오른쪽", right.Generation, 2, 100, 0),
                 Rate("key:오른쪽", right.Generation, 1, 900, 0),
-                Rate("key:위", up.Generation, 1, 0, 50)
+                Rate("key:위", up.Generation, 1, 0, 50),
             };
             Send(request);
             _simulation.Tick(0.1);
@@ -192,7 +192,7 @@ namespace BlackThunder.BlackPy.Tests
             request.Commands = new[]
             {
                 Command("teleport", 100, 40), Command("heading", 90), Command("resize", 80, 50),
-                Command("visible", 0)
+                Command("visible", 0),
             };
             Send(request);
             request.Commands = Array.Empty<SimulationCommand>();
@@ -293,7 +293,7 @@ namespace BlackThunder.BlackPy.Tests
             var key = Accept("keydown", "오른쪽");
             request.Commands = new[]
             {
-                Motion("long", 100, 0, 100000), Rate("key:오른쪽", key.Generation, 1, 200000, 0)
+                Motion("long", 100, 0, 100000), Rate("key:오른쪽", key.Generation, 1, 200000, 0),
             };
             Assert.DoesNotThrow(() => Send(request));
             _simulation.Tick(0.01);
@@ -353,29 +353,29 @@ namespace BlackThunder.BlackPy.Tests
             {
                 Sprites = actors.Select(actor => new SpriteState
                 {
-                    Id = actor.Id, X = actor.X, Y = actor.Y, Width = actor.Width, Height = actor.Height
-                }).ToArray()
-            }
+                    Id = actor.Id, X = actor.X, Y = actor.Y, Width = actor.Width, Height = actor.Height,
+                }).ToArray(),
+            },
         };
 
         private static PhysicsActorState Actor(int index, double x = 0, double y = 0, string mode = "충돌만") => new()
         {
-            Id = "actor-" + index, X = x, Y = y, Width = 40, Height = 40, Mode = mode
+            Id = "actor-" + index, X = x, Y = y, Width = 40, Height = 40, Mode = mode,
         };
 
         private static SimulationCommand Command(string kind, double x = 0, double y = 0) => new()
         {
-            Id = "actor-1", Kind = kind, X = x, Y = y
+            Id = "actor-1", Kind = kind, X = x, Y = y,
         };
 
         private static SimulationCommand Motion(string token, double x, double y, double duration) => new()
         {
-            Id = "actor-1", Kind = "motion", Token = token, X = x, Y = y, Duration = duration
+            Id = "actor-1", Kind = "motion", Token = token, X = x, Y = y, Duration = duration,
         };
 
         private static SimulationCommand Rate(string source, long generation, long revision, double x, double y) => new()
         {
-            Id = "actor-1", Kind = "rate", Source = source, Generation = generation, Revision = revision, X = x, Y = y
+            Id = "actor-1", Kind = "rate", Source = source, Generation = generation, Revision = revision, X = x, Y = y,
         };
     }
 }

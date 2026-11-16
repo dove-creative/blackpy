@@ -11,9 +11,9 @@ export const toolRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 const packageVersion = readFileSync(path.join(toolRoot, "src/blackpy/__init__.py"), "utf8")
     .match(/^__version__ = "([^"]+)"/m)[1];
 export const wheelPath = path.resolve(process.env.BLACKPY_WHEEL ||
-    path.join(toolRoot, "artifacts/wheels", `blackpy-${packageVersion}-py3-none-win_amd64.whl`));
+    path.join(toolRoot, "artifacts/wheels", `blackpy-${packageVersion}-py3-none-win_amd64.whl`),);
 export const distributionRoot = path.resolve(process.env.BLACKPY_DISTRIBUTION ||
-    path.join(toolRoot, "artifacts", "blackpy"));
+    path.join(toolRoot, "artifacts", "blackpy"),);
 export const distributionSupport = existsSync(path.join(distributionRoot, "실습", "_blackpy", "project.json"))
     ? "_blackpy" : "";
 export const executable = path.join(distributionRoot, "실습", distributionSupport, "_runtime", "BlackThunder.BlackPy.exe");
@@ -22,10 +22,10 @@ export const defaultProject = () => ({
     background: { file: "배경.py", kind: "plain" },
     actors: [
         { name: "고양이", file: "고양이.py", kind: "cat", x: -100, y: 0,
-            heading: 0, scale: 1, speed: 1, visible: true },
+            heading: 0, scale: 1, speed: 1, visible: true, },
         { name: "자동차", file: "자동차.py", kind: "car", x: 150, y: 0,
-            heading: 180, scale: 1, speed: 1, visible: true }
-    ]
+            heading: 180, scale: 1, speed: 1, visible: true, },
+    ],
 });
 
 export class TestHost {
@@ -36,8 +36,8 @@ export class TestHost {
         this.child = spawn(options.executable || executable,
             options.args || ["--project", this.workspace, "--no-browser"], {
                 cwd: options.cwd || tmpdir(), windowsHide: true,
-                env: options.env || process.env, stdio: ["pipe", "pipe", "pipe"]
-            });
+                env: options.env || process.env, stdio: ["pipe", "pipe", "pipe"],
+            },);
         this.child.on("error", error => { this.output += String(error); });
         this.child.stdout.on("data", bytes => {
             this.output += bytes.toString();
@@ -47,7 +47,7 @@ export class TestHost {
                 this.address = url.origin;
                 this.token = new URLSearchParams(url.hash.slice(1)).get("token");
             }
-        });
+        },);
         this.child.stderr.on("data", bytes => { this.output += bytes.toString(); });
         await this.wait(() => this.address, "host startup", 20000);
         this.socket = await this.connect();
@@ -63,7 +63,7 @@ export class TestHost {
             if (packet.scene?.active) this.history.push(packet.scene);
             if (this.history.length > 600) this.history.shift();
             if (packet.type === "snapshot") ready = true;
-        });
+        },);
         await once(socket, "open");
         await this.wait(() => ready, "browser snapshot");
         return socket;
@@ -74,8 +74,8 @@ export class TestHost {
         const response = await fetch(this.address + endpoint, {
             method: get ? "GET" : "POST",
             headers: { "Content-Type": "application/json", "X-Playground-Token": token },
-            body: data === undefined ? undefined : JSON.stringify(data), signal: AbortSignal.timeout(15000)
-        });
+            body: data === undefined ? undefined : JSON.stringify(data), signal: AbortSignal.timeout(15000),
+        },);
         const text = await response.text();
         return { status: response.status, body: text ? JSON.parse(text) : null };
     }

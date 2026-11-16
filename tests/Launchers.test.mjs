@@ -10,14 +10,14 @@ const names = ["01-movement", "02-keyboard", "03-click", "04-broadcast", "05-con
 const basePython = process.env.PYTHON_EXE || "python";
 const environment = { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" };
 const invoke = (executable, args, options = {}) => execFileSync(executable, args, {
-    cwd: tmpdir(), windowsHide: true, encoding: "utf8", timeout: 120000, env: environment, ...options
-});
+    cwd: tmpdir(), windowsHide: true, encoding: "utf8", timeout: 120000, env: environment, ...options,
+},);
 
 async function studentFiles(directory) {
     const files = (await readdir(directory, { recursive: true })).filter(name => name.endsWith(".py") ||
-        name.endsWith(".pyi") || path.basename(name) === "project.json");
+        name.endsWith(".pyi") || path.basename(name) === "project.json",);
     return Object.fromEntries(await Promise.all(files.map(async name =>
-        [name, (await readFile(path.join(directory, name))).toString("base64")])));
+        [name, (await readFile(path.join(directory, name))).toString("base64")],),),);
 }
 
 test("sample launchers require an installed package throughout install and uninstall", async context => {
@@ -47,8 +47,8 @@ test("sample launchers require an installed package throughout install and unins
     const launchEnvironment = { ...environment, PYTHONPATH: path.join(toolRoot, "distribution") };
     const assertMissing = () => {
         const result = spawnSync(python, [launcher, "--console", "--no-browser"], {
-            cwd: toolRoot, windowsHide: true, encoding: "utf8", timeout: 15000, env: launchEnvironment
-        });
+            cwd: toolRoot, windowsHide: true, encoding: "utf8", timeout: 15000, env: launchEnvironment,
+        },);
         assert.ifError(result.error);
         assert.notEqual(result.status, 0);
         assert.match(result.stderr, /pip install blackpy/);
@@ -67,12 +67,12 @@ test("sample launchers require an installed package throughout install and unins
             try {
                 await host.open({ workspace, executable: python,
                     args: [path.join(workspace, "_blackpy", "시작.pyw"), "--console", "--no-browser", "--port", "0"],
-                    cwd: toolRoot, env: launchEnvironment });
+                    cwd: toolRoot, env: launchEnvironment, },);
                 const metadata = await host.request("/api/project");
                 assert.equal(metadata.status, 200);
                 assert.deepEqual(metadata.body.actors, expected.actors.map(actor => ({
-                    heading: 0, scale: 1, speed: 1, visible: true, physics: "충돌만", trigger: false, mass: 1, ...actor
-                })));
+                    heading: 0, scale: 1, speed: 1, visible: true, physics: "충돌만", trigger: false, mass: 1, ...actor,
+                }),),);
                 assert.equal(metadata.body.background.kind, expected.background.kind);
                 await host.run();
                 await host.wait(() => host.state?.scene?.message?.length > 0, "installed sample start event");
@@ -87,7 +87,7 @@ test("sample launchers require an installed package throughout install and unins
                 }
                 await host.close();
             }
-        });
+        },);
     }
 
     await context.test("uninstall disables the launcher without changing sample code", async () => {
@@ -99,8 +99,8 @@ test("sample launchers require an installed package throughout install and unins
             delete copied["blackpy.py"];
             assert.deepEqual(copied, original[name]);
         }
-    });
-});
+    },);
+},);
 
 test("windowless launch reports a missing package in a dialog and does not allocate a console", () => {
     const result = JSON.parse(invoke(basePython, ["-c", `
@@ -127,11 +127,11 @@ with patch("subprocess.Popen", return_value=child) as launch, \\
               "hidden": bool(options.get("creationflags", 0) & subprocess.CREATE_NO_WINDOW),
               "captures_errors": options.get("stderr") == subprocess.PIPE}
 print(json.dumps(result))
-`, path.join(toolRoot, "scripts", "SampleLauncher.pyw")]));
+`, path.join(toolRoot, "scripts", "SampleLauncher.pyw"),],),);
     assert.notEqual(result.code, 0);
     assert.match(result.message, /pip install blackpy/);
     assert.equal(result.dialog_count, 1);
     assert.equal(result.same_python, true);
     assert.equal(result.hidden, true);
     assert.equal(result.captures_errors, true);
-});
+},);

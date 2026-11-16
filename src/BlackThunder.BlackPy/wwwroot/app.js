@@ -29,7 +29,7 @@
         running: "코드를 실행하고 있어요",
         completed: "실행을 마쳤어요",
         stopped: "실행을 멈췄어요",
-        error: "코드를 확인해 주세요"
+        error: "코드를 확인해 주세요",
     };
 
     let state = { status: "ready", runId: null, error: null, scene: null };
@@ -60,18 +60,18 @@
         clearPointerCapture();
         actionNotice = message;
         updateControls();
-    });
+    },);
     const textInput = new window.BlackPyTextInput.TextInput({
         form: document.getElementById("text-input-form"),
         label: document.getElementById("text-input-label"),
         answer: document.getElementById("text-input-answer"),
         submit: document.getElementById("text-input-submit"),
-        status: document.getElementById("text-input-status")
+        status: document.getElementById("text-input-status"),
     }, sendAnswer, () => {
         releaseInput();
         outputPlaceholder.hidden = true;
         consoleArea.scrollTop = consoleArea.scrollHeight;
-    });
+    },);
 
     function updateLookupName() {
         const name = state.scene?.sprites[0]?.label || project?.actors[0]?.name || "고양이";
@@ -107,13 +107,13 @@
 
     async function loadImages(definition, request) {
         const names = [...new Set([definition.background?.image, ...definition.actors.map(actor => actor.image)]
-            .filter(name => typeof name === "string" && name.length > 0))];
+            .filter(name => typeof name === "string" && name.length > 0),),];
         const loaded = new Map();
 
         await Promise.all(names.map(async name => {
             try {
                 const response = await fetch(`/api/image?name=${encodeURIComponent(name)}`,
-                    { headers: { "X-Playground-Token": token } });
+                    { headers: { "X-Playground-Token": token } },);
                 if (!response.ok) {
                     const body = await response.json().catch(() => ({}));
                     throw new Error(body.error || `이미지를 불러오지 못했어요: ${name}`);
@@ -127,7 +127,7 @@
                 actionNotice = error instanceof Error ? error.message : `이미지를 확인해 주세요: ${name}`;
                 updateControls();
             }
-        }));
+        },),);
 
         if (request !== projectRequest) {
             for (const entry of loaded.values()) URL.revokeObjectURL(entry.url);
@@ -144,11 +144,11 @@
         (project?.actors || []).forEach((actor, index) => {
             const entry = projectImages.get(actor.image);
             if (entry) actors.set(`actor-${index + 1}`, entry.image);
-        });
+        },);
         return {
             backgroundKind: project?.background?.kind || "plain",
             background: projectImages.get(project?.background?.image)?.image || null,
-            actors
+            actors,
         };
     }
 
@@ -174,7 +174,7 @@
             button.append(dot, label);
             button.addEventListener("click", () => { selectedCategory = category.id; renderPalette(); });
             return button;
-        }));
+        },),);
 
         const descriptions = {
             events: "‘중’ 함수는 매 프레임 실행돼요. 배경의 클릭 이벤트는 캐릭터가 없는 빈 곳을 클릭할 때 실행돼요.",
@@ -182,7 +182,7 @@
             physics: "물리 모드와 무게를 정하고, 힘을 주거나 닿은 캐릭터를 확인해요. 충돌 때문에 회전하지는 않아요.",
             looks: "캐릭터의 모습과 말을 바꿔요. 배경의 말하기는 무대 안내를 표시해요.",
             math: "숫자를 계산하고 조건을 만들어요.",
-            sensing: "이름과 캐릭터의 위치를 알아봐요. 조회할 캐릭터 이름을 괄호 안에 넣어요."
+            sensing: "이름과 캐릭터의 위치를 알아봐요. 조회할 캐릭터 이름을 괄호 안에 넣어요.",
         };
         categoryDescription.textContent = descriptions[selectedCategory];
         const category = visibleCategories.find(item => item.id === selectedCategory);
@@ -231,7 +231,7 @@
             }
 
             return [article];
-        }));
+        },),);
     }
 
     async function copySnippet(code) {
@@ -249,7 +249,7 @@
         const sprites = state.scene?.sprites || (project ? window.BlackPyPalette.previewScene(project).sprites : []);
         positionReport.hidden = sprites.length === 0;
         const labels = sprites.map(sprite =>
-            `${sprite.label} · x ${numberLabel(sprite.x)} · y ${numberLabel(sprite.y)} · 방향 ${numberLabel(sprite.heading)}°`);
+            `${sprite.label} · x ${numberLabel(sprite.x)} · y ${numberLabel(sprite.y)} · 방향 ${numberLabel(sprite.heading)}°`,);
         const summary = JSON.stringify(labels);
         if (positionSummary === summary) return;
         positionSummary = summary;
@@ -257,7 +257,7 @@
             const row = document.createElement("span");
             row.textContent = label;
             return row;
-        }));
+        },),);
     }
 
     function updateControls() {
@@ -328,8 +328,8 @@
             headers: { "Content-Type": "application/json", "X-Playground-Token": token },
             body: JSON.stringify(packet),
             signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
-            keepalive: true
-        });
+            keepalive: true,
+        },);
 
         // A completed or replaced run can reject an input already on the wire.
         if (response.status === 409) return;
@@ -338,7 +338,7 @@
             const body = await response.json().catch(() => ({}));
             throw new Error(response.status === 429
                 ? "입력이 너무 많아요. 키를 놓고 잠시 기다려 주세요."
-                : body.error || "무대 입력을 보내지 못했어요. 다시 시작해 주세요.");
+                : body.error || "무대 입력을 보내지 못했어요. 다시 시작해 주세요.",);
         }
     }
 
@@ -347,8 +347,8 @@
             method: "POST",
             headers: { "Content-Type": "application/json", "X-Playground-Token": token },
             body: JSON.stringify(packet),
-            signal: AbortSignal.any([signal, AbortSignal.timeout(5000)])
-        });
+            signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
+        },);
 
         // Another tab or a replaced run may have already completed this question.
         if (response.status === 409) return;
@@ -370,8 +370,8 @@
             left: bounds.left + left,
             top: bounds.top + top,
             width: bounds.width - left - right,
-            height: bounds.height - top - bottom
-        }, logicalWidth, logicalHeight);
+            height: bounds.height - top - bottom,
+        }, logicalWidth, logicalHeight,);
     }
 
     function pressPointer(event) {
@@ -448,7 +448,7 @@
             status: message.status,
             runId: message.runId,
             error: typeof message.error === "string" ? message.error : null,
-            scene: message.scene?.active === true ? message.scene : null
+            scene: message.scene?.active === true ? message.scene : null,
         };
 
         receivedSnapshot = true;
@@ -474,7 +474,7 @@
 
         canvas.setAttribute("aria-label", state.scene
             ? `움직이는 놀이 무대. ${sceneText}`
-            : "캐릭터를 움직이는 무대. 가운데가 원점이며 오른쪽과 위쪽이 양수입니다.");
+            : "캐릭터를 움직이는 무대. 가운데가 원점이며 오른쪽과 위쪽이 양수입니다.",);
         if (newRun) void loadProject();
         updateControls();
         requestDraw();
@@ -513,8 +513,8 @@
         try {
             const response = await fetch(`/api/${action}`, {
                 method: "POST",
-                headers: { "X-Playground-Token": token }
-            });
+                headers: { "X-Playground-Token": token },
+            },);
             const body = await response.json().catch(() => ({}));
 
             if (!response.ok) {
@@ -550,7 +550,7 @@
             if (socket !== currentSocket) return;
             connected = true;
             updateControls();
-        });
+        },);
 
         currentSocket.addEventListener("message", event => {
             if (socket !== currentSocket) return;
@@ -569,7 +569,7 @@
                 actionNotice = "화면 정보를 읽지 못했어요. 새로고침해 주세요.";
                 updateControls();
             }
-        });
+        },);
 
         currentSocket.addEventListener("close", () => {
             if (socket !== currentSocket || leavingPage) return;
@@ -585,13 +585,13 @@
             }
 
             updateControls();
-        });
+        },);
 
         currentSocket.addEventListener("error", () => {
             if (socket !== currentSocket) return;
             connected = false;
             updateControls();
-        });
+        },);
     }
 
     function resizeCanvas() {
@@ -608,7 +608,7 @@
         window.requestAnimationFrame(() => {
             drawRequested = false;
             drawStage();
-        });
+        },);
     }
 
     function drawStage() {
@@ -622,21 +622,21 @@
     startButton.addEventListener("click", () => {
         canvas.focus({ preventScroll: true });
         void sendAction("run");
-    });
+    },);
     stopButton.addEventListener("click", () => sendAction("stop"));
     restartButton.addEventListener("click", () => {
         canvas.focus({ preventScroll: true });
         void sendAction("restart");
-    });
+    },);
     canvas.addEventListener("pointerdown", pressPointer);
     canvas.addEventListener("pointerup", releasePointer);
     canvas.addEventListener("pointercancel", releaseInput);
     canvas.addEventListener("lostpointercapture", () => {
         if (capturedPointer !== null) releaseInput();
-    });
+    },);
     canvas.addEventListener("contextmenu", event => {
         if (inputRunId) event.preventDefault();
-    });
+    },);
     canvas.addEventListener("pointermove", event => {
         if (!inputRunId) return;
         const point = pointerPoint(event);
@@ -644,18 +644,18 @@
 
         pointerPosition = point;
         inputQueue.enqueue({ kind: "pointermove", ...point });
-    });
+    },);
     canvas.addEventListener("keydown", pressKey);
     canvas.addEventListener("focus", updateInput);
     canvas.addEventListener("blur", () => {
         releaseInput();
         updateInput();
-    });
+    },);
     window.addEventListener("keyup", releaseKey);
     window.addEventListener("blur", releaseInput);
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) releaseInput();
-    });
+    },);
     window.addEventListener("resize", resizeCanvas);
     window.addEventListener("pagehide", () => {
         releaseInput();
@@ -663,7 +663,7 @@
         leavingPage = true;
         clearTimeout(reconnectTimer);
         socket?.close();
-    });
+    },);
 
     if (!token) {
         connectionNotice = "실습 폴더의 '시작.exe'를 열어 이 화면을 시작해 주세요.";

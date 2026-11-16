@@ -33,7 +33,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_helpers_inherit_continuous_context(self):
         runtime = await self.prepare(
-            'def 이동():\n    앞으로(0.5)\ndef 키_누름_중(키):\n    이동()\n'
+            'def 이동():\n    앞으로(0.5)\ndef 키_누름_중(키):\n    이동()\n',
         )
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "오른쪽"}])
         self.assertAlmostEqual(runtime.actors[0].position[0], 10)
@@ -44,7 +44,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
             '결과 = []\ndef 시작():\n'
             '    def 두배(값):\n        return 값 * 2\n'
             '    for 값 in range(3):\n        결과.append(두배(값))\n'
-            '    결과.append(sum(x for x in range(3)))\n'
+            '    결과.append(sum(x for x in range(3)))\n',
         )
         runtime.start()
         for _ in range(4):
@@ -82,20 +82,20 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_same_key_busy_is_ignored_other_key_runs(self):
         runtime = await self.prepare(
-            '기록 = []\ndef 키_누름(키):\n    기록.append(키)\n    기다리기(1)\n'
+            '기록 = []\ndef 키_누름(키):\n    기록.append(키)\n    기다리기(1)\n',
         )
         await tick(runtime, 0, [{"kind": "keydown", "key": "오른쪽"}])
         await tick(runtime, 0, [
             {"kind": "keyup", "key": "오른쪽"},
             {"kind": "keydown", "key": "오른쪽"},
             {"kind": "keydown", "key": "위"},
-        ])
+        ],)
         self.assertEqual(runtime.actors[0].namespace["기록"], ["오른쪽", "위"])
 
     async def test_continuous_spawns_each_frame_and_release_does_not_cancel(self):
         runtime = await self.prepare(
             '기록 = []\ndef 키_누름_중(키):\n'
-            '    기록.append("시작")\n    기다리기(1)\n    기록.append("끝")\n'
+            '    기록.append("시작")\n    기다리기(1)\n    기록.append("끝")\n',
         )
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "오른쪽"}])
         await tick(runtime, 0.1)
@@ -107,7 +107,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_delayed_continuous_movement_does_not_resume_a_released_input(self):
         runtime = await self.prepare(
-            'def 키_누름_중(키):\n    기다리기(1)\n    앞으로(100)\n'
+            'def 키_누름_중(키):\n    기다리기(1)\n    앞으로(100)\n',
         )
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "오른쪽"}])
         await tick(runtime, 0.2)
@@ -118,7 +118,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
     async def test_broadcast_starts_ordinary_context(self):
         runtime = await self.prepare(
             'def 키_누름_중(키):\n    방송하기("가자")\n'
-            'def 방송_받기(신호):\n    앞으로(100)\n'
+            'def 방송_받기(신호):\n    앞으로(100)\n',
         )
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "오른쪽"}])
         self.assertAlmostEqual(runtime.actors[0].position[0], 0)
@@ -156,12 +156,12 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
     async def test_reset_emits_releases_once(self):
         runtime = await self.prepare(
             '기록 = []\ndef 키_누름_끝(키):\n    기록.append(키)\n'
-            'def 자신_클릭_끝():\n    기록.append("마우스")\n'
+            'def 자신_클릭_끝():\n    기록.append("마우스")\n',
         )
         await tick(runtime, 0, [
             {"kind": "keydown", "key": "위"},
             {"kind": "pointerdown", "x": 0, "y": 0},
-        ])
+        ],)
         await tick(runtime, 0, [{"kind": "reset"}, {"kind": "reset"}])
         self.assertEqual(runtime.actors[0].namespace["기록"], ["위", "마우스"])
         self.assertFalse(runtime.held_keys)
@@ -183,11 +183,11 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runtime.actors[0].namespace["기록"], [
             ("시작", ["자동차"]), ("중", ["자동차"]),
             ("중", ["자동차"]), ("끝", ["자동차"]),
-        ])
+        ],)
 
     async def test_contact_end_is_not_continuous_motion(self):
         runtime = await self.prepare(
-            'def 닿는_중_종료(목록):\n    앞으로(100)\n', other_source=""
+            'def 닿는_중_종료(목록):\n    앞으로(100)\n', other_source="",
         )
         runtime.actors[1].position = (0, 0)
         await tick(runtime)
@@ -200,7 +200,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         runtime = await self.prepare(
             '횟수 = 0\ndef 시작():\n    global 횟수\n'
             '    while True:\n        횟수 += 1\n'
-            'def 키_누름(키):\n    말하기("입력")\n'
+            'def 키_누름(키):\n    말하기("입력")\n',
         )
         runtime.start()
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "위"}])
@@ -211,7 +211,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_task_cap_reports_error_instead_of_dropping(self):
         runtime = await self.prepare(
-            'def 키_누름_중(키):\n    기다리기(100)\n', maximum_calls=2
+            'def 키_누름_중(키):\n    기다리기(100)\n', maximum_calls=2,
         )
         await tick(runtime, 0.1, [{"kind": "keydown", "key": "위"}])
         await tick(runtime, 0.1)
@@ -241,14 +241,14 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
     async def test_annotated_state_assignment_and_unpacking(self):
         runtime = await self.prepare(
             'def 시작():\n    위치: tuple = (10, 20)\n'
-            '    크기, 속도 = (2, 3)\n    global 방향\n    방향 = 90\n'
+            '    크기, 속도 = (2, 3)\n    global 방향\n    방향 = 90\n',
         )
         runtime.start()
         await settle()
         self.assertIsNone(runtime.error)
         actor = runtime.actors[0]
         self.assertEqual((actor.position, actor.scale, actor.speed, actor.heading),
-                         ((10, 20), 2, 3, 90))
+                         ((10, 20), 2, 3, 90),)
 
     async def test_ambiguous_reserved_bindings_are_rejected(self):
         for source in (
@@ -267,7 +267,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
                 runtime = make_runtime(background_source=(
                     f'def {name}(목록):\n    raise RuntimeError("호출 안 함")\n'
                     'def 시작():\n    말하기("계속 실행")\n'
-                ))
+                ),)
                 self.addAsyncCleanup(runtime.close)
                 await runtime.initialize()
                 self.assertNotIn(name, runtime.background.handlers)
@@ -311,7 +311,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_previous_key_event_names_explain_the_new_names(self):
         for old, new in (("키_클릭", "키_누름"), ("키_클릭_중", "키_누름_중"),
-                         ("키_클릭_끝", "키_누름_끝")):
+                         ("키_클릭_끝", "키_누름_끝"),):
             for background in (False, True):
                 with self.subTest(old=old, background=background):
                     source = f'def {old}(누른_키):\n    pass\n'
@@ -329,7 +329,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
             '기록 = []\n'
             'def 키_누름(키):\n    기록.append("누름 " + 키)\n'
             'def 키_누름_중(키):\n    기록.append("중 " + 키)\n'
-            'def 키_누름_끝(키):\n    기록.append("끝 " + 키)\n'
+            'def 키_누름_끝(키):\n    기록.append("끝 " + 키)\n',
         )
         await tick(runtime, events=[{"kind": "keydown", "key": "위"}])
         await tick(runtime, events=[{"kind": "keyup", "key": "위"}])
@@ -338,7 +338,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_timed_initialization_commands_fail_instead_of_hanging(self):
         for source in ('기다리기(1)\n', '앞으로(100)\n',
-                       'def 시작(값=기다리기(1)):\n    pass\n'):
+                       'def 시작(값=기다리기(1)):\n    pass\n',):
             with self.subTest(source=source):
                 runtime = make_runtime(source)
                 with self.assertRaisesRegex(RuntimeError, "함수 안"):

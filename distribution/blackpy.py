@@ -96,7 +96,7 @@ class ScriptObject:
             self.visible = specification.get("visible", True)
             self.mass = specification.get("mass", 1)
             self.set_physics(specification.get("physics", "충돌만"),
-                             specification.get("trigger", False))
+                             specification.get("trigger", False),)
             self._physics_baseline = self.physics_snapshot()
 
     def require_actor(self):

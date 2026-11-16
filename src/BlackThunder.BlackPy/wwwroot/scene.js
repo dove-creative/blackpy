@@ -96,7 +96,7 @@
         const buildings = [
             [25, 151, 109, "#9bb9c6"], [146, 119, 95, "#e4b19d"],
             [254, 179, 118, "#b5c6ac"], [418, 137, 104, "#c0bad5"],
-            [539, 185, 87, "#e7cd95"], [672, 150, 105, "#9eb9bd"]
+            [539, 185, 87, "#e7cd95"], [672, 150, 105, "#9eb9bd"],
         ];
 
         for (const [x, y, buildingWidth, color] of buildings) {
@@ -136,7 +136,7 @@
 
         for (let index = 0; index < 9; index++) {
             ellipse(context, 40 + index * 90, 56 + Math.sin(index / 8 * Math.PI) * 28,
-                10, 14, lightColors[index % lightColors.length]);
+                10, 14, lightColors[index % lightColors.length],);
         }
 
         rounded(context, 49, 146, 702, 355, 40, "#ffffff32", "#ffffff65");
@@ -145,9 +145,9 @@
         line(context, [[100, 491], [700, 491]], "#c29dbb", 2);
         line(context, [[400, 429], [400, 549]], "#c29dbb", 2);
         path(context, "M71 190V240Q50 235 50 249Q54 261 73 253V209L99 201V231Q78 227 79 241"
-            + "Q82 252 101 244V179Z", "#8f8db650");
+            + "Q82 252 101 244V179Z", "#8f8db650",);
         path(context, "M705 193V243Q684 238 684 252Q688 264 707 256V212L733 204V234"
-            + "Q712 230 713 244Q716 255 735 247V182Z", "#8f8db650");
+            + "Q712 230 713 244Q716 255 735 247V182Z", "#8f8db650",);
     }
 
     function drawTrack(context) {
@@ -218,7 +218,7 @@
         path(context, "M0 400Q190 282 400 389Q610 304 800 382V600H0Z", "#4b786d");
         path(context, "M0 490Q200 410 440 472Q650 429 800 470V600H0Z", "#779885");
         path(context, "M286 600Q447 506 442 439Q428 413 385 404"
-            + "Q463 416 476 443Q512 517 476 600Z", "#b7b9a0");
+            + "Q463 416 476 443Q512 517 476 600Z", "#b7b9a0",);
         tree(context, 45, 305, 1.5, "#345d5b");
         tree(context, 142, 272, 0.8, "#426e64");
         tree(context, 756, 328, 1.5, "#345d5b");
@@ -373,7 +373,7 @@
         const painters = {
             car: drawCar, cat: drawCat, rabbit: drawRabbit, ball: drawBall, bat: drawBat,
             ghost: drawGhost, star: drawStar, basket: drawBasket, paddle: drawPaddle,
-            rocket: drawRocket, flag: drawFlag, planet: drawPlanet
+            rocket: drawRocket, flag: drawFlag, planet: drawPlanet,
         };
         const defaults = { car: "#dc806c", cat: "#f0bd63", rabbit: "#f7eadc", ball: "#e8a15e", bat: "#a89bc5" };
         const painter = painters[sprite.kind] || drawCat;
@@ -384,7 +384,7 @@
         context.translate(x, y);
         context.rotate(-sprite.heading * Math.PI / 180);
         context.scale(sprite.width / 100 * (sprite.flipHorizontal ? -1 : 1),
-            sprite.height / 100 * (sprite.flipVertical ? -1 : 1));
+            sprite.height / 100 * (sprite.flipVertical ? -1 : 1),);
         context.lineJoin = "round";
         context.lineCap = "round";
         if (image) {
@@ -432,7 +432,7 @@
         const boxHeight = lines.length * 26 + 18;
         const x = Math.max(8, Math.min(width - boxWidth - 8, width / 2 + sprite.x - boxWidth / 2));
         const y = Math.max(8, Math.min(height - boxHeight - 8,
-            height / 2 - sprite.y - sprite.height / 2 - boxHeight - 14));
+            height / 2 - sprite.y - sprite.height / 2 - boxHeight - 14,),);
         rounded(context, x, y, boxWidth, boxHeight, 12, "#fffef7", "#bacbb9");
         context.fillStyle = outline;
         lines.forEach((text, index) => context.fillText(text, x + 14, y + 22 + index * 26));

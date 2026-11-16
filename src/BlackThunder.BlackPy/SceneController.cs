@@ -51,11 +51,11 @@ namespace BlackThunder.BlackPy
         // Internal
         private static readonly HashSet<string> _backgrounds = new(StringComparer.Ordinal)
         {
-            "plain", "city", "dance", "track", "court", "forest"
+            "plain", "city", "dance", "track", "court", "forest",
         };
         private static readonly HashSet<string> _kinds = new(StringComparer.Ordinal)
         {
-            "cat", "car", "rabbit", "ball", "bat", "ghost", "star", "basket", "paddle", "rocket", "flag", "planet"
+            "cat", "car", "rabbit", "ball", "bat", "ghost", "star", "basket", "paddle", "rocket", "flag", "planet",
         };
         private string? _runId;
 
@@ -88,7 +88,7 @@ namespace BlackThunder.BlackPy
                 Active = State.Active,
                 Background = State.Background,
                 Sprites = State.Sprites,
-                Message = State.Message
+                Message = State.Message,
             };
         }
 
@@ -149,7 +149,7 @@ namespace BlackThunder.BlackPy
                     FlipHorizontal = sprite.FlipHorizontal,
                     FlipVertical = sprite.FlipVertical,
                     Label = sprite.Label,
-                    Speech = sprite.Speech
+                    Speech = sprite.Speech,
                 };
             }
 
@@ -163,8 +163,8 @@ namespace BlackThunder.BlackPy
                 {
                     Id = prompt.Id,
                     Message = prompt.Message,
-                    Actor = prompt.Actor
-                }
+                    Actor = prompt.Actor,
+                },
             };
         }
 

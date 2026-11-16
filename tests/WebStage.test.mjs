@@ -6,10 +6,10 @@ import vm from "node:vm";
 
 const root = new URL("../src/BlackThunder.BlackPy/wwwroot/", import.meta.url);
 const scripts = await Promise.all(["input.js", "text-input.js", "palette.js", "app.js"]
-    .map(name => readFile(new URL(name, root), "utf8")));
+    .map(name => readFile(new URL(name, root), "utf8")),);
 const project = {
     background: { file: "배경.py", kind: "plain" },
-    actors: [{ name: "고양이", file: "고양이.py", kind: "cat" }, { name: "자동차", file: "자동차.py", kind: "car" }]
+    actors: [{ name: "고양이", file: "고양이.py", kind: "cat" }, { name: "자동차", file: "자동차.py", kind: "car" }],
 };
 
 function eventTarget(extra = {}) {
@@ -26,7 +26,7 @@ function eventTarget(extra = {}) {
             const value = { preventDefault() { prevented = true; }, ...event };
             for (const callback of listeners.get(name) || []) callback(value);
             return prevented;
-        }
+        },
     };
 }
 
@@ -52,8 +52,8 @@ function browser({ clipboardError } = {}) {
                 hasPointerCapture(id) { return captured.has(id); },
                 releasePointerCapture(id) { captured.delete(id); this.emit("lostpointercapture"); },
                 getContext: () => ({}),
-                getBoundingClientRect: () => ({ left: 10, top: 20, width: 402, height: 302 })
-            });
+                getBoundingClientRect: () => ({ left: 10, top: 20, width: 402, height: 302 }),
+            },);
             elements.set(id, node);
         }
         return elements.get(id);
@@ -68,28 +68,28 @@ function browser({ clipboardError } = {}) {
     }
     const window = eventTarget({
         location: { hash: "#token=abc", protocol: "http:", host: "127.0.0.1:1234" },
-        requestAnimationFrame() {}, devicePixelRatio: 2, setTimeout
-    });
+        requestAnimationFrame() {}, devicePixelRatio: 2, setTimeout,
+    },);
     const context = vm.createContext({
         window, document, WebSocket, URLSearchParams, AbortController, AbortSignal,
         setTimeout, clearTimeout,
         navigator: { clipboard: { async writeText(code) {
             if (clipboardError) throw new Error("복사를 허용해 주세요.");
             copied.push(code);
-        } } },
+        }, }, },
         getComputedStyle: () => ({
-            borderLeftWidth: "1px", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px"
+            borderLeftWidth: "1px", borderTopWidth: "1px", borderRightWidth: "1px", borderBottomWidth: "1px",
         }),
         async fetch(url, options) {
             requests.push({ url, body: options.body ? JSON.parse(options.body) : null });
             return { ok: true, status: 200, json: async () => url === "/api/project" ? project : ({}) };
-        }
-    });
+        },
+    },);
     for (const source of scripts) vm.runInContext(source, context);
     socket.emit("open");
     const state = (runId, status = "running", scene = null, output) => socket.emit("message", {
-        data: JSON.stringify({ type: "snapshot", runId, status, scene, output })
-    });
+        data: JSON.stringify({ type: "snapshot", runId, status, scene, output }),
+    },);
     const inputs = () => requests.filter(request => request.url === "/api/input").map(request => request.body);
     return { document, window, element, requests, state, inputs, copied, captured };
 }
@@ -108,7 +108,7 @@ test("stage keys require focus; repeat, browser shortcuts and Tab are not sent",
     await setImmediate();
     assert.deepEqual(app.inputs().map(packet => packet.kind), ["keydown", "keyup"]);
     assert.equal(app.inputs()[0].key, "왼쪽");
-});
+},);
 
 test("left press captures pointer and an outside release uses bounded stage coordinates", async () => {
     const app = browser();
@@ -126,9 +126,9 @@ test("left press captures pointer and an outside release uses bounded stage coor
     assert.deepEqual(app.inputs(), [
         { kind: "pointerdown", button: "왼쪽", x: 0, y: 0, runId: "one" },
         { kind: "pointermove", x: 400, y: 300, runId: "one" },
-        { kind: "pointerup", button: "왼쪽", x: 400, y: 300, runId: "one" }
-    ]);
-});
+        { kind: "pointerup", button: "왼쪽", x: 400, y: 300, runId: "one" },
+    ],);
+},);
 
 test("start and restart move focus to the stage so the first key reaches the new run", async () => {
     const app = browser();
@@ -145,11 +145,11 @@ test("start and restart move focus to the stage so the first key reaches the new
         app.window.emit("keyup", { key: "ArrowUp", code: "ArrowUp" });
         await setImmediate();
         assert.deepEqual(app.inputs().filter(packet => packet.runId === runId).map(packet => packet.kind),
-            ["keydown", "keyup"]);
+            ["keydown", "keyup"],);
         app.state(runId, "completed");
     }
     assert.match(app.element("input-hint").textContent, /바로 키보드/);
-});
+},);
 
 test("focus loss resets held input and completed runs accept neither keys nor presses", async () => {
     const app = browser();
@@ -168,7 +168,7 @@ test("focus loss resets held input and completed runs accept neither keys nor pr
     assert.equal(canvas.emit("contextmenu"), false);
     await setImmediate();
     assert.equal(app.inputs().length, 2);
-});
+},);
 
 test("common palette needs no object selection and does not send runtime input", async () => {
     const app = browser();
@@ -185,7 +185,7 @@ test("common palette needs no object selection and does not send runtime input",
     await setImmediate();
     assert.deepEqual(app.copied, ["앞으로(100)"]);
     assert.equal(app.inputs().length, 0);
-});
+},);
 
 test("all actor positions and live lookup names update without object selection", async () => {
     const app = browser();
@@ -194,14 +194,14 @@ test("all actor positions and live lookup names update without object selection"
         active: true,
         sprites: [
             { id: "actor-1", label: '고양이 "하나"', x: 15, y: 20, heading: 90 },
-            { id: "actor-2", label: '자동차 "둘"', x: 100, y: 40, heading: 0 }
-        ]
-    });
+            { id: "actor-2", label: '자동차 "둘"', x: 100, y: 40, heading: 0 },
+        ],
+    },);
     await setImmediate();
     assert.equal(app.element("position-report").hidden, false);
     assert.deepEqual(Array.from(app.element("position-report").children, row => row.textContent), [
-        '고양이 "하나" · x 15 · y 20 · 방향 90°', '자동차 "둘" · x 100 · y 40 · 방향 0°'
-    ]);
+        '고양이 "하나" · x 15 · y 20 · 방향 90°', '자동차 "둘" · x 100 · y 40 · 방향 0°',
+    ],);
     app.element("categories").children[5].emit("click");
     const positionCard = app.element("command-cards").children
         .find(card => card.children[0]?.textContent === "다른 캐릭터의 위치");
@@ -216,7 +216,7 @@ test("all actor positions and live lookup names update without object selection"
     resetCard.children[1].emit("click");
     await setImmediate();
     assert.equal(app.copied.at(-1), '위치_구하기("고양이")');
-});
+},);
 
 test("each code row copies a complete event template and announces success", async () => {
     const app = browser();
@@ -227,7 +227,7 @@ test("each code row copies a complete event template and announces success", asy
     assert.deepEqual(app.copied, ["def 키_누름_중(누른_키):\n    pass"]);
     assert.match(app.element("copy-status").textContent, /복사했어요/);
     assert.match(app.element("copy-status").textContent, /Python 파일/);
-});
+},);
 
 test("clipboard rejection is reported instead of claiming success", async () => {
     const app = browser({ clipboardError: true });
@@ -236,7 +236,7 @@ test("clipboard rejection is reported instead of claiming success", async () => 
     await setImmediate();
     assert.equal(app.copied.length, 0);
     assert.match(app.element("copy-status").textContent, /복사하지 못했어요|허용/);
-});
+},);
 
 test("text questions release game keys, keep typing across frames and send an answer instead of game input", async () => {
     const app = browser();
@@ -259,14 +259,14 @@ test("text questions release game keys, keep typing across frames and send an an
     app.element("text-input-form").emit("submit");
     await setImmediate();
     assert.deepEqual(app.inputs().filter(packet => packet.kind !== "answer").map(packet => packet.kind),
-        ["keydown", "reset"]);
+        ["keydown", "reset"],);
     assert.deepEqual(app.inputs().find(packet => packet.kind === "answer"), {
-        runId: "one", promptId: 1, kind: "answer", text: "  한글 이름  "
-    });
+        runId: "one", promptId: 1, kind: "answer", text: "  한글 이름  ",
+    },);
     app.state("one", "completed", scene);
     assert.equal(app.element("text-input-form").hidden, true);
     assert.equal(answer.value, "");
-});
+},);
 
 test("console input hides the empty placeholder and scrolls only when a new prompt opens", () => {
     const app = browser();
@@ -291,4 +291,4 @@ test("console input hides the empty placeholder and scrolls only when a new prom
     assert.equal(consoleArea.scrollTop, 0);
     app.state("two", "running", null, []);
     assert.equal(app.element("output-placeholder").hidden, false);
-});
+},);

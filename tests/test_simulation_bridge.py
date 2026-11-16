@@ -11,7 +11,7 @@ def reply(runtime, **changes):
         "tick": 1, "elapsed": 1 / 60, "completed": [], "contacts": [],
         "events": [], "keys": {}, "pointerId": None, "pointerGeneration": 0,
         "actors": [{"id": actor.id, "x": actor.position[0], "y": actor.position[1],
-                    "heading": actor.heading, "contacts": [], "contactGeneration": 0}
+                    "heading": actor.heading, "contacts": [], "contactGeneration": 0,}
                    for actor in runtime.actors],
     }
     result.update(changes)
@@ -50,7 +50,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_motion_is_sent_once_and_resumes_with_resolved_pose(self):
         runtime = await self.prepare(
-            '결과 = []\ndef 시작():\n    앞으로(100)\n    결과.append(위치)\n'
+            '결과 = []\ndef 시작():\n    앞으로(100)\n    결과.append(위치)\n',
         )
         requests = []
 
@@ -98,12 +98,12 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         await pending
         self.assertEqual((actor.position, actor.heading), ((200, 100), 90))
         self.assertEqual([command["kind"] for command in actor._physics_commands],
-                         ["teleport", "heading"])
+                         ["teleport", "heading"],)
 
     async def test_next_held_callback_replaces_rate_and_sums_its_own_commands(self):
         runtime = await self.prepare(
             '움직임 = True\ndef 키_누름_중(키):\n'
-            '    if 움직임:\n        앞으로(0.5)\n        앞으로(0.1)\n'
+            '    if 움직임:\n        앞으로(0.5)\n        앞으로(0.1)\n',
         )
         runtime.remote_exchange = object()
         runtime.key_generations = {"오른쪽": 7}
@@ -126,7 +126,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_old_callback_finishes_but_cannot_move_a_repressed_key(self):
         runtime = await self.prepare(
             '완료 = []\ndef 키_누름_중(키):\n'
-            '    앞으로(100)\n    기다리기(1)\n    앞으로(900)\n    완료.append(True)\n'
+            '    앞으로(100)\n    기다리기(1)\n    앞으로(900)\n    완료.append(True)\n',
         )
         runtime.remote_exchange = object()
         runtime.key_generations = {"오른쪽": 7}
@@ -150,13 +150,13 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         result = reply(runtime, contacts=[
             {"sequence": 1, "id": "actor-1", "kind": "enter", "others": ["actor-2"]},
             {"sequence": 2, "id": "actor-1", "kind": "exit", "others": ["actor-2"]},
-        ])
+        ],)
         runtime.accept_remote(result, 0.5, True)
         await settle()
         runtime.accept_remote(result, 0.5, True)
         await settle()
         self.assertEqual(runtime.actors[0].namespace["기록"],
-                         [("시작", ["자동차"]), ("끝", ["자동차"])])
+                         [("시작", ["자동차"]), ("끝", ["자동차"])],)
         self.assertEqual(runtime.contact_ack, 2)
 
     async def test_multiple_contact_cycles_survive_one_exchange_and_waiting_handlers(self):
@@ -169,7 +169,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         result = reply(runtime, contacts=[
             {"sequence": index + 1, "id": "actor-1", "kind": kind, "others": ["actor-2"]}
             for index, kind in enumerate(("enter", "exit", "enter", "exit"))
-        ])
+        ],)
         runtime.accept_remote(result, 0.5, True)
         await settle()
         runtime.accept_remote(result, 0.5, True)
@@ -180,7 +180,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
             future.set_result(None)
         await settle()
         self.assertEqual(runtime.actors[0].namespace["기록"],
-                         ["시작", "끝", "시작", "끝", "시작 완료", "시작 완료"])
+                         ["시작", "끝", "시작", "끝", "시작 완료", "시작 완료"],)
 
     async def test_slow_poll_dispatches_one_held_callback_without_tick_replay(self):
         runtime = await self.prepare('기록 = []\ndef 키_누름_중(키):\n    기록.append(키)\n')
@@ -195,26 +195,26 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
             '기록 = []\ndef 키_누름(키):\n    기록.append("키 시작")\n'
             'def 키_누름_끝(키):\n    기록.append("키 끝")\n'
             'def 자신_클릭():\n    기록.append("포인터 시작")\n'
-            'def 자신_클릭_끝():\n    기록.append("포인터 끝")\n'
+            'def 자신_클릭_끝():\n    기록.append("포인터 끝")\n',
         )
         runtime.remote_exchange = object()
         # A full input batch may leave these presses for the following exchange.
         runtime.accept_remote(reply(runtime, keys={"오른쪽": 7},
-                                    pointerId="actor-1", pointerGeneration=8), 0.1, True)
+                                    pointerId="actor-1", pointerGeneration=8,), 0.1, True,)
         await settle()
         self.assertEqual(runtime.actors[0].namespace["기록"], [])
         # By the time the presses arrive, the authoritative state can be released.
         runtime.accept_remote(reply(runtime, tick=2, events=[
             {"kind": "keydown", "key": "오른쪽", "generation": 7},
             {"kind": "pointerdown", "x": 0, "y": 0, "targetId": "actor-1", "generation": 8},
-        ]), 0.1, True)
+        ],), 0.1, True,)
         await settle()
         runtime.accept_remote(reply(runtime, tick=3, events=[
             {"kind": "keyup", "key": "오른쪽", "generation": 7},
             {"kind": "pointerup", "generation": 8},
-        ]), 0.1, True)
+        ],), 0.1, True,)
         await settle()
         self.assertEqual(runtime.actors[0].namespace["기록"],
-                         ["키 시작", "포인터 시작", "키 끝", "포인터 끝"])
+                         ["키 시작", "포인터 시작", "키 끝", "포인터 끝"],)
         self.assertEqual(runtime.held_keys, set())
         self.assertIsNone(runtime.pointer_target)

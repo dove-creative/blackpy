@@ -49,7 +49,7 @@ namespace BlackThunder.BlackPy
             {
                 Args = Array.Empty<string>(),
                 ContentRootPath = AppContext.BaseDirectory,
-                WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
+                WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
             });
             builder.Logging.ClearProviders();
             builder.WebHost.ConfigureKestrel(server =>
@@ -100,7 +100,7 @@ namespace BlackThunder.BlackPy
                         BlackPyException blackPy => blackPy.StatusCode,
                         JsonException or ArgumentException => 400,
                         BadHttpRequestException badRequest => badRequest.StatusCode,
-                        _ => 500
+                        _ => 500,
                     };
                     await context.Response.WriteAsJsonAsync(new { error = exception.Message });
                 }

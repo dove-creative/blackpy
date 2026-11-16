@@ -40,7 +40,7 @@ class FramePacingTests(unittest.IsolatedAsyncioTestCase):
                     runtime.stopped = True
 
         with patch('_blackpy_runtime.time', SimpleNamespace(
-                perf_counter=lambda: clock[0], sleep=blocking_sleep)), \
+                perf_counter=lambda: clock[0], sleep=blocking_sleep,),), \
                 patch('_blackpy_runtime.asyncio.sleep', sleep), \
                 patch('_blackpy_runtime.asyncio.to_thread', to_thread):
             await runtime.run(Transport())

@@ -9,8 +9,8 @@ import { defaultProject, TestHost, wheelPath } from "./TestHost.mjs";
 const environment = { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" };
 delete environment.BLACKPY_AUTO_RUN;
 const invoke = (executable, args, options = {}) => execFileSync(executable, args, {
-    cwd: tmpdir(), windowsHide: true, encoding: "utf8", timeout: 120000, env: environment, ...options
-});
+    cwd: tmpdir(), windowsHide: true, encoding: "utf8", timeout: 120000, env: environment, ...options,
+},);
 
 function stopTree(child) {
     if (!child || child.exitCode !== null || child.signalCode !== null) return;
@@ -23,18 +23,18 @@ function runPython(python, args, options = {}) {
     return new Promise((resolve, reject) => {
         const child = spawn(python, args, {
             cwd: tmpdir(), windowsHide: true, env: environment,
-            stdio: ["ignore", "pipe", "pipe"], ...options
-        });
+            stdio: ["ignore", "pipe", "pipe"], ...options,
+        },);
         let output = "";
         const timer = setTimeout(() => {
             stopTree(child);
             reject(new Error(`Ordinary Python did not exit: ${output}`));
-        }, 15000);
+        }, 15000,);
         child.stdout.on("data", bytes => { output += bytes.toString(); });
         child.stderr.on("data", bytes => { output += bytes.toString(); });
         child.on("error", error => { clearTimeout(timer); reject(error); });
         child.on("close", code => { clearTimeout(timer); resolve({ code, output }); });
-    });
+    },);
 }
 
 async function assertPlainPython(python, args, expected, options = {}) {
@@ -64,7 +64,7 @@ test("installed direct-file execution opens only the selected BlackPy project", 
         "json.py": 'raise RuntimeError("STUDENT_JSON_IMPORTED")\n',
         "argparse.py": 'raise RuntimeError("STUDENT_ARGPARSE_IMPORTED")\n',
         "plain_module.py": 'print("MODULE_PYTHON")\n',
-        "별도.pyw": 'print("PYW_PYTHON")\n'
+        "별도.pyw": 'print("PYW_PYTHON")\n',
     };
     await mkdir(workspace);
     await mkdir(otherDirectory);
@@ -76,14 +76,14 @@ test("installed direct-file execution opens only the selected BlackPy project", 
 
     await context.test("without an installed package the file remains ordinary Python", async () => {
         await assertPlainPython(python, [plainFile, "--no-browser"], "PLAIN_PYTHON");
-    });
+    },);
     invoke(python, ["-m", "pip", "install", "--no-index", "--no-deps", wheel]);
 
     await context.test("unrelated scripts and Python entry modes are unchanged", async () => {
         const ordinaryFile = path.join(otherDirectory, "ordinary.py");
         await writeFile(ordinaryFile, 'print("ORDINARY_PYTHON")\n');
         await assertPlainPython(python, [ordinaryFile, "--no-browser"], "ORDINARY_PYTHON",
-            { cwd: workspace });
+            { cwd: workspace },);
         await writeFile(path.join(otherDirectory, "project.json"), '{"name":"unrelated project"}');
         await assertPlainPython(python, [ordinaryFile, "--no-browser"], "ORDINARY_PYTHON");
         await writeFile(path.join(otherDirectory, "project.json"), '{"background":');
@@ -94,35 +94,35 @@ test("installed direct-file execution opens only the selected BlackPy project", 
         await writeFile(nestedFile, 'print("NESTED_PYTHON")\n');
         await assertPlainPython(python, [nestedFile, "--no-browser"], "NESTED_PYTHON");
         await assertPlainPython(python, ["-c", "import sys; print('blackpy' in sys.modules)"], "False",
-            { cwd: workspace });
+            { cwd: workspace },);
         await assertPlainPython(python, ["-m", "plain_module", "--no-browser"], "MODULE_PYTHON",
-            { cwd: workspace });
+            { cwd: workspace },);
         await assertPlainPython(python, [path.join(workspace, "별도.pyw"), "--no-browser"], "PYW_PYTHON");
         await assertPlainPython(python, ["-S", plainFile, "--no-browser"], "PLAIN_PYTHON");
-    });
+    },);
 
     await context.test("the explicit opt-out runs the original file normally", async () => {
         await assertPlainPython(python, [plainFile, "--no-browser"], "PLAIN_PYTHON",
-            { env: { ...environment, BLACKPY_AUTO_RUN: "0" } });
-    });
+            { env: { ...environment, BLACKPY_AUTO_RUN: "0" } },);
+    },);
 
     async function launchFile(name, check) {
         const host = new TestHost();
         try {
             await host.open({ workspace, executable: python,
                 args: [path.join(workspace, name), "--no-browser", "--port", "0"],
-                cwd: otherDirectory, env: { ...environment, PYTHONPATH: workspace } });
+                cwd: otherDirectory, env: { ...environment, PYTHONPATH: workspace }, },);
             const metadata = await host.request("/api/project");
             assert.equal(metadata.status, 200);
             assert.deepEqual(metadata.body.actors, project.actors.map(actor => ({
-                physics: "충돌만", trigger: false, mass: 1, ...actor
-            })));
+                physics: "충돌만", trigger: false, mass: 1, ...actor,
+            }),),);
             assert.equal(metadata.body.background.file, project.background.file);
             await host.run();
             await host.done();
             await check(host);
             assert.doesNotMatch(host.output + host.text(),
-                /PLAIN_PYTHON|MODULE_PYTHON|STUDENT_JSON_IMPORTED|STUDENT_ARGPARSE_IMPORTED/);
+                /PLAIN_PYTHON|MODULE_PYTHON|STUDENT_JSON_IMPORTED|STUDENT_ARGPARSE_IMPORTED/,);
             host.socket.close();
             await host.wait(() => host.child.exitCode !== null, "direct-file launcher shutdown");
             assert.equal(host.child.exitCode, 0, host.output);
@@ -144,8 +144,8 @@ test("installed direct-file execution opens only the selected BlackPy project", 
                 assert.equal(host.sprite("자동차").y, 89);
                 assert.equal(host.sprite("자동차").speech, "자동차 전체 실행");
                 assert.match(host.text(), /학생 모듈 유지/);
-            });
-        });
+            },);
+        },);
     }
 
     await context.test("nested settings keep direct execution rooted at the student files", async () => {
@@ -154,8 +154,8 @@ test("installed direct-file execution opens only the selected BlackPy project", 
         await launchFile("고양이.py", async host => {
             assert.equal(host.state.status, "completed", host.text());
             assert.equal(host.sprite("고양이").speech, "고양이 전체 실행");
-        });
-    });
+        },);
+    },);
 
     await context.test("a selected registered file with invalid syntax reports its error in the stage", async () => {
         const source = path.join(workspace, "고양이.py");
@@ -165,21 +165,21 @@ test("installed direct-file execution opens only the selected BlackPy project", 
                 assert.equal(host.state.status, "error", host.text());
                 assert.match(host.text(), /SyntaxError/);
                 assert.match(host.text(), /고양이\.py/);
-            });
+            },);
         } finally {
             await writeFile(source, sources["고양이.py"]);
         }
-    });
+    },);
 
     await context.test("uninstall removes the hook and preserves every student file", async () => {
         invoke(python, ["-m", "pip", "uninstall", "-y", "blackpy"]);
         await assertPlainPython(python, [plainFile, "--no-browser"], "PLAIN_PYTHON");
         await assertPlainPython(python, ["-I", "-c",
-            "import importlib.util; print(importlib.util.find_spec('_blackpy_autostart'))"], "None");
+            "import importlib.util; print(importlib.util.find_spec('_blackpy_autostart'))",], "None",);
         await assert.rejects(access(path.join(venv, "Lib", "site-packages", "blackpy_autostart.pth")),
-            { code: "ENOENT" });
+            { code: "ENOENT" },);
         for (const [name, source] of Object.entries(sources)) {
             assert.equal(await readFile(path.join(workspace, name), "utf8"), source);
         }
-    });
-});
+    },);
+},);

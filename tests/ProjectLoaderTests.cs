@@ -137,7 +137,7 @@ namespace BlackThunder.BlackPy.Tests
             project.Definition.Actors = new[]
             {
                 new ActorDefinition { Name = "고양이", File = "cat.py" },
-                new ActorDefinition { Name = "자동차", File = "CAT.py", Kind = "car" }
+                new ActorDefinition { Name = "자동차", File = "CAT.py", Kind = "car" },
             };
             project.SaveDefinition();
             AssertStatus(400, () => ProjectLoader.ReadDefinition(project.Path));
@@ -208,7 +208,7 @@ namespace BlackThunder.BlackPy.Tests
         public ProjectDefinition Definition { get; } = new()
         {
             Background = new BackgroundDefinition { File = "배경.py" },
-            Actors = new[] { new ActorDefinition { Name = "고양이", File = "고양이.py" } }
+            Actors = new[] { new ActorDefinition { Name = "고양이", File = "고양이.py" } },
         };
 
         public ProjectTestDirectory()

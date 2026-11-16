@@ -179,7 +179,7 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_state_validation_and_name_immutability(self):
         for name, value in (("speed", 0), ("speed", math.inf), ("scale", 0),
-                            ("position", (1,)), ("visible", 1), ("name", "새 이름")):
+                            ("position", (1,)), ("visible", 1), ("name", "새 이름"),):
             with self.subTest(name=name, value=value):
                 with self.assertRaises((ValueError, TypeError)):
                     setattr(self.actor, name, value)
@@ -255,7 +255,7 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_state_values_still_require_an_actor(self):
         for name in ("position", "heading", "speed", "scale", "visible",
-                     "physics", "mass", "touching_names"):
+                     "physics", "mass", "touching_names",):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(ValueError, "상태 값"):
                     getattr(self.runtime.background, name)

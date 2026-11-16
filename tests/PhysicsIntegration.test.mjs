@@ -26,7 +26,7 @@ test("start-only physics stays alive, falls to the boundary and does not rotate"
     assert.ok(host.sprite().x <= 384.8);
     await pause(150);
     assert.ok(Math.abs(host.sprite().y - floorY) < 1);
-});
+},);
 
 test("movement waits for the resolved wall position before the next student statement", async () => {
     const project = physicsProject();
@@ -41,7 +41,7 @@ test("movement waits for the resolved wall position before the next student stat
     // Wall left edge -20, ball half width 16.
     assert.ok(x > -38 && x < -34, `resolved x: ${x}`);
     assert.equal(host.state.status, "running");
-});
+},);
 
 test("renaming keeps contact identity and lookup uses the new name", async () => {
     const project = defaultProject();
@@ -51,7 +51,7 @@ test("renaming keeps contact identity and lookup uses the new name", async () =>
         'def 닿았을_때(목록):\n    print("CONTACT", 닿은_객체_리스트)\n' +
         'def 키_누름(키):\n    가시성_설정(False)\n',
     'def 닿았을_때(목록):\n    print("LOOKUP", 목록, 위치_구하기("새 고양이"))\n' +
-        'def 닿는_중_종료(목록):\n    print("EXIT", 목록, 닿은_객체_리스트)\n', "", project);
+        'def 닿는_중_종료(목록):\n    print("EXIT", 목록, 닿은_객체_리스트)\n', "", project,);
     await host.run();
     await host.wait(() => host.text().includes("LOOKUP"), "renamed contact");
     assert.match(host.text(), /CONTACT \['자동차'\]/);
@@ -61,7 +61,7 @@ test("renaming keeps contact identity and lookup uses the new name", async () =>
     await host.input("keyup", { key: "스페이스" });
     await host.wait(() => host.text().includes("EXIT"), "hidden contact exit");
     assert.match(host.text(), /EXIT \['새 고양이'\] \[\]/);
-});
+},);
 
 test("restart discards the old physics world and rejects its commands", async () => {
     await host.write('def 시작():\n    힘_작용(0, 2)\n', "", "", physicsProject());
@@ -70,9 +70,9 @@ test("restart discards the old physics world and rejects its commands", async ()
     const oldRun = host.state.runId;
     await host.run("/api/restart");
     const rejected = await host.request("/api/physics/step", {
-        runId: oldRun, deltaTime: 0, actors: [], commands: []
-    });
+        runId: oldRun, deltaTime: 0, actors: [], commands: [],
+    },);
     assert.equal(rejected.status, 409);
     await host.wait(() => host.sprite()?.x > 0 && host.sprite()?.x < 70, "fresh physics state");
     assert.equal(host.state.status, "running");
-});
+},);

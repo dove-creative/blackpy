@@ -60,7 +60,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
                 runtime.dispatch(target, "키_누름", ("오른쪽",))
                 await settle()
                 self.assertEqual(
-                    self.displayed(runtime, target), "오른쪽 키를 눌렀구나!"
+                    self.displayed(runtime, target), "오른쪽 키를 눌렀구나!",
                 )
                 self.assertEqual(target.namespace["기록"], [])
                 await tick(runtime, 0.25)
@@ -109,7 +109,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
                     await settle()
                     await tick(runtime, 0.25)
                     self.assertEqual(
-                        self.displayed(runtime, target), replacement
+                        self.displayed(runtime, target), replacement,
                     )
                     self.assertFalse(runtime.timers)
                     self.assertIsNone(runtime.error)
@@ -154,7 +154,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
                             await result
 
                     self.assertEqual(
-                        self.displayed(runtime, target), "유지할 말"
+                        self.displayed(runtime, target), "유지할 말",
                     )
                     self.assertFalse(runtime.timers)
 
@@ -162,7 +162,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
         runtime, target = await self.prepare(
             '기록 = []\n'
             'def 시작():\n    말하기("점수", 1.5, True, None, 시간=None)\n'
-            '    기록.append("바로 다음 줄")\n'
+            '    기록.append("바로 다음 줄")\n',
         )
         runtime.start()
         await settle()
@@ -266,7 +266,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
     async def test_stop_cancels_long_speech_without_affecting_a_new_run(self):
         runtime, target = await self.prepare(
             'def 시작():\n    말하기("기다림", 시간=3600)\n'
-            '    말하기("실행되면 안 되는 말")\n'
+            '    말하기("실행되면 안 되는 말")\n',
         )
         runtime.start()
         await settle()
@@ -280,7 +280,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(task.cancelled() for task in tasks))
 
         fresh, fresh_target = await self.prepare(
-            'def 시작():\n    말하기("새 실행", 시간=None)\n'
+            'def 시작():\n    말하기("새 실행", 시간=None)\n',
         )
         fresh.start()
         await settle()

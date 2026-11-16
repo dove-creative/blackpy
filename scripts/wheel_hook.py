@@ -20,7 +20,7 @@ class WindowsRuntimeHook(BuildHookInterface):
         try:
             subprocess.run(
                 ["pwsh", "-NoProfile", "-File", str(root / "scripts" / "Publish.ps1"),
-                 "-Destination", self.staging.name],
+                 "-Destination", self.staging.name,],
                 cwd=root, check=True,
             )
             runtime = Path(self.staging.name) / "실습" / "_blackpy" / "_runtime"

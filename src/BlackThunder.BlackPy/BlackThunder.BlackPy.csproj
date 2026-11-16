@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Box2D.NET" Version="3.1.654" />
-    <PackageReference Include="UniEngine" Version="0.1.0-main.a933cbd" />
+    <PackageReference Include="UniEngine" Version="0.1.0-main.688b41d" />
     <PackageReference Include="BlackThunder.BlackboxSystem" Version="0.2.0" />
     <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../distribution/_blackpy*.py" Link="%(Filename)%(Extension)"

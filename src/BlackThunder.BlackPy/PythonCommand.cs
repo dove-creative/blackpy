@@ -29,7 +29,7 @@ namespace BlackThunder.BlackPy
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
+                StandardErrorEncoding = Encoding.UTF8,
             };
 
             info.Environment["PYTHONUTF8"] = "1";

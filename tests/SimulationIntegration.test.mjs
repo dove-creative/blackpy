@@ -51,7 +51,7 @@ function observeBlocking() {
         observation.ended ||= observation.began && !marked;
         if (observation.began && !observation.ended) {
             observation.frames.push({ x: packet.scene.sprites[0].x, y: packet.scene.sprites[1].y,
-                text: (packet.output || []).map(line => line.text).join("\n") });
+                text: (packet.output || []).map(line => line.text).join("\n"), },);
         }
     };
     // The marker, motion, and reset reach C# atomically; stdout has an independent delivery delay.
@@ -65,8 +65,8 @@ test("gravity and an ordinary move advance while Python is blocked in native cod
     Object.assign(project.actors[0], { x: -250, y: 0, physics: "없음" });
     Object.assign(project.actors[1], { kind: "ball", x: 200, y: 180, scale: 0.5, physics: "물리" });
     const background = blockOnFirstMotion(2, [
-        { id: "actor-2", kind: "teleport", x: 200, y: 180 }, { id: "actor-2", kind: "stop" }
-    ]);
+        { id: "actor-2", kind: "teleport", x: 200, y: 180 }, { id: "actor-2", kind: "stop" },
+    ],);
     await host.write('def 시작():\n    앞으로(600)\n    print("MOVE_DONE", 위치[0])\n', "", background, project);
     const observation = observeBlocking();
     const { frames } = observation;
@@ -80,9 +80,9 @@ test("gravity and an ordinary move advance while Python is blocked in native cod
                 && frames.length >= 12 && distinct >= 12;
             assert.ok(progressed || !observation.ended, "Python resumed before independent progress: " +
                 JSON.stringify({ initial, latest, frames: frames.length, distinct,
-                    began: observation.began, ended: observation.ended }));
+                    began: observation.began, ended: observation.ended, },),);
             return progressed;
-        }, "movement, gravity and new scenes during native Python blocking");
+        }, "movement, gravity and new scenes during native Python blocking",);
     } finally {
         observation.close();
     }
@@ -90,7 +90,7 @@ test("gravity and an ordinary move advance while Python is blocked in native cod
     const completion = host.text().match(/^MOVE_DONE (\S+)$/m);
     assert.ok(completion, host.text());
     assert.ok(Math.abs(Number(completion[1]) - 350) < 1e-9, host.text());
-});
+},);
 
 test("held movement survives blocked Python, releases immediately and rejects an old press generation", async () => {
     const project = defaultProject();
@@ -114,8 +114,8 @@ test("held movement survives blocked Python, releases immediately and rejects an
     await pause(200);
     assert.ok(host.sprite().x > movingX + 15, "An installed held rate must survive the Python stall");
     const released = await host.request("/api/input", {
-        runId: host.state.runId, kind: "keyup", key: "오른쪽", x: 0, y: 0
-    });
+        runId: host.state.runId, kind: "keyup", key: "오른쪽", x: 0, y: 0,
+    },);
     assert.equal(released.status, 200, JSON.stringify(released.body));
     const releasedState = await host.request("/api/state");
     assert.equal(releasedState.status, 200);
@@ -131,9 +131,9 @@ test("held movement survives blocked Python, releases immediately and rejects an
     const resumedX = host.sprite().x;
     await pause(180);
     assert.ok(host.sprite().x - resumedX > 10 && host.sprite().x - resumedX < 35,
-        "A late old-generation command must not replace the new 120 units/second rate");
+        "A late old-generation command must not replace the new 120 units/second rate",);
     await host.input("keyup", { key: "오른쪽" });
-});
+},);
 
 test("a slow Python exchange loop does not set the C# scene update rate", async () => {
     const probe = `
@@ -151,7 +151,7 @@ script_runtime.remote_exchange = slow_exchange
     const project = defaultProject();
     Object.assign(project.actors[0], { physics: "없음", x: -250 });
     await host.write('def 시작():\n    앞으로(500)\n\ndef 키_누름(키):\n    pass\n', "",
-        `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project);
+        `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project,);
     await host.run();
     await host.wait(() => host.sprite()?.x > -240, "slow Python starts the independent move");
     const initialPolls = host.text().match(/PYTHON_EXCHANGE/g)?.length || 0;
@@ -167,7 +167,7 @@ script_runtime.remote_exchange = slow_exchange
     } finally {
         observation.close();
     }
-});
+},);
 
 test("contact enter and exit are retained when both occur during a Python stall", async () => {
     const project = defaultProject();
@@ -186,9 +186,9 @@ test("contact enter and exit are retained when both occur during a Python stall"
             const latest = observation.frames.at(-1);
             const crossed = latest && latest.x > 30;
             assert.ok(crossed || !observation.ended, "Python resumed before crossing the contact: " +
-                JSON.stringify({ initial: observation.frames[0], latest, frames: observation.frames.length }));
+                JSON.stringify({ initial: observation.frames[0], latest, frames: observation.frames.length }),);
             return crossed;
-        }, "crossing the other actor during native Python blocking");
+        }, "crossing the other actor during native Python blocking",);
         await host.wait(() => host.text().includes("CONTACT_EXIT"), "both queued contact transitions reach Python");
         for (const frame of observation.frames) assert.doesNotMatch(frame.text, /CONTACT_ENTER|CONTACT_EXIT/);
     } finally {
@@ -200,21 +200,21 @@ test("contact enter and exit are retained when both occur during a Python stall"
     assert.equal(text.match(/CONTACT_ENTER/g)?.length, 1);
     assert.equal(text.match(/CONTACT_EXIT/g)?.length, 1);
     assert.ok(text.indexOf("CONTACT_ENTER") < text.indexOf("CONTACT_EXIT"));
-});
+},);
 
 function exchangePayload(runId, sequence, project) {
     const sprites = project.actors.map((actor, index) => ({
         id: `actor-${index + 1}`, kind: "ball", label: actor.name,
         x: actor.x, y: actor.y, width: 32, height: 32, heading: actor.heading,
-        visible: true, color: "#e8a15e", speech: ""
-    }));
+        visible: true, color: "#e8a15e", speech: "",
+    }),);
     return {
         runId, sequence, ready: true, scene: { active: true, background: "plain", sprites, message: "" },
         actors: sprites.map((sprite, index) => ({
             id: sprite.id, x: sprite.x, y: sprite.y, width: sprite.width, height: sprite.height,
-            mode: project.actors[index].physics, mass: 1, visible: true
-        })),
-        commands: [], acknowledgedCompletions: [], contactAck: 0
+            mode: project.actors[index].physics, mass: 1, visible: true,
+        }),),
+        commands: [], acknowledgedCompletions: [], contactAck: 0,
     };
 }
 
@@ -239,17 +239,17 @@ test("exchange bursts respect time and scene caps, and old runs cannot drive sim
         }
         const elapsed = (performance.now() - begin) / 1000;
         assert.ok(last.body.tick - first.body.tick <= Math.ceil(elapsed * 60) + 2,
-            "Request count must not advance simulation ticks");
+            "Request count must not advance simulation ticks",);
         assert.ok(last.body.elapsed - first.body.elapsed <= elapsed + 0.05,
-            "Request count must not advance simulation time");
+            "Request count must not advance simulation time",);
         assert.ok(observation.frames.length <= Math.ceil(elapsed * 60) + 3,
-            "An exchange burst must not produce one WebSocket scene per request");
+            "An exchange burst must not produce one WebSocket scene per request",);
     } finally {
         observation.close();
     }
     const bypass = await host.request("/api/physics/step", {
-        runId, deltaTime: 10, actors: [], commands: []
-    });
+        runId, deltaTime: 10, actors: [], commands: [],
+    },);
     assert.equal(bypass.status, 400, JSON.stringify(bypass.body));
     const repeated = exchangePayload(runId, 61, project);
     repeated.commands.push({ id: "actor-1", kind: "teleport", x: 300, y: 250 });
@@ -266,4 +266,4 @@ test("exchange bursts respect time and scene caps, and old runs cannot drive sim
     assert.equal(fresh.status, 200, JSON.stringify(fresh.body));
     assert.equal(fresh.body.tick, 0);
     assert.ok(Math.abs(fresh.body.actors[0].y - 200) < 0.001, "Restart must create a fresh simulation world");
-});
+},);

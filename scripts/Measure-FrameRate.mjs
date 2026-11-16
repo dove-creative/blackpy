@@ -56,7 +56,7 @@ script_runtime.remote_exchange = timed_exchange
 `;
 const background = path.join(workspace, "배경.py");
 await writeFile(background, `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n` +
-    await readFile(background, "utf8"));
+    await readFile(background, "utf8"),);
 
 function summarize(values) {
     assert.ok(values.length > 1, "Not enough measured frames.");
@@ -67,7 +67,7 @@ function summarize(values) {
         p50Ms: sorted[Math.floor(sorted.length * 0.5)],
         p95Ms: sorted[Math.floor(sorted.length * 0.95)],
         maxMs: sorted.at(-1),
-        over33ms: values.filter(value => value > 1000 / 30).length
+        over33ms: values.filter(value => value > 1000 / 30).length,
     };
 }
 
@@ -86,7 +86,7 @@ try {
     host.socket.addEventListener("message", ({ data }) => {
         const packet = JSON.parse(data);
         if (packet.status === "running" && packet.scene?.active) packets.push(performance.now());
-    });
+    },);
     await host.run();
     await host.wait(() => packets.length > 0, "first independent scene");
     const begin = packets[0] + warmupSeconds * 1000;
@@ -113,11 +113,11 @@ try {
             if (error.code === "ENOENT") return false;
             throw error;
         }
-    }, "complete Python logic measurement window", 3000);
+    }, "complete Python logic measurement window", 3000,);
     const pythonBegin = profile.frames[0] + warmupSeconds;
     const pythonEnd = pythonBegin + seconds;
     const measuredRequests = Object.entries(profile.requests).map(([endpoint, values]) => [endpoint,
-        values.filter(([stamp]) => stamp >= pythonBegin && stamp <= pythonEnd).map(([, ms]) => ms)]);
+        values.filter(([stamp]) => stamp >= pythonBegin && stamp <= pythonEnd).map(([, ms]) => ms),],);
     const report = {
         measuredAt: new Date().toISOString(), distribution: distributionRoot, warmupSeconds, seconds,
         mode, exchangeDelayMs: exchangeDelay * 1000,
@@ -125,13 +125,13 @@ try {
         workload: "06-physics, repeated jump and position reset",
         pythonLogic: {
             ...frameSummary(profile.frames.filter(stamp => stamp >= pythonBegin && stamp <= pythonEnd)
-                .map(stamp => stamp * 1000)),
-            meaning: "Completed Python simulation exchanges; this is the script logic rate, not the scene frame rate."
+                .map(stamp => stamp * 1000),),
+            meaning: "Completed Python simulation exchanges; this is the script logic rate, not the scene frame rate.",
         },
         websocket: frameSummary(packets.filter(stamp => stamp >= begin && stamp <= end)),
         requests: Object.fromEntries(measuredRequests.filter(([, values]) => values.length > 1)
-            .map(([endpoint, values]) => [endpoint, summarize(values)])),
-        limit: "WebSocket scene delivery is measured; browser canvas presentation is not measured."
+            .map(([endpoint, values]) => [endpoint, summarize(values)]),),
+        limit: "WebSocket scene delivery is measured; browser canvas presentation is not measured.",
     };
     report.meets60HzTarget = report.websocket.fps >= 58.5 && report.websocket.fps <= 61.5;
     await writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2) + "\n");

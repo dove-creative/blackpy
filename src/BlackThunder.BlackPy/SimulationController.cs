@@ -99,7 +99,7 @@ namespace BlackThunder.BlackPy
             var commands = ValidateCommands(request, states);
             var physics = new PhysicsStepRequest
             {
-                RunId = request.RunId, Actors = states, Commands = commands
+                RunId = request.RunId, Actors = states, Commands = commands,
             };
             _physics.Validate(physics);
 
@@ -203,13 +203,13 @@ namespace BlackThunder.BlackPy
                     commands.Add(new PhysicsCommand
                     {
                         Id = entry.Key, Kind = "move", X = change.X, Y = change.Y,
-                        Rotation = change.Heading, Forward = change.Forward
+                        Rotation = change.Heading, Forward = change.Forward,
                     });
             }
 
             var result = _physics.Step(new PhysicsStepRequest
             {
-                RunId = _runId!, DeltaTime = delta, Actors = States(), Commands = commands.ToArray()
+                RunId = _runId!, DeltaTime = delta, Actors = States(), Commands = commands.ToArray(),
             });
             UpdatePhysics(result);
             foreach (Motion motion in finished)
@@ -315,16 +315,16 @@ namespace BlackThunder.BlackPy
             Actors = _actors.Values.Select(actor => new SimulationActorResult
             {
                 Id = actor.State.Id, X = actor.State.X, Y = actor.State.Y, Heading = actor.Heading,
-                Contacts = actor.Contacts.ToArray(), ContactGeneration = actor.ContactGeneration
+                Contacts = actor.Contacts.ToArray(), ContactGeneration = actor.ContactGeneration,
             }).ToArray(),
             Completed = _completed.ToArray(),
             Contacts = _contacts.Select(contact => new SimulationContactEvent
             {
-                Sequence = contact.Sequence, Id = contact.Id, Kind = contact.Kind, Others = contact.Others.ToArray()
+                Sequence = contact.Sequence, Id = contact.Id, Kind = contact.Kind, Others = contact.Others.ToArray(),
             }).ToArray(),
             Keys = new Dictionary<string, long>(_keys, StringComparer.Ordinal),
             PointerId = _pointerId,
-            PointerGeneration = _pointerGeneration
+            PointerGeneration = _pointerGeneration,
         };
 
         public SceneState Scene()
@@ -344,9 +344,9 @@ namespace BlackThunder.BlackPy
                         Id = sprite.Id, Kind = sprite.Kind, X = state.X, Y = state.Y,
                         Width = state.Width, Height = state.Height, Heading = actor.Heading,
                         FlipHorizontal = sprite.FlipHorizontal, FlipVertical = sprite.FlipVertical,
-                        Visible = state.Visible, Color = sprite.Color, Label = sprite.Label, Speech = sprite.Speech
+                        Visible = state.Visible, Color = sprite.Color, Label = sprite.Label, Speech = sprite.Speech,
                     };
-                }).ToArray()
+                }).ToArray(),
             };
         }
 
@@ -376,7 +376,7 @@ namespace BlackThunder.BlackPy
             if (_contacts.Count >= HistoryLimit) throw Invalid("접촉 이벤트가 너무 많이 쌓였습니다.");
             _contacts.Add(new SimulationContactEvent
             {
-                Sequence = ++_contactSequence, Id = id, Kind = kind, Others = others
+                Sequence = ++_contactSequence, Id = id, Kind = kind, Others = others,
             });
         }
 
@@ -459,7 +459,7 @@ namespace BlackThunder.BlackPy
         {
             Id = actor.Id, X = actor.X, Y = actor.Y, Width = actor.Width, Height = actor.Height,
             Mode = actor.Mode, Mass = actor.Mass, Visible = actor.Visible,
-            Heading = actor.Heading, Trigger = actor.Trigger
+            Heading = actor.Heading, Trigger = actor.Trigger,
         };
 
         private static SimulationCommand Copy(SimulationCommand command) => new()
@@ -467,7 +467,7 @@ namespace BlackThunder.BlackPy
             Id = command.Id, Kind = command.Kind, X = command.X, Y = command.Y, Mode = command.Mode,
             Token = command.Token, Duration = command.Duration, Rotation = command.Rotation,
             Forward = command.Forward, Trigger = command.Trigger,
-            Source = command.Source, Generation = command.Generation, Revision = command.Revision
+            Source = command.Source, Generation = command.Generation, Revision = command.Revision,
         };
 
         private void RequireRun(string runId)

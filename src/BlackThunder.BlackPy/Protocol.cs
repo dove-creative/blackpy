@@ -49,7 +49,7 @@ namespace BlackThunder.BlackPy
             RunId = RunId,
             Scene = Scene,
             Error = Error,
-            Output = includeOutput ? Output : null
+            Output = includeOutput ? Output : null,
         }, JsonOptions);
 
         public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web);
@@ -63,7 +63,7 @@ namespace BlackThunder.BlackPy
             {
                 SingleReader = true,
                 SingleWriter = true,
-                FullMode = BoundedChannelFullMode.DropOldest
+                FullMode = BoundedChannelFullMode.DropOldest,
             });
     }
 }

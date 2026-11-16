@@ -35,7 +35,7 @@ class PackageCliTests(unittest.TestCase):
         self.addCleanup(self.patch.stop)
         self.output = io.StringIO()
         for redirect in (contextlib.redirect_stdout(self.output),
-                         contextlib.redirect_stderr(self.output)):
+                         contextlib.redirect_stderr(self.output),):
             redirect.__enter__()
             self.addCleanup(redirect.__exit__, None, None, None)
 

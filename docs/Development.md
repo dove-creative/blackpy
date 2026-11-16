@@ -168,7 +168,7 @@ BlackPy는 UniEngine과 BlackboxSystem, Box2D.NET을 NuGet으로 직접 참조�
 
 | 패키지 | 버전 | 소스 커밋 |
 | --- | --- | --- |
-| `UniEngine` | `0.1.0-main.a933cbd` | `a933cbd7ff480c2b1edc7c431936336abe2a3330` |
+| `UniEngine` | `0.1.0-main.688b41d` | `688b41d57d67e67ec7b4f01a6cd3c60ba902b7d2` |
 | `BlackThunder.BlackboxSystem` | `0.2.0` | `635c20e2ece4ce0c504ea03dda2c40679eac00e1` |
 | `Box2D.NET` | `3.1.654` | [3.1.654 태그](https://github.com/ikpil/Box2D.NET/tree/3.1.654) |
 

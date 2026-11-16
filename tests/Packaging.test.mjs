@@ -14,8 +14,8 @@ test("installed wheel creates, runs, reinstalls and uninstalls without changing 
     const command = path.join(environment, "Scripts/blackpy.exe");
     const invoke = (exe, args) => execFileSync(exe, args, {
         cwd: root, windowsHide: true, encoding: "utf8", timeout: 120000,
-        env: { ...process.env, PYTHONUTF8: "1" }
-    });
+        env: { ...process.env, PYTHONUTF8: "1" },
+    },);
     invoke(process.env.PYTHON_EXE || "python", ["-m", "venv", environment]);
     const inspection = JSON.parse(invoke(python, ["-c", `
 import json, sys, zipfile
@@ -27,7 +27,7 @@ with zipfile.ZipFile(sys.argv[1]) as wheel:
     print(json.dumps({'names': names, 'python': metadata['Requires-Python'],
                       'metadata': metadata['Metadata-Version'], 'version': metadata['Version'],
                       'requires': metadata.get_all('Requires-Dist', [])}))
-`, wheel]));
+`, wheel,],),);
     assert.equal(inspection.python, ">=3.10");
     assert.equal(inspection.metadata, "2.4");
     assert.deepEqual(inspection.requires, []);
@@ -36,7 +36,7 @@ with zipfile.ZipFile(sys.argv[1]) as wheel:
         "blackpy/_runtime/licenses/BlackPy.LICENSE.md", "blackpy/_runtime/licenses/UniEngine.LICENSE.md",
         "blackpy/_runtime/licenses/BlackboxSystem.LICENSE.md", "blackpy/_templates/_blackpy/__builtins__.pyi",
         "blackpy/_runtime/licenses/Box2D.NET.LICENSE.md", "blackpy/_runtime/Box2D.NET.dll",
-        "_blackpy_autostart.py", "blackpy_autostart.pth", "blackpy/_editor/__builtins__.pyi"]) {
+        "_blackpy_autostart.py", "blackpy_autostart.pth", "blackpy/_editor/__builtins__.pyi",]) {
         assert.ok(inspection.names.includes(name), name);
     }
     assert.ok(inspection.names.some(name => name.endsWith("/THIRD-PARTY-NOTICES.txt")));
@@ -56,10 +56,10 @@ with zipfile.ZipFile(sys.argv[1]) as wheel:
     try {
         await host.open({ workspace, executable: command,
             args: ["run", workspace, "--no-browser"],
-            env: { ...process.env, PYTHON_EXE: "deliberately-invalid-python", PYTHONUTF8: "1" } });
+            env: { ...process.env, PYTHON_EXE: "deliberately-invalid-python", PYTHONUTF8: "1" }, },);
         await host.run();
         await host.wait(() => host.sprite("고양이")?.x === 23 &&
-            host.text().includes(python), "installed interpreter and Korean commands");
+            host.text().includes(python), "installed interpreter and Korean commands",);
         assert.equal(host.sprite("고양이").y, 45);
         assert.equal(host.sprite("고양이").speech, "wheel에서 실행");
         host.socket.close();
@@ -82,4 +82,4 @@ with zipfile.ZipFile(sys.argv[1]) as wheel:
     assert.equal(await readFile(path.join(workspace, "고양이.py"), "utf8"), source);
     assert.deepEqual(await readFile(path.join(workspace, "_blackpy", "__builtins__.pyi")), stub);
     assert.equal(invoke(python, ["-I", "-c", "import importlib.util; print(importlib.util.find_spec('blackpy'))"]).trim(), "None");
-});
+},);

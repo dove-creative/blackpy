@@ -24,7 +24,7 @@ def make_runtime(actor_source="", background_source="", other_source=None, **kwa
             "filename": str(ROOT / "artifacts" / "test-source" / filename),
             "source": base64.b64encode(source.encode("utf-8")).decode("ascii"),
         } for filename, source in sources.items()],
-    }, **kwargs)
+    }, **kwargs,)
 
 
 async def settle():

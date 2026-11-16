@@ -3,8 +3,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$commit = 'a933cbd7ff480c2b1edc7c431936336abe2a3330'
-$version = '0.1.0-main.a933cbd'
+$commit = '688b41d57d67e67ec7b4f01a6cd3c60ba902b7d2'
+$version = '0.1.0-main.688b41d'
 $toolRoot = Split-Path -Parent $PSScriptRoot
 $feed = Join-Path $toolRoot 'packages'
 $package = Join-Path $feed "UniEngine.$version.nupkg"

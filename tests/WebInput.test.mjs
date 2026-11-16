@@ -21,7 +21,7 @@ test("pointer coordinates keep the center and positive-up axes at different disp
         assert.deepEqual(stagePoint(17, 31, rectangle), { x: -400, y: 300 });
         assert.deepEqual(stagePoint(17 + 800 * scale, 31 + 600 * scale, rectangle), { x: 400, y: -300 });
     }
-});
+},);
 
 test("letterbox and border-excluded content rectangles do not create outside-stage input", () => {
     const rectangle = { left: 20, top: 20, width: 800, height: 800 };
@@ -30,7 +30,7 @@ test("letterbox and border-excluded content rectangles do not create outside-sta
     assert.equal(stagePoint(420, 50, rectangle), null);
     assert.equal(stagePoint(19, 420, rectangle), null);
     assert.equal(stagePoint(0, 0, { left: 0, top: 0, width: 0, height: 0 }), null);
-});
+},);
 
 test("only supported keys are normalized", () => {
     assert.equal(normalizeKey("ArrowLeft"), "왼쪽");
@@ -45,7 +45,7 @@ test("only supported keys are normalized", () => {
         assert.equal(normalizeKey(key), null);
     }
 
-});
+},);
 
 test("input is serialized and only consecutive queued pointer movements are coalesced", async () => {
     const first = deferred();
@@ -53,7 +53,7 @@ test("input is serialized and only consecutive queued pointer movements are coal
     const queue = new InputQueue(packet => {
         packets.push(packet);
         return packets.length === 1 ? first.promise : Promise.resolve();
-    }, assert.fail);
+    }, assert.fail,);
     queue.setRun("one");
     queue.enqueue({ kind: "keydown", key: "왼쪽" });
     queue.enqueue({ kind: "pointermove", x: 1, y: 2 });
@@ -65,10 +65,10 @@ test("input is serialized and only consecutive queued pointer movements are coal
     first.resolve();
     await setImmediate();
     assert.deepEqual(packets.map(packet => packet.kind),
-        ["keydown", "pointermove", "pointerdown", "pointermove", "keyup"]);
+        ["keydown", "pointermove", "pointerdown", "pointermove", "keyup"],);
     assert.equal(packets[1].x, 3);
     assert.ok(packets.every(packet => packet.runId === "one"));
-});
+},);
 
 test("a restart discards old pending inputs and aborts the old request without disturbing the new run", async () => {
     const oldRequest = deferred();
@@ -79,7 +79,7 @@ test("a restart discards old pending inputs and aborts the old request without d
         packets.push(packet);
         signals.push(signal);
         return packet.runId === "old" ? oldRequest.promise : newRequest.promise;
-    }, assert.fail);
+    }, assert.fail,);
     queue.setRun("old");
     queue.enqueue({ kind: "keydown", key: "a" });
     queue.enqueue({ kind: "pointerdown", button: "왼쪽" });
@@ -93,7 +93,7 @@ test("a restart discards old pending inputs and aborts the old request without d
     newRequest.resolve();
     await setImmediate();
     assert.equal(queue.busy, false);
-});
+},);
 
 test("focus-loss reset follows the in-flight key event and replaces all pending events", async () => {
     const first = deferred();
@@ -101,7 +101,7 @@ test("focus-loss reset follows the in-flight key event and replaces all pending 
     const queue = new InputQueue(packet => {
         packets.push(packet);
         return packets.length === 1 ? first.promise : Promise.resolve();
-    }, assert.fail);
+    }, assert.fail,);
     queue.setRun("one");
     queue.enqueue({ kind: "keydown", key: "왼쪽" });
     queue.enqueue({ kind: "keydown", key: "위" });
@@ -110,7 +110,7 @@ test("focus-loss reset follows the in-flight key event and replaces all pending 
     first.resolve();
     await setImmediate();
     assert.deepEqual(packets.map(packet => packet.kind), ["keydown", "reset"]);
-});
+},);
 
 test("queue saturation is bounded and clears potentially held input through reset", async () => {
     const first = deferred();
@@ -119,7 +119,7 @@ test("queue saturation is bounded and clears potentially held input through rese
     const queue = new InputQueue(packet => {
         packets.push(packet);
         return packets.length === 1 ? first.promise : Promise.resolve();
-    }, error => errors.push(error), 2);
+    }, error => errors.push(error), 2,);
     queue.setRun("one");
     queue.enqueue({ kind: "keydown", key: "왼쪽" });
     queue.enqueue({ kind: "pointerdown", button: "왼쪽" });
@@ -130,7 +130,7 @@ test("queue saturation is bounded and clears potentially held input through rese
     await setImmediate();
     assert.deepEqual(packets.map(packet => packet.kind), ["keydown", "reset"]);
     assert.equal(errors.length, 1);
-});
+},);
 
 test("a failed send attempts one reset and cannot retry forever on a disconnected server", async () => {
     const packets = [];
@@ -138,7 +138,7 @@ test("a failed send attempts one reset and cannot retry forever on a disconnecte
     const queue = new InputQueue(async packet => {
         packets.push(packet);
         throw new Error("disconnected");
-    }, error => errors.push(error));
+    }, error => errors.push(error),);
     queue.setRun("one");
     queue.enqueue({ kind: "keydown", key: "왼쪽" });
     await setImmediate();
@@ -148,4 +148,4 @@ test("a failed send attempts one reset and cannot retry forever on a disconnecte
     queue.setRun(null);
     assert.equal(queue.enqueue({ kind: "keydown", key: "오른쪽" }), false);
     assert.equal(packets.length, 2);
-});
+},);

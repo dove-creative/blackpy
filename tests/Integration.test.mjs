@@ -15,13 +15,13 @@ test("authentication and missing project never create student files", async () =
     assert.equal(response.status, 400);
     assert.match(response.body.error, /project\.json/);
     await assert.rejects(readFile(path.join(host.workspace, "project.json")), { code: "ENOENT" });
-});
+},);
 
 test("normal moves finish before the next line and actors move simultaneously", async () => {
     const project = defaultProject();
     for (const actor of project.actors) actor.physics = "없음";
     await host.write('def 시작():\n    print("CAT_BEGIN")\n    앞으로(100)\n    print("고양이 도착 🐱")\n',
-        'def 시작():\n    print("CAR_BEGIN")\n    앞으로(100)\n    print("자동차 도착")\n', "", project);
+        'def 시작():\n    print("CAR_BEGIN")\n    앞으로(100)\n    print("자동차 도착")\n', "", project,);
     const started = Date.now();
     await host.run();
     await host.done();
@@ -36,13 +36,13 @@ test("normal moves finish before the next line and actors move simultaneously", 
     const catStarted = text.indexOf("CAT_BEGIN");
     const carStarted = text.indexOf("CAR_BEGIN");
     assert.ok(catStarted >= 0 && catStarted < firstArrival && carStarted >= 0 && carStarted < firstArrival,
-        "Both actors must begin before either movement finishes: " + text);
-});
+        "Both actors must begin before either movement finishes: " + text,);
+},);
 
 test("state assignments and helper calls bind to their own actor", async () => {
     await host.write('def 돌기():\n    방향 += 90\n\ndef 시작():\n    위치 = (12, 25)\n' +
         '    크기 = 2\n    속도 = 2\n    돌기()\n    앞으로(20)\n    말하기("내 말풍선", 시간=None)\n',
-        'def 시작():\n    위치 = (100, -25)\n    말하기("자동차 말풍선", 시간=None)\n');
+        'def 시작():\n    위치 = (100, -25)\n    말하기("자동차 말풍선", 시간=None)\n',);
     await host.run();
     await host.done();
     assert.equal(host.state.status, "completed", host.text());
@@ -51,7 +51,7 @@ test("state assignments and helper calls bind to their own actor", async () => {
     assert.equal(host.sprite().width, 172);
     assert.equal(host.sprite().speech, "내 말풍선");
     assert.equal(host.sprite("자동차").speech, "자동차 말풍선");
-});
+},);
 
 test("all scripts and settings stay frozen until restart", async () => {
     const source = 'def 시작():\n    기다리기(0.5)\n    print("원본 고양이")\n\ndef 자신_클릭():\n    pass\n';
@@ -61,7 +61,7 @@ test("all scripts and settings stay frozen until restart", async () => {
     const replacement = defaultProject();
     replacement.actors[0].x = -250;
     await host.write('def 시작():\n    print("수정 고양이")\n',
-        'def 시작():\n    print("수정 자동차")\n', "", replacement);
+        'def 시작():\n    print("수정 자동차")\n', "", replacement,);
     assert.equal((await host.request("/api/project")).body.actors[0].x, -100);
     const snapshot = (await host.request("/api/source?runId=" + run)).body;
     assert.equal(snapshot.sources.length, 3);
@@ -76,7 +76,7 @@ test("all scripts and settings stay frozen until restart", async () => {
     assert.match(host.text(), /수정 자동차/);
     assert.equal(host.sprite().x, -250);
     assert.equal((await host.request("/api/input", { runId: run, kind: "reset" })).status, 409);
-});
+},);
 
 test("errors show the original filename, line and frozen source", async () => {
     await host.write('def 시작():\n    기다리기(0.4)\n    raise ValueError("원본 오류")\n');
@@ -92,11 +92,11 @@ test("errors show the original filename, line and frozen source", async () => {
     await host.done();
     assert.equal(host.state.status, "error");
     assert.match(host.text(), /SyntaxError/);
-});
+},);
 
 test("tight loops yield to other actors and remain stoppable", async () => {
     await host.write('def 시작():\n    while True:\n        pass\n',
-        'def 시작():\n    앞으로(20)\n    print("다른 실행도 진행")\n');
+        'def 시작():\n    앞으로(20)\n    print("다른 실행도 진행")\n',);
     await host.run();
     await host.wait(() => host.text().includes("다른 실행도 진행"), "cooperative loop");
     assert.equal((await host.request("/api/run")).status, 409);
@@ -105,7 +105,7 @@ test("tight loops yield to other actors and remain stoppable", async () => {
     const x = host.sprite("자동차").x;
     await pause(100);
     assert.equal(host.sprite("자동차").x, x);
-});
+},);
 
 test("project validation rejects unsafe paths and duplicate actors", async () => {
     const config = defaultProject();
@@ -114,7 +114,7 @@ test("project validation rejects unsafe paths and duplicate actors", async () =>
     assert.equal((await host.request("/api/run")).status, 400);
     await host.write("", "", "", { ...defaultProject(), actors: [defaultProject().actors[0], defaultProject().actors[0]] });
     assert.equal((await host.request("/api/run")).status, 400);
-});
+},);
 
 test("project images are served only by name, with the token and a sandboxed type", async () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 6"><rect width="8" height="6"/></svg>';
@@ -125,7 +125,7 @@ test("project images are served only by name, with the token and a sandboxed typ
     await host.write("", "", "", config);
     assert.equal((await host.request("/api/project")).body.background.image, "무대.svg");
     const fetchImage = (name, token = host.token) => fetch(`${host.address}/api/image?name=${encodeURIComponent(name)}`,
-        { headers: { "X-Playground-Token": token }, signal: AbortSignal.timeout(15000) });
+        { headers: { "X-Playground-Token": token }, signal: AbortSignal.timeout(15000) },);
 
     const image = await fetchImage("무대.svg");
     assert.equal(image.status, 200);
@@ -139,7 +139,7 @@ test("project images are served only by name, with the token and a sandboxed typ
     config.background.image = "../무대.svg";
     await host.write("", "", "", config);
     assert.equal((await host.request("/api/run")).status, 400);
-});
+},);
 
 test("the stage page links its own BlackPy tab icon", async () => {
     const page = await fetch(host.address + "/", { signal: AbortSignal.timeout(15000) });
@@ -149,7 +149,7 @@ test("the stage page links its own BlackPy tab icon", async () => {
     assert.equal(icon.status, 200);
     assert.equal(icon.headers.get("content-type"), "image/svg+xml");
     assert.match(await icon.text(), /<title>BlackPy<\/title>/);
-});
+},);
 
 test("last browser disconnect stops execution and reconnect retains the scene", async () => {
     await host.write('def 시작():\n    위치 = (70, 20)\n    print("연결 확인")\n\ndef 자신_클릭():\n    pass\n');
@@ -165,7 +165,7 @@ test("last browser disconnect stops execution and reconnect retains the scene", 
     host.socket = await host.connect();
     assert.equal(host.sprite().x, 70);
     assert.match(host.text(), /연결 확인/);
-});
+},);
 
 test("nonfinite state fails with a student error and output remains bounded", async () => {
     await host.write('def 시작():\n    속도 = float("nan")\n');
@@ -175,19 +175,19 @@ test("nonfinite state fails with a student error and output remains bounded", as
     assert.match(host.text(), /속도|숫자|유한/);
     await host.write('import sys\ndef 시작():\n    for i in range(1200):\n' +
         '        print("OUT", i)\n        print("ERR", i, file=sys.stderr)\n' +
-        '    print("STDOUT_DONE")\n    print("STDERR_DONE", file=sys.stderr)\n');
+        '    print("STDOUT_DONE")\n    print("STDERR_DONE", file=sys.stderr)\n',);
     await host.run();
     await host.done(20000);
     assert.equal(host.state.status, "completed", host.text());
     assert.equal(host.state.output.length, 1000);
     assert.match(host.text(), /STDOUT_DONE/);
     assert.match(host.text(), /STDERR_DONE/);
-});
+},);
 
 test("stopping the run also terminates Python child processes", async () => {
     await host.write('import subprocess\nimport sys\ndef 시작():\n' +
         '    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])\n' +
-        '    print("CHILD_PID", child.pid)\n    while True:\n        기다리기(1)\n');
+        '    print("CHILD_PID", child.pid)\n    while True:\n        기다리기(1)\n',);
     await host.run();
     await host.wait(() => host.text().includes("CHILD_PID"), "child process startup");
     const pid = Number(host.text().match(/CHILD_PID (\d+)/)[1]);
@@ -196,5 +196,5 @@ test("stopping the run also terminates Python child processes", async () => {
     await host.wait(() => {
         try { process.kill(pid, 0); return false; }
         catch (error) { if (error.code === "ESRCH") return true; throw error; }
-    }, "child process cleanup");
-});
+    }, "child process cleanup",);
+},);

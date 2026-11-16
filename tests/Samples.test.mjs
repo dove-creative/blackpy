@@ -31,20 +31,20 @@ test("movement sample completes its square at the initial position", async () =>
         assert.ok(Math.min(Math.abs(cat.heading), Math.abs(cat.heading - 360)) < 0.01);
         assert.ok(host.history.some(scene => scene.sprites[0].x > -70));
         assert.ok(host.history.some(scene => scene.sprites[0].y > 10));
-    });
-});
+    },);
+},);
 
 test("keyboard sample moves in four directions, releases, and resets with space", async () => {
     await sample("02-keyboard", async host => {
         for (const [key, axis, sign] of [
-            ["오른쪽", "x", 1], ["위", "y", 1], ["왼쪽", "x", -1], ["아래", "y", -1]
+            ["오른쪽", "x", 1], ["위", "y", 1], ["왼쪽", "x", -1], ["아래", "y", -1],
         ]) {
             const start = host.sprite()[axis];
             await host.input("keydown", { key });
             await host.wait(() => (host.sprite()[axis] - start) * sign > 25, "held " + key);
             await host.input("keyup", { key });
             await host.wait(() => host.sprite().speech === key + " 뗌" &&
-                host.text().includes("뗌: " + key), "released " + key);
+                host.text().includes("뗌: " + key), "released " + key,);
             const stopped = host.sprite()[axis];
             await pause(100);
             assert.equal(host.sprite()[axis], stopped);
@@ -54,11 +54,11 @@ test("keyboard sample moves in four directions, releases, and resets with space"
         await host.input("keydown", { key: "스페이스" });
         await host.input("keyup", { key: "스페이스" });
         await host.wait(() => host.sprite().speech === "스페이스 뗌" &&
-            host.text().includes("뗌: 스페이스"), "space reset");
+            host.text().includes("뗌: 스페이스"), "space reset",);
         assert.equal(host.sprite().x, 0);
         assert.equal(host.sprite().y, 0);
-    });
-});
+    },);
+},);
 
 test("click sample grows and rotates until release, with separate background input", async () => {
     await sample("03-click", async host => {
@@ -79,21 +79,21 @@ test("click sample grows and rotates until release, with separate background inp
         await host.input("pointerdown", { button: "왼쪽", x: 350, y: 250 });
         await host.input("pointerup", { button: "왼쪽", x: 350, y: 250 });
         await host.wait(() => host.state.scene.message === "배경의 빈 곳을 눌렀어요!", "background press");
-    });
-});
+    },);
+},);
 
 test("broadcast sample includes its sender and moves both actors together", async () => {
     await sample("04-broadcast", async host => {
         await host.input("pointerdown", { button: "왼쪽", x: 0, y: 200 });
         await host.input("pointerup", { button: "왼쪽", x: 0, y: 200 });
         await host.wait(() => host.sprite().speech === "고양이가 제자리로 돌아왔어요!" &&
-            host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "broadcast round trip");
+            host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "broadcast round trip",);
         assert.ok(host.history.some(scene => scene.message === "방송한 배경도 출발 신호를 받았어요!"));
         assert.ok(Math.abs(host.sprite().x + 180) < 0.01);
         assert.ok(Math.abs(host.sprite("자동차").x - 180) < 0.01);
         assert.ok(host.history.some(scene =>
             scene.sprites.find(actor => actor.label === "고양이").x > -140 &&
-            scene.sprites.find(actor => actor.label === "자동차").x < 140), "concurrent movement");
+            scene.sprites.find(actor => actor.label === "자동차").x < 140,), "concurrent movement",);
         // The one-second closing speech keeps each receiver busy before the same signal can restart it.
         await host.wait(() => host.sprite().speech === "" && host.sprite("자동차").speech === "", "round trip speech ends");
 
@@ -102,13 +102,13 @@ test("broadcast sample includes its sender and moves both actors together", asyn
         await host.wait(() => host.sprite().speech === "야옹! 고양이도 출발!", "second movement starts");
         await host.wait(() => host.text().split("고양이: 출발!").length === 3, "second broadcast");
         await host.wait(() => host.sprite().speech === "고양이가 제자리로 돌아왔어요!" &&
-            host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "second round trip");
+            host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "second round trip",);
 
         for (const message of ["배경: 내가 보낸 출발 신호를 받았어요.", "고양이: 출발!", "자동차: 출발!"]) {
             assert.equal(host.text().split(message).length - 1, 2);
         }
-    });
-});
+    },);
+},);
 
 test("contact sample reports enter and exit once without flooding the log while held", async () => {
     await sample("05-contact", async host => {
@@ -131,8 +131,8 @@ test("contact sample reports enter and exit once without flooding the log while 
         assert.equal(host.text().split("닿았을 때:").length - 1, 1);
         assert.equal(host.text().split("떨어졌을 때:").length - 1, 1);
         assert.match(host.text(), /떨어졌을 때: \['고양이'\]/);
-    });
-});
+    },);
+},);
 
 test("physics sample settles on its platform and jumps on a single key press", async () => {
     await sample("06-physics", async host => {
@@ -146,5 +146,5 @@ test("physics sample settles on its platform and jumps on a single key press", a
         await host.wait(() => ball().y > -90, "ball jumps");
         assert.equal(ball().heading, direction);
         await host.wait(() => Math.abs(ball().y + 138) < 1, "ball returns to platform");
-    });
-});
+    },);
+},);

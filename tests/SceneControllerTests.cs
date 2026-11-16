@@ -80,7 +80,7 @@ namespace BlackThunder.BlackPy.Tests
                     Y = 100000,
                     Width = 2000,
                     Height = 2000,
-                    Heading = -1000000
+                    Heading = -1000000,
                 };
             }
 
@@ -241,8 +241,8 @@ namespace BlackThunder.BlackPy.Tests
             {
                 Background = "city",
                 Message = "자동차 출발!",
-                Sprites = new[] { new SpriteState { Id = "car", Kind = "car", X = 25, Y = -30, Speech = "안녕!" } }
-            }
+                Sprites = new[] { new SpriteState { Id = "car", Kind = "car", X = 25, Y = -30, Speech = "안녕!" } },
+            },
         };
 
         private static void AssertStatus(int status, TestDelegate action) =>

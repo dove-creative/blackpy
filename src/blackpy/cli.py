@@ -47,7 +47,7 @@ def configure_editor(directory):
         if destination.read_bytes() != source:
             raise ValueError(
                 f"기존 {STUB_NAME} 파일을 보존했어요. "
-                "필요한 정의를 직접 합쳐 주세요."
+                "필요한 정의를 직접 합쳐 주세요.",
             )
     else:
         with destination.open("xb") as stream:

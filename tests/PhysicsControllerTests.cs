@@ -234,7 +234,7 @@ namespace BlackThunder.BlackPy.Tests
                 new[] { Mode(1, "물리"), Command(1, "resize", 900, 50), Command(1, "resize", 50, 50) },
                 new[] { Mode(1, "unknown") },
                 new[] { Command(1, "mass", 0) },
-                new[] { Command(1, "visible", 2) }
+                new[] { Command(1, "visible", 2) },
             };
 
             foreach (PhysicsCommand[] sequence in invalidSequences)
@@ -365,7 +365,7 @@ namespace BlackThunder.BlackPy.Tests
             Assert.Throws<BlackPyException>(() => Step(0, new[] { Actor(1) }));
             var state = _physics.Step(new PhysicsStepRequest
             {
-                RunId = "new", Actors = new[] { Actor(1, "물리", 50, 50) }
+                RunId = "new", Actors = new[] { Actor(1, "물리", 50, 50) },
             });
 
             Assert.That(state.Actors[0].X, Is.EqualTo(50).Within(0.001));
@@ -447,7 +447,7 @@ namespace BlackThunder.BlackPy.Tests
         private PhysicsStepResult Step(double time, PhysicsActorState[] actors, params PhysicsCommand[] commands) =>
             _physics.Step(new PhysicsStepRequest
             {
-                RunId = "run", DeltaTime = time, Actors = actors, Commands = commands
+                RunId = "run", DeltaTime = time, Actors = actors, Commands = commands,
             });
 
         private static PhysicsActorState Actor(int id, string mode = "충돌만", double x = 0, double y = 0) =>

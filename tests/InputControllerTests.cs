@@ -117,7 +117,7 @@ namespace BlackThunder.BlackPy.Tests
             input.BeginRun("run");
             AssertStatus(400, () => input.Submit(new InputRequest
             {
-                RunId = "run", Kind = kind, Button = button, Key = key
+                RunId = "run", Kind = kind, Button = button, Key = key,
             }));
             Assert.That(input.Count, Is.Zero);
         }
@@ -152,7 +152,7 @@ namespace BlackThunder.BlackPy.Tests
                 var secondBrowser = await session.ConnectAsync();
                 await session.InputAsync(new InputRequest
                 {
-                    RunId = first.RunId!, Kind = "keydown", Key = "오른쪽"
+                    RunId = first.RunId!, Kind = "keydown", Key = "오른쪽",
                 });
                 await session.DisconnectAsync(secondBrowser);
                 var released = await session.GetEventsAsync(first.RunId!);
@@ -184,12 +184,12 @@ namespace BlackThunder.BlackPy.Tests
 
         private static InputRequest Click(string runId, double x) => new()
         {
-            RunId = runId, Kind = "pointerdown", Button = "왼쪽", X = x
+            RunId = runId, Kind = "pointerdown", Button = "왼쪽", X = x,
         };
 
         private static InputRequest Pointer(double x) => new()
         {
-            RunId = "run", Kind = "pointermove", X = x
+            RunId = "run", Kind = "pointermove", X = x,
         };
 
         private static void AssertStatus(int status, TestDelegate action) =>

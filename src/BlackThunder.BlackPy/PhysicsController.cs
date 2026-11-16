@@ -129,7 +129,7 @@ namespace BlackThunder.BlackPy
                     Body = b2CreateBody(_world, definition),
                     X = state.X,
                     Y = state.Y,
-                    Heading = Normalize(state.Heading)
+                    Heading = Normalize(state.Heading),
                 };
 
                 _actors.Add(state.Id, actor);
@@ -190,7 +190,7 @@ namespace BlackThunder.BlackPy
             collider.Proxy = b2MakeProxy(new[]
             {
                 new B2Vec2(-halfWidth, -halfHeight), new B2Vec2(halfWidth, -halfHeight),
-                new B2Vec2(halfWidth, halfHeight), new B2Vec2(-halfWidth, halfHeight)
+                new B2Vec2(halfWidth, halfHeight), new B2Vec2(-halfWidth, halfHeight),
             }, 4, 0);
         }
 
@@ -237,7 +237,7 @@ namespace BlackThunder.BlackPy
                         Mass = actor.Mass,
                         Visible = actor.Visible,
                         Heading = actor.Heading,
-                        Trigger = actor.Trigger
+                        Trigger = actor.Trigger,
                     };
 
                     ApplyConfiguration(state, command);
@@ -341,7 +341,7 @@ namespace BlackThunder.BlackPy
                     proxyA = obstacle.Proxy, proxyB = actor.Proxy, maxFraction = 1,
                     sweepA = new B2Sweep
                         { c1 = fixedTransform.p, c2 = fixedTransform.p, q1 = fixedTransform.q, q2 = fixedTransform.q },
-                    sweepB = new B2Sweep { c1 = from.p, c2 = from.p, q1 = from.q, q2 = target.q }
+                    sweepB = new B2Sweep { c1 = from.p, c2 = from.p, q1 = from.q, q2 = target.q },
                 };
                 var hit = b2TimeOfImpact(input);
                 if (hit.state == B2TOIState.b2_toiStateHit) fraction = hit.fraction;
@@ -400,7 +400,7 @@ namespace BlackThunder.BlackPy
                 transformB = to,
                 translationB = translation,
                 maxFraction = 1,
-                canEncroach = true
+                canEncroach = true,
             };
 
             var hit = b2ShapeCast(input);
@@ -472,7 +472,7 @@ namespace BlackThunder.BlackPy
                 proxyB = second.Proxy,
                 transformA = b2Body_GetTransform(first.Body),
                 transformB = b2Body_GetTransform(second.Body),
-                useRadii = true
+                useRadii = true,
             };
 
             var cache = new B2SimplexCache();
@@ -518,7 +518,7 @@ namespace BlackThunder.BlackPy
                     Height = actor.Height,
                     Mode = actor.Mode,
                     Mass = actor.Mass,
-                    Visible = actor.Visible, Trigger = actor.Trigger, Heading = actor.Heading
+                    Visible = actor.Visible, Trigger = actor.Trigger, Heading = actor.Heading,
                 });
             }
 

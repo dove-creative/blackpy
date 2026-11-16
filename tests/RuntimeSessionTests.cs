@@ -60,7 +60,7 @@ namespace BlackThunder.BlackPy.Tests
                 pending[i] = session.FrameAsync(new SceneFrameRequest
                 {
                     RunId = first.RunId!,
-                    Scene = new SceneState { Message = "frame-" + i }
+                    Scene = new SceneState { Message = "frame-" + i },
                 });
             }
 
@@ -95,7 +95,7 @@ namespace BlackThunder.BlackPy.Tests
             var request = Exchange(running.RunId!);
             request.Commands = new[]
             {
-                new SimulationCommand { Id = "actor-1", Kind = "motion", Token = "move", X = 100, Duration = 0.1 }
+                new SimulationCommand { Id = "actor-1", Kind = "motion", Token = "move", X = 100, Duration = 0.1 },
             };
             await session.ExchangeAsync(request);
 
@@ -139,8 +139,8 @@ namespace BlackThunder.BlackPy.Tests
                 new SimulationCommand
                 {
                     Id = "actor-1", Kind = "rate", Source = "key:오른쪽", Generation = input.Generation,
-                    Revision = 1, X = double.MaxValue
-                }
+                    Revision = 1, X = double.MaxValue,
+                },
             };
             await session.ExchangeAsync(request);
             StateMessage failed;
@@ -158,7 +158,7 @@ namespace BlackThunder.BlackPy.Tests
         {
             RunId = runId, Sequence = 1, Ready = true,
             Actors = new[] { new PhysicsActorState { Id = "actor-1", Width = 40, Height = 40 } },
-            Scene = new SceneState { Sprites = new[] { new SpriteState { Id = "actor-1", Width = 40, Height = 40 } } }
+            Scene = new SceneState { Sprites = new[] { new SpriteState { Id = "actor-1", Width = 40, Height = 40 } } },
         };
     }
 }

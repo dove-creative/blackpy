@@ -69,7 +69,7 @@ namespace BlackThunder.BlackPy
         private static readonly Dictionary<string, string> _imageTypes = new(StringComparer.OrdinalIgnoreCase)
         {
             [".png"] = "image/png", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg",
-            [".gif"] = "image/gif", [".webp"] = "image/webp", [".svg"] = "image/svg+xml"
+            [".gif"] = "image/gif", [".webp"] = "image/webp", [".svg"] = "image/svg+xml",
         };
 
 

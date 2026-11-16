@@ -24,13 +24,13 @@ function element() {
             let prevented = false;
             listeners.get(name)?.({ preventDefault() { prevented = true; }, ...extra });
             return prevented;
-        }
+        },
     };
 }
 
 function controller(send = async () => {}) {
     const elements = Object.fromEntries(["form", "label", "answer", "submit", "status"]
-        .map(name => [name, element()]));
+        .map(name => [name, element()]),);
     let opened = 0;
     const input = new TextInput(elements, send, () => { opened++; });
     return { input, elements, opened: () => opened };
@@ -55,7 +55,7 @@ test("a prompt focuses once and repeated frames preserve the answer and literal 
     assert.equal(elements.label.textContent, "");
     assert.equal(elements.answer["aria-label"], "입력");
     assert.equal(elements.answer.focusCount, 2);
-});
+},);
 
 test("empty and whitespace answers are submitted unchanged once per prompt", async () => {
     const packets = [];
@@ -73,9 +73,9 @@ test("empty and whitespace answers are submitted unchanged once per prompt", asy
 
     assert.deepEqual(packets, [
         { runId: "run", promptId: 1, kind: "answer", text: "" },
-        { runId: "run", promptId: 2, kind: "answer", text: "  가 나  " }
-    ]);
-});
+        { runId: "run", promptId: 2, kind: "answer", text: "  가 나  " },
+    ],);
+},);
 
 test("pending submissions cannot be sent twice and a failed send keeps the answer for retry", async () => {
     const first = deferred();
@@ -95,7 +95,7 @@ test("pending submissions cannot be sent twice and a failed send keeps the answe
     await input.submit();
     assert.equal(attempts, 2);
     assert.equal(elements.submit.disabled, true);
-});
+},);
 
 test("a new run aborts an old request and ignores its late completion", async () => {
     const old = deferred();
@@ -103,7 +103,7 @@ test("a new run aborts an old request and ignores its late completion", async ()
     const { input, elements } = controller((packet, requestSignal) => {
         signal = requestSignal;
         return old.promise;
-    });
+    },);
     input.update("old", question());
     elements.answer.value = "이전 답";
     const pending = input.submit();
@@ -116,7 +116,7 @@ test("a new run aborts an old request and ignores its late completion", async ()
     assert.equal(elements.answer.value, "새 답");
     assert.equal(elements.submit.disabled, false);
     assert.equal(elements.status.textContent, "");
-});
+},);
 
 test("run end and disconnect clear the draft and cancel the pending request", async () => {
     for (const unavailable of [null, undefined]) {
@@ -125,7 +125,7 @@ test("run end and disconnect clear the draft and cancel the pending request", as
         const { input, elements } = controller((packet, requestSignal) => {
             signal = requestSignal;
             return pending.promise;
-        });
+        },);
         input.update("run", question());
         elements.answer.value = "저장하지 않을 답";
         const sent = input.submit();
@@ -138,7 +138,7 @@ test("run end and disconnect clear the draft and cancel the pending request", as
         await sent;
         assert.equal(elements.status.textContent, "");
     }
-});
+},);
 
 test("IME composition never submits the unfinished Korean syllable", async () => {
     const packets = [];
@@ -156,7 +156,7 @@ test("IME composition never submits the unfinished Korean syllable", async () =>
     assert.equal(elements.form.emit("submit"), true);
     await setImmediate();
     assert.equal(packets[0].text, "한글");
-});
+},);
 
 test("temporary action disabling preserves the draft and does not refocus it", async () => {
     let sent = false;
@@ -170,7 +170,7 @@ test("temporary action disabling preserves the draft and does not refocus it", a
     assert.equal(elements.answer.value, "답");
     assert.equal(elements.answer.focusCount, 1);
     assert.equal(elements.submit.disabled, false);
-});
+},);
 
 test("a prompt arriving during the start request focuses once after the controls become available", () => {
     const { input, elements, opened } = controller();
@@ -181,7 +181,7 @@ test("a prompt arriving during the start request focuses once after the controls
     input.update("run", question(), false);
     assert.equal(elements.answer.focusCount, 1);
     assert.equal(opened(), 1);
-});
+},);
 
 test("oversized and multiline programmatic values are rejected without losing the draft", async () => {
     const packets = [];
@@ -199,4 +199,4 @@ test("oversized and multiline programmatic values are rejected without losing th
     elements.answer.value = "x".repeat(4096);
     await input.submit();
     assert.equal(packets.length, 1);
-});
+},);

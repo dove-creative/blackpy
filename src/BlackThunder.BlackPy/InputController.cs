@@ -53,7 +53,7 @@ namespace BlackThunder.BlackPy
         private const int BatchSize = 32;
         private static readonly HashSet<string> _keys = new(StringComparer.Ordinal)
         {
-            "왼쪽", "오른쪽", "위", "아래", "스페이스", "엔터", "탈출"
+            "왼쪽", "오른쪽", "위", "아래", "스페이스", "엔터", "탈출",
         };
         private readonly LinkedList<InputEvent> _events = new();
         private string? _runId;

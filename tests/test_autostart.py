@@ -28,7 +28,7 @@ class AutostartTests(unittest.TestCase):
         self.config = self.project / "project.json"
         self.config.write_text(json.dumps({
             "background": {"file": "배경.py"}, "actors": [],
-        }), encoding="utf-8")
+        },), encoding="utf-8",)
 
         for replacement in (
             patch.object(autostart, "_handled", False),
