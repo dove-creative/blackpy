@@ -1,14 +1,14 @@
 {
   "repository": "https://github.com/dove-creative/uniengine",
-  "branch": "uniengine-mvp",
-  "commit": "e256629bf5a9a164e4d385ea5a7eab82f456e1aa",
+  "branch": "main",
+  "commit": "a933cbd7ff480c2b1edc7c431936336abe2a3330",
   "framework": "netstandard2.1",
   "packages": [
     {
-      "id": "BlackThunder.UniEngine",
-      "version": "0.1.0-mvp.e256629",
-      "file": "BlackThunder.UniEngine.0.1.0-mvp.e256629.nupkg",
-      "sha256": "8AB9A9ADB275C1DFC52978FF92EBA04F0A494F1DDD481CCF23B047556A7FF629"
+      "id": "UniEngine",
+      "version": "0.1.0-main.a933cbd",
+      "file": "UniEngine.0.1.0-main.a933cbd.nupkg",
+      "sha256": "0C716CC5FAC65F19514D3EF14DD7D01DD2CA9432F6D0CC0166F737C05A7EFEC4"
     },
     {
       "id": "BlackThunder.BlackboxSystem",

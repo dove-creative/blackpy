@@ -3,11 +3,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$commit = 'e256629bf5a9a164e4d385ea5a7eab82f456e1aa'
-$version = '0.1.0-mvp.e256629'
+$commit = 'a933cbd7ff480c2b1edc7c431936336abe2a3330'
+$version = '0.1.0-main.a933cbd'
 $toolRoot = Split-Path -Parent $PSScriptRoot
 $feed = Join-Path $toolRoot 'packages'
-$package = Join-Path $feed "BlackThunder.UniEngine.$version.nupkg"
+$package = Join-Path $feed "UniEngine.$version.nupkg"
 if (Test-Path -LiteralPath $package) {
     throw 'The pinned package already exists. Verify packages/source-manifest.json instead of replacing it.'
 }
@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) { throw 'The pinned source commit could not be exported
 
 $source = Join-Path $scratch 'source'
 Expand-Archive -LiteralPath $archive -DestinationPath $source
-$project = Join-Path $source 'src\BlackThunder.UniEngine.csproj'
+$project = Join-Path $source 'src\UniEngine.csproj'
 & dotnet pack $project -c Release -o $feed "-p:PackageVersion=$version" "-p:RepositoryCommit=$commit" `
     '-p:RepositoryUrl=https://github.com/dove-creative/uniengine'
 if ($LASTEXITCODE -ne 0) { throw 'UniEngine packaging failed.' }
@@ -38,11 +38,11 @@ if ((Get-FileHash -LiteralPath $blackbox).Hash -ne (Get-FileHash -LiteralPath $b
 Copy-Item -LiteralPath (Join-Path $source 'LICENSE.md') -Destination (Join-Path $feed 'UniEngine.LICENSE.md')
 $manifest = [ordered]@{
     repository = 'https://github.com/dove-creative/uniengine'
-    branch = 'uniengine-mvp'
+    branch = 'main'
     commit = $commit
     framework = 'netstandard2.1'
     packages = @(
-        [ordered]@{ id = 'BlackThunder.UniEngine'; version = $version;
+        [ordered]@{ id = 'UniEngine'; version = $version;
             file = [IO.Path]::GetFileName($package); sha256 = (Get-FileHash -LiteralPath $package).Hash },
         [ordered]@{ id = 'BlackThunder.BlackboxSystem'; version = '0.2.0';
             repository = 'https://github.com/dove-creative/blackbox-system';

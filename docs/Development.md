@@ -168,11 +168,11 @@ BlackPy는 UniEngine과 BlackboxSystem, Box2D.NET을 NuGet으로 직접 참조�
 
 | 패키지 | 버전 | 소스 커밋 |
 | --- | --- | --- |
-| `BlackThunder.UniEngine` | `0.1.0-mvp.e256629` | `e256629bf5a9a164e4d385ea5a7eab82f456e1aa` |
+| `UniEngine` | `0.1.0-main.a933cbd` | `a933cbd7ff480c2b1edc7c431936336abe2a3330` |
 | `BlackThunder.BlackboxSystem` | `0.2.0` | `635c20e2ece4ce0c504ea03dda2c40679eac00e1` |
 | `Box2D.NET` | `3.1.654` | [3.1.654 태그](https://github.com/ikpil/Box2D.NET/tree/3.1.654) |
 
-BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.json](../packages/source-manifest.json)이다. `NuGet.config`는 `BlackThunder.*` 패키지를 `packages` 로컬 피드에서 복원하도록 지정한다. 라이브러리마다 외부 개발 폴더를 직접 프로젝트 참조하지 않는다.
+BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.json](../packages/source-manifest.json)이다. `NuGet.config`는 `UniEngine`과 `BlackThunder.*` 패키지를 `packages` 로컬 피드에서 복원하도록 지정한다. 라이브러리마다 외부 개발 폴더를 직접 프로젝트 참조하지 않는다.
 
 물리 엔진은 [Box2D.NET](https://www.nuget.org/packages/Box2D.NET/3.1.654)의 순수 C# 구현을 사용한다. .NET 10용 패키지에는 추가 패키지 의존성이 없으며 Python 패키지나 엔진의 예제용 렌더링 라이브러리를 배포하지 않는다. MIT 라이선스 원문은 [3.1.654 LICENSE](https://github.com/ikpil/Box2D.NET/blob/3.1.654/LICENSE)에서 가져온 [Box2D.NET.LICENSE.md](../packages/Box2D.NET.LICENSE.md)에 보관한다. Publish는 이 고지를 공통 실행부의 licenses에 복사하며 wheel에도 같은 실행부·고지를 포함한다.
 
@@ -186,7 +186,7 @@ BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.jso
 
 이 스크립트는 고정 커밋을 사용하며 기존 고정 패키지를 덮어쓰지 않는다. 패키지 갱신은 서브모듈 커밋, 생성 버전, 프로젝트 참조, 출처 기록을 함께 검토하는 작업이다. 갱신을 검증한 뒤 참조되지 않는 이전 패키지는 제거한다.
 
-캐릭터별 스크립트의 명령·상태 접근·이벤트는 Python 런타임에서 처리한다. C# 실행부는 등록된 이동·회전과 Box2D.NET 물리를 독립된 최대 60Hz 주기로 갱신하고 장면을 발행한다. Python은 명령과 표현 상태를 교환하고 완료된 위치·방향을 받은 뒤 학생 코드를 이어 간다. 이전 고양이 전용 UniEngine 이동 경로는 사용하지 않는다. UniEngine 의존성은 위 표의 MVP 커밋과 패키지로 고정한다.
+캐릭터별 스크립트의 명령·상태 접근·이벤트는 Python 런타임에서 처리한다. C# 실행부는 등록된 이동·회전과 Box2D.NET 물리를 독립된 최대 60Hz 주기로 갱신하고 장면을 발행한다. Python은 명령과 표현 상태를 교환하고 완료된 위치·방향을 받은 뒤 학생 코드를 이어 간다. 이전 고양이 전용 UniEngine 이동 경로는 사용하지 않는다. UniEngine 의존성은 위 표의 main 커밋과 패키지로 고정한다.
 
 ## 문서와 변경 검증
 
