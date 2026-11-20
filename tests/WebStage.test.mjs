@@ -173,17 +173,24 @@ test("focus loss resets held input and completed runs accept neither keys nor pr
 test("common palette needs no object selection and does not send runtime input", async () => {
     const app = browser();
     await setImmediate();
-    assert.equal(app.element("categories").children.length, 6);
+    assert.equal(app.element("categories").children.length, 7);
     const html = await readFile(new URL("index.html", root), "utf8");
     assert.doesNotMatch(html, /target-select|target-file|누구의 코드를/);
     assert.match(html, /<link rel="icon" href="favicon\.svg" type="image\/svg\+xml">/);
-    assert.match(app.element("category-description").textContent, /빈 곳/);
+    assert.equal(app.element("category-description").textContent, "");
     app.element("categories").children[1].emit("click");
     const forward = app.element("command-cards").children.find(card => card.children[0]?.textContent === "앞으로");
     assert.equal(forward.children[0].children[0].textContent, "캐릭터 전용");
     forward.children[1].emit("click");
     await setImmediate();
     assert.deepEqual(app.copied, ["앞으로(100)"]);
+    app.element("categories").children[6].emit("click");
+    assert.match(app.element("category-description").textContent, /입력받은 값/);
+    const input = app.element("command-cards").children.find(card => card.children[0]?.textContent === "질문하고 값 입력받기");
+    input.children[1].emit("click");
+    input.children[2].emit("click");
+    await setImmediate();
+    assert.deepEqual(app.copied, ["앞으로(100)", '값 = int(input("값 입력"))', '값 = input("값 입력")']);
     assert.equal(app.inputs().length, 0);
 },);
 
@@ -224,7 +231,7 @@ test("each code row copies a complete event template and announces success", asy
     const cards = app.element("command-cards").children;
     cards[1].children[2].emit("click");
     await setImmediate();
-    assert.deepEqual(app.copied, ["def 키_누름_중(누른_키):\n    pass"]);
+    assert.deepEqual(app.copied, ["def 키_누름_중(누른_키들):\n    pass"]);
     assert.match(app.element("copy-status").textContent, /복사했어요/);
     assert.match(app.element("copy-status").textContent, /Python 파일/);
 },);

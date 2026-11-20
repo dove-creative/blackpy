@@ -177,6 +177,22 @@ namespace BlackThunder.BlackPy.Tests
         }
 
         [Test]
+        public void OlderProjectsUseNormalGravityAndEachActorCanOverrideIt()
+        {
+            using var project = new ProjectTestDirectory();
+            var filename = Path.Combine(project.Path, "project.json");
+            File.WriteAllText(filename, "{\"background\":{\"file\":\"배경.py\"},\"actors\":["
+                + "{\"name\":\"공\",\"file\":\"공.py\"},"
+                + "{\"name\":\"달\",\"file\":\"달.py\",\"gravity\":0.5}]}");
+            var actors = ProjectLoader.ReadDefinition(project.Path).Actors;
+            Assert.That(actors[0].Gravity, Is.EqualTo(1));
+            Assert.That(actors[1].Gravity, Is.EqualTo(0.5));
+            project.Definition.Actors[0].Gravity = -1;
+            project.SaveDefinition();
+            AssertStatus(400, () => ProjectLoader.ReadDefinition(project.Path));
+        }
+
+        [Test]
         public void InvalidShapesAndOutOfRangeStateAreRejected()
         {
             using var project = new ProjectTestDirectory();

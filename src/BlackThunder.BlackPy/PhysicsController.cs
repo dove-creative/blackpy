@@ -39,6 +39,7 @@ namespace BlackThunder.BlackPy
             public string Mode = "충돌만";
             public bool Visible = true;
             public double Mass;
+            public double Gravity = 1;
             public double Width;
             public double Height;
             public double X;
@@ -179,6 +180,13 @@ namespace BlackThunder.BlackPy
             }
 
             actor.Mass = state.Mass;
+            if (actor.Gravity != state.Gravity)
+            {
+                actor.Gravity = state.Gravity;
+                b2Body_SetGravityScale(body, (float)state.Gravity);
+                if (actor.Enabled && state.Mode == "물리") b2Body_SetAwake(body, true);
+            }
+
             if (created || changedMode || resized || changedTrigger) SetPosition(actor, actor.X, actor.Y);
             if (actor.Enabled && !b2Body_IsEnabled(body)) b2Body_Enable(body);
             if (!actor.Enabled && b2Body_IsEnabled(body)) b2Body_Disable(body);
@@ -235,6 +243,7 @@ namespace BlackThunder.BlackPy
                         Height = actor.Height,
                         Mode = actor.Mode,
                         Mass = actor.Mass,
+                        Gravity = actor.Gravity,
                         Visible = actor.Visible,
                         Heading = actor.Heading,
                         Trigger = actor.Trigger,
@@ -256,6 +265,9 @@ namespace BlackThunder.BlackPy
                     break;
                 case "mass":
                     state.Mass = command.X;
+                    break;
+                case "gravity":
+                    state.Gravity = command.X;
                     break;
                 case "visible":
                     if (command.X != 0 && command.X != 1)
@@ -518,6 +530,7 @@ namespace BlackThunder.BlackPy
                     Height = actor.Height,
                     Mode = actor.Mode,
                     Mass = actor.Mass,
+                    Gravity = actor.Gravity,
                     Visible = actor.Visible, Trigger = actor.Trigger, Heading = actor.Heading,
                 });
             }
@@ -528,7 +541,7 @@ namespace BlackThunder.BlackPy
                     throw Invalid("등록한 캐릭터에만 물리 명령을 사용할 수 있습니다.");
                 if (command.Kind != "move" && command.Kind != "teleport"
                     && command.Kind != "impulse" && command.Kind != "stop"
-                    && command.Kind != "mode" && command.Kind != "mass"
+                    && command.Kind != "mode" && command.Kind != "mass" && command.Kind != "gravity"
                     && command.Kind != "visible" && command.Kind != "resize" && command.Kind != "heading")
                     throw Invalid("물리 명령의 종류를 확인해 주세요.");
 
@@ -547,6 +560,7 @@ namespace BlackThunder.BlackPy
             ValidateNumber(actor.Width, 1, 2000, "가로 크기");
             ValidateNumber(actor.Height, 1, 2000, "세로 크기");
             ValidateNumber(actor.Mass, 0.001, 100000, "무게");
+            ValidateNumber(actor.Gravity, 0, 100000, "중력");
             if (actor.Mode != "없음" && actor.Mode != "충돌만" && actor.Mode != "물리")
                 throw Invalid("물리 설정은 없음, 충돌만, 물리 중 하나여야 합니다.");
             if (actor.Mode == "물리" && (actor.Width > 800 || actor.Height > 600))

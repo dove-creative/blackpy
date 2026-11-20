@@ -49,6 +49,29 @@ namespace BlackThunder.BlackPy.Tests
         }
 
         [Test]
+        public void ChangingGravityKeepsVelocityAcrossTicksAndRestartsAtTheProjectValue()
+        {
+            var actor = Actor(1, mode: "물리");
+            actor.Gravity = 0.5;
+            var request = Begin(actor);
+            _simulation.Tick(0.1);
+            var initialHeight = _simulation.Snapshot().Actors[0].Y;
+            Assert.That(initialHeight, Is.InRange(-2.7, -2.4));
+
+            request.Commands = new[] { Command("gravity", 0) };
+            Send(request);
+            _simulation.Tick(0.1);
+            var nextHeight = _simulation.Snapshot().Actors[0].Y;
+            Assert.That(nextHeight - initialHeight, Is.EqualTo(-4.9).Within(0.02));
+            _simulation.Tick(0.1);
+            Assert.That(_simulation.Snapshot().Actors[0].Y - nextHeight, Is.EqualTo(-4.9).Within(0.02));
+
+            Begin(actor);
+            _simulation.Tick(0.1);
+            Assert.That(_simulation.Snapshot().Actors[0].Y, Is.EqualTo(initialHeight).Within(0.01));
+        }
+
+        [Test]
         public void FlipAppearanceSurvivesPhysicsTicksAndResetsOnRestart()
         {
             var request = Begin(Actor(1, 20, 30));
@@ -145,6 +168,28 @@ namespace BlackThunder.BlackPy.Tests
             Send(request);
             _simulation.Tick(0.1);
             Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(13));
+        }
+
+        [Test]
+        public void ChangingTheHeldKeySetRevokesItsRateEvenWhenTheSameSetReturns()
+        {
+            var request = Begin(Actor(1));
+            Accept("keydown", "a");
+            var first = _simulation.Snapshot().KeyboardGeneration;
+            request.Commands = new[] { Rate("keyboard", first, 1, -100, 0) };
+            Send(request);
+            _simulation.Tick(0.1);
+            Accept("keydown", "d");
+            _simulation.Tick(0.1);
+            Accept("keyup", "d");
+            Send(request);
+            _simulation.Tick(0.1);
+            Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(-10));
+
+            request.Commands = new[] { Rate("keyboard", _simulation.Snapshot().KeyboardGeneration, 2, -100, 0) };
+            Send(request);
+            _simulation.Tick(0.1);
+            Assert.That(_simulation.Snapshot().Actors[0].X, Is.EqualTo(-20));
         }
 
         [TestCase("keyup")]

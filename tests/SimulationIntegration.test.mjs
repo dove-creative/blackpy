@@ -38,7 +38,8 @@ async def blocking_exchange(scene, actors, commands, ready, ack, contact_ack):
     return await original_exchange(scene, actors, commands, ready, ack, contact_ack)
 script_runtime.remote_exchange = blocking_exchange
 `;
-    return `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`;
+    // Top-level calls are skipped, so the probe runs through an assignment.
+    return `_ = exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`;
 }
 
 function observeBlocking() {
@@ -96,19 +97,19 @@ test("held movement survives blocked Python, releases immediately and rejects an
     const project = defaultProject();
     Object.assign(project.actors[0], { x: -250, physics: "없음" });
     const cat = '첫번째 = True\ndef 키_누름_중(키):\n    global 첫번째\n' +
-        '    if 키 == "오른쪽":\n        앞으로(0.6)\n        if 첫번째:\n' +
+        '    if "오른쪽" in 키:\n        앞으로(0.6)\n        if 첫번째:\n' +
         '            첫번째 = False\n            기다리기(0.65)\n            앞으로(5)\n' +
         '            print("OLD_CALLBACK_FINISHED", flush=True)\n';
-    const background = 'import time\ndef 키_누름(키):\n    if 키 == "스페이스":\n' +
-        '        print("NATIVE_BLOCK_BEGIN", flush=True)\n        time.sleep(0.9)\n' +
-        '        print("NATIVE_BLOCK_END", flush=True)\n';
+    const background = 'import time\ndef 자신_클릭():\n' +
+        '    print("NATIVE_BLOCK_BEGIN", flush=True)\n    time.sleep(0.9)\n' +
+        '    print("NATIVE_BLOCK_END", flush=True)\n';
     await host.write(cat, "", background, project);
     await host.run();
     await host.wait(() => host.sprite(), "initial scene");
     await host.input("keydown", { key: "오른쪽" });
     await host.wait(() => host.sprite().x > -235, "held movement is installed");
-    await host.input("keydown", { key: "스페이스" });
-    await host.input("keyup", { key: "스페이스" });
+    await host.input("pointerdown", { button: "왼쪽", x: 320, y: 200 });
+    await host.input("pointerup", { button: "왼쪽", x: 320, y: 200 });
     await host.wait(() => host.text().includes("NATIVE_BLOCK_BEGIN"), "native block begins");
     const movingX = host.sprite().x;
     await pause(200);
@@ -151,7 +152,7 @@ script_runtime.remote_exchange = slow_exchange
     const project = defaultProject();
     Object.assign(project.actors[0], { physics: "없음", x: -250 });
     await host.write('def 시작():\n    앞으로(500)\n\ndef 키_누름(키):\n    pass\n', "",
-        `exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project,);
+        `_ = exec(${JSON.stringify(probe)}, {"script_runtime": 말하기.__self__.runtime})\n`, project,);
     await host.run();
     await host.wait(() => host.sprite()?.x > -240, "slow Python starts the independent move");
     const initialPolls = host.text().match(/PYTHON_EXCHANGE/g)?.length || 0;
@@ -223,7 +224,7 @@ test("exchange bursts respect time and scene caps, and old runs cannot drive sim
     Object.assign(project.actors[0], { kind: "ball", scale: 0.5, x: 0, y: 200, physics: "물리" });
     Object.assign(project.actors[1], { kind: "ball", scale: 0.5, x: 1000, y: 0, physics: "없음" });
     // Block initialization before its first exchange; this fixture alone owns the protocol sequence.
-    await host.write("", "", 'import time\nprint("PASSIVE_PYTHON", flush=True)\ntime.sleep(4)\n', project);
+    await host.write("", "", 'import time\n_ = print("PASSIVE_PYTHON", flush=True)\n_ = time.sleep(4)\n', project);
     await host.run();
     await host.wait(() => host.text().includes("PASSIVE_PYTHON"), "passive Python fixture");
     const runId = host.state.runId;

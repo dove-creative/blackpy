@@ -177,14 +177,14 @@
         },),);
 
         const descriptions = {
-            events: "‘중’ 함수는 매 프레임 실행돼요. 배경의 클릭 이벤트는 캐릭터가 없는 빈 곳을 클릭할 때 실행돼요.",
             motion: "일반 함수의 숫자는 거리·각도예요. ‘중’ 함수에서는 초당 이동량·회전량이고, 속도 배율도 곱해져요.",
-            physics: "물리 모드와 무게를 정하고, 힘을 주거나 닿은 캐릭터를 확인해요. 충돌 때문에 회전하지는 않아요.",
+            physics: "캐릭터의 무게와 중력을 정하고, 힘을 주거나 어떤 캐릭터에 닿았는지 확인해요.",
             looks: "캐릭터의 모습과 말을 바꿔요. 배경의 말하기는 무대 안내를 표시해요.",
             math: "숫자를 계산하고 조건을 만들어요.",
             sensing: "이름과 캐릭터의 위치를 알아봐요. 조회할 캐릭터 이름을 괄호 안에 넣어요.",
+            variables: "질문해서 입력받은 값에 변수 이름표를 붙여요. 콘솔에서 답을 입력해요.",
         };
-        categoryDescription.textContent = descriptions[selectedCategory];
+        categoryDescription.textContent = descriptions[selectedCategory] ?? "";
         const category = visibleCategories.find(item => item.id === selectedCategory);
         const cards = window.BlackPyPalette.availableCards(selectedCategory, lookupName);
         commandCards.replaceChildren(...cards.flatMap(card => {

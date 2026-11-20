@@ -8,6 +8,7 @@
         { id: "looks", label: "생김새", color: "#e84d76" },
         { id: "math", label: "계산", color: "#da9a13" },
         { id: "sensing", label: "주변", color: "#119bb8" },
+        { id: "variables", label: "변수", color: "#d957d4" },
     ];
     const event = (name, argumentsText = "") => `def ${name}(${argumentsText}):\n    pass`;
     const value = code => ({ code, kind: "value" });
@@ -19,7 +20,7 @@
     const cards = [
         { category: "events", title: "시작했을 때", rows: rows(event("시작")) },
         { category: "events", title: "키 · 눌렀을 때 / 누르는 중 / 놓았을 때", rows: rows(
-            event("키_누름", "누른_키"), event("키_누름_중", "누른_키"), event("키_누름_끝", "누른_키"),), },
+            event("키_누름", "누른_키"), event("키_누름_중", "누른_키들"), event("키_누름_끝", "누른_키"),), },
         { category: "events", title: "자신 클릭 · 시작 / 누르는 중 / 끝", rows: rows(
             event("자신_클릭"), event("자신_클릭_중"), event("자신_클릭_끝"),), },
         { category: "events", title: "방송하기", sectionStart: true, rows: rows('방송하기("신호")') },
@@ -45,6 +46,8 @@
             rows: rows(value("무게"), "무게_설정(10)"), },
         { category: "physics", title: "힘", actor: true, rows: rows("힘_작용(90, 10)", "정지()"),
             note: "각도 방향으로 한 번 밀어요. 정지는 현재 물리 속도를 0으로 만들며, 중력은 계속 작용해요.", },
+        { category: "physics", title: "중력", actor: true, rows: rows(value("중력"), "중력_설정(1)"),
+            note: "이 캐릭터가 받는 중력을 정해요. 1은 기본 중력, 0.5는 절반, 0은 무중력이에요.", },
         { category: "physics", title: "충돌 · 시작 / 닿는 중 / 떨어졌을 때", actor: true, sectionStart: true,
             rows: rows(value("닿은_객체_리스트"), event("닿았을_때", "이름_리스트"),
                 event("닿는_중", "이름_리스트"), event("닿는_중_종료", "이름_리스트"),), },
@@ -58,12 +61,13 @@
         { category: "math", title: "무작위 정수 · 양끝 포함", rows: rows(value("랜덤(0, 10)")) },
         { category: "math", title: "가로·세로 방향을 각도로", rows: rows(value("각도로(10, 10)")) },
         { category: "sensing", title: "이름", rows: rows(value("이름")) },
+        { category: "sensing", title: "지금 누르고 있는 키", rows: rows(value("누른_키들_가져오기()")) },
         { category: "sensing", title: "이름 정하기", actor: true, rows: rows('이름_정하기("새이름")') },
         { category: "sensing", title: "다른 캐릭터의 위치", rows: rows(value('위치_구하기("고양이")')) },
         { category: "sensing", title: "다른 캐릭터의 방향", rows: rows(value('방향_구하기("고양이")')) },
-        { category: "sensing", title: "질문하고 답 입력받기", rows: rows('답 = input("이름은 무엇인가요?")'),
-            sectionStart: true,
-            note: "입력한 답은 문자열이에요. 숫자로 계산하려면 int(답)이나 float(답)을 사용해요.", },
+        { category: "variables", title: "질문하고 값 입력받기",
+            rows: rows('값 = int(input("값 입력"))', '값 = input("값 입력")'),
+            note: "int(input(...))은 입력한 값을 숫자로, input(...)은 문자로 받아요.", },
     ];
 
     function availableCards(category, targetName = "고양이") {

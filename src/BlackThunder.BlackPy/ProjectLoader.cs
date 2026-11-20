@@ -34,6 +34,7 @@ namespace BlackThunder.BlackPy
         public string Physics { get; set; } = "충돌만";
         public bool Trigger { get; set; }
         public double Mass { get; set; } = 1;
+        public double Gravity { get; set; } = 1;
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Image { get; set; }
     }
@@ -200,6 +201,7 @@ namespace BlackThunder.BlackPy
                 ValidateNumber(actor.Heading, -1000000, 1000000, "방향");
                 ValidateNumber(actor.Scale, 0.1, 5, "크기");
                 ValidateNumber(actor.Mass, 0.001, 100000, "무게");
+                ValidateNumber(actor.Gravity, 0, 100000, "중력");
                 if (actor.Physics != "없음" && actor.Physics != "충돌만" && actor.Physics != "물리")
                     throw Invalid("물리는 없음, 충돌만, 물리 중 하나로 설정해 주세요.");
                 if (!double.IsFinite(actor.Speed) || actor.Speed <= 0)

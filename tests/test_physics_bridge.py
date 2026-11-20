@@ -9,7 +9,9 @@ from test_runtime_support import make_runtime, settle, tick
 
 class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_trigger_keyword_default_and_validation(self):
-        runtime = await self.prepare('물리_설정("충돌만", 트리거=True)\n')
+        runtime = await self.prepare('def 시작():\n    물리_설정("충돌만", 트리거=True)\n')
+        runtime.start()
+        await settle()
         actor = runtime.actors[0]
         self.assertTrue(actor.physics_snapshot()["trigger"])
         actor.set_physics("충돌만")
@@ -48,8 +50,8 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_impulse_and_stop_order_and_mode_names_compile(self):
         runtime = await self.prepare(
-            '물리_설정("물리")\n무게_설정(10)\n'
-            'def 시작():\n    힘_작용(90, 10)\n    정지()\n'
+            'def 시작():\n    물리_설정("물리")\n    무게_설정(10)\n'
+            '    힘_작용(90, 10)\n    정지()\n'
             '    말하기(str((물리, 무게, 닿은_객체_리스트)))\n',
         )
         runtime.start()
@@ -61,6 +63,29 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(commands[-2]["y"], 10)
         self.assertIn("물리", actor.speech)
         self.assertIsNone(runtime.error)
+
+    async def test_gravity_is_an_actor_state_with_ordered_changes(self):
+        runtime = await self.prepare(
+            '기록 = []\ndef 시작():\n    중력_설정(0.5)\n    기록.append(중력)\n    중력 = 0\n',
+            other_source="",
+        )
+        actor, other = runtime.actors
+        self.assertEqual(actor.gravity, 1)
+        runtime.start()
+        await settle()
+        self.assertIsNone(runtime.error)
+        self.assertEqual((actor.gravity, other.gravity), (0, 1))
+        self.assertEqual(actor.namespace["기록"], [0.5])
+        self.assertEqual(actor.physics_snapshot()["gravity"], 0)
+        self.assertEqual([(item["kind"], item["x"]) for item in actor._physics_commands[-2:]],
+                         [("gravity", 0.5), ("gravity", 0)])
+
+        for value in (-1, 100001, math.inf, math.nan, True, "0.5"):
+            with self.subTest(value=value), self.assertRaises((ValueError, TypeError)):
+                actor.set_gravity(value)
+        self.assertEqual(actor.gravity, 0)
+        actor.set_physics("물리")
+        self.assertEqual(actor.gravity, 0)
 
     async def test_rename_updates_lookup_and_contacts_without_changing_identity(self):
         runtime = await self.prepare(other_source="")
@@ -112,7 +137,7 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runtime.actors[0].namespace["결과"], [(25, -5)])
 
     async def test_teleport_during_request_is_not_overwritten(self):
-        runtime = await self.prepare('물리_설정("물리")\n')
+        runtime = await self.prepare('물리 = "물리"\n')
         entered, release = asyncio.Event(), asyncio.Event()
 
         async def physics_step(delta_time, actors, commands):
@@ -131,7 +156,7 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actor._physics_commands[0]["kind"], "teleport")
 
     async def test_relative_move_during_request_is_kept_for_next_step(self):
-        runtime = await self.prepare('물리_설정("물리")\n')
+        runtime = await self.prepare('물리 = "물리"\n')
         entered, release = asyncio.Event(), asyncio.Event()
 
         async def physics_step(delta_time, actors, commands):
@@ -150,12 +175,12 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actor._physics_commands[0]["kind"], "move")
 
     async def test_physics_never_silently_runs_without_engine(self):
-        runtime = await self.prepare('물리_설정("물리")\n')
+        runtime = await self.prepare('물리 = "물리"\n')
         with self.assertRaisesRegex(RuntimeError, "실행부"):
             await tick(runtime)
 
     async def test_mode_change_during_request_preserves_resolved_position(self):
-        runtime = await self.prepare('물리_설정("물리")\n')
+        runtime = await self.prepare('물리 = "물리"\n')
         entered, release = asyncio.Event(), asyncio.Event()
 
         async def physics_step(delta_time, actors, commands):
@@ -175,7 +200,7 @@ class PhysicsBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actor._physics_baseline["mode"], "물리")
 
     async def test_settings_are_sent_in_student_order_from_previous_baseline(self):
-        runtime = await self.prepare('물리_설정("물리")\n')
+        runtime = await self.prepare('물리 = "물리"\n')
         received = []
 
         async def physics_step(delta_time, actors, commands):

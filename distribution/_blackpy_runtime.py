@@ -74,7 +74,7 @@ class ProjectRuntime:
         self.input_requests = []
         self.input_sequence = 0
         self.physics_step = None
-        self.key_generations = {}
+        self.keyboard_generation = 0
         self.pointer_generation = 0
         self.contact_generations = {actor.id: 0 for actor in self.actors}
         self.input_generation = 0
@@ -137,9 +137,10 @@ class ProjectRuntime:
             for old, new in RENAMED_EVENTS.items():
                 function = namespace.get(old)
                 if inspect.iscoroutinefunction(function):
+                    argument = "누른_키들" if new == "키_누름_중" else "누른_키"
                     line = function.__code__.co_firstlineno
                     raise SyntaxError(
-                        f"{old} 이벤트의 이름이 {new}(으)로 바뀌었어요. def {new}(누른_키):로 고쳐 주세요.",
+                        f"{old} 이벤트의 이름이 {new}(으)로 바뀌었어요. def {new}({argument}):로 고쳐 주세요.",
                         (filename, line, 1, source.splitlines()[line - 1]),
                     )
 
@@ -176,11 +177,25 @@ class ProjectRuntime:
 
     @property
     def speech_pending(self):
-        return any(obj._speech_deadline is not None for obj in self.objects)
+        return any(obj._speech_deadline is not None or obj._speech_hold is not None
+                   for obj in self.objects)
+
+    def hold_lasts(self, movement):
+        # Unlike movement, speech ignores generations so a held message does not
+        # flicker when the contact set changes while the hold continues.
+        source, actor = movement["source"], movement["actor"]
+        if source == "keyboard":
+            return self.movement_active(movement)
+        if source == "pointer":
+            return self.pointer_target is actor
+        return bool(self.contacts.get(actor.id))
 
     def expire_speech(self):
         for obj in self.objects:
-            if obj._speech_deadline is not None and self.elapsed + 1e-12 >= obj._speech_deadline:
+            if obj._speech_hold is not None:
+                if not self.hold_lasts(obj._speech_hold):
+                    obj.set_speech("")
+            elif obj._speech_deadline is not None and self.elapsed + 1e-12 >= obj._speech_deadline:
                 obj.set_speech("")
 
     def dispatch(self, obj, event, args=(), delta_time=0.0, queued=False):
@@ -188,7 +203,7 @@ class ProjectRuntime:
         if function is None or self.stopped:
             return None
         continuous = event in CONTINUOUS_EVENTS
-        detail = args[0] if event.startswith("키_") or event == "방송_받기" else None
+        detail = args[0] if event in ("키_누름", "키_누름_끝", "방송_받기") else None
         guard = (obj.id, event, detail)
         guarded = not continuous and not queued
         if guarded and guard in self.guards:
@@ -224,8 +239,7 @@ class ProjectRuntime:
 
     def movement_context(self, actor, event, args):
         if event == "키_누름_중":
-            source = "key:" + args[0]
-            generation = self.key_generations.get(args[0], 0)
+            source, generation = "keyboard", self.keyboard_generation
         elif event == "자신_클릭_중":
             source, generation = "pointer", self.pointer_generation
         else:
@@ -240,8 +254,8 @@ class ProjectRuntime:
         if movement is None:
             return True
         source, generation = movement["source"], movement["generation"]
-        if source.startswith("key:"):
-            return self.key_generations.get(source[4:]) == generation
+        if source == "keyboard":
+            return bool(self.held_keys) and self.keyboard_generation == generation
         if source == "pointer":
             return (self.pointer_target is movement["actor"]
                     and self.pointer_generation == generation)
@@ -395,6 +409,9 @@ class ProjectRuntime:
     def heading_of(self, name):
         return self.target(name).heading
 
+    def pressed_keys(self):
+        return sorted(self.held_keys)
+
     def click_target(self, x, y):
         for actor in reversed(self.actors):
             width, height = actor.dimensions
@@ -402,6 +419,12 @@ class ProjectRuntime:
                     and abs(actor.position[1] - y) <= height / 2):
                 return actor
         return self.background
+
+    def dispatch_held_keys(self, delta_time):
+        if self.held_keys:
+            keys = self.pressed_keys()
+            for obj in self.objects:
+                self.dispatch(obj, "키_누름_중", (keys.copy(),), delta_time)
 
     def key_event(self, event, key):
         for obj in self.objects:
@@ -419,15 +442,14 @@ class ProjectRuntime:
                 if key not in self.event_keys:
                     self.event_keys.add(key)
                     if self.remote_exchange is None:
-                        self.input_generation += 1
-                        self.key_generations[key] = event.get("generation", self.input_generation)
+                        self.keyboard_generation += 1
                     self.key_event("키_누름", key)
             elif kind == "keyup":
                 key = event["key"]
                 if key in self.event_keys:
                     self.event_keys.remove(key)
                     if self.remote_exchange is None:
-                        self.key_generations.pop(key, None)
+                        self.keyboard_generation += 1
                     self.key_event("키_누름_끝", key)
             elif kind == "pointerdown":
                 if self.event_pointer_target is None and event.get("button", "왼쪽") == "왼쪽":
@@ -446,7 +468,7 @@ class ProjectRuntime:
                     self.key_event("키_누름_끝", key)
                 self.event_keys.clear()
                 if self.remote_exchange is None:
-                    self.key_generations.clear()
+                    self.keyboard_generation += 1
                 self.release_pointer()
 
         # Queued transitions can lag behind the server's current movement state.
@@ -558,11 +580,10 @@ class ProjectRuntime:
         for future in completed:
             if not future.done():
                 future.set_result(None)
-        self.expire_speech()
         self.update_contacts(delta_time, current)
-        for key in sorted(self.held_keys):
-            for obj in self.objects:
-                self.dispatch(obj, "키_누름_중", (key,), delta_time)
+        # Held speech ends in the same frame as its key, click or contact.
+        self.expire_speech()
+        self.dispatch_held_keys(delta_time)
         if self.pointer_target is not None:
             self.dispatch(self.pointer_target, "자신_클릭_중", delta_time=delta_time)
         await asyncio.sleep(0)
@@ -694,8 +715,8 @@ class ProjectRuntime:
         self.accept(result["events"])
         if not started:
             return
-        self.key_generations = dict(result["keys"])
-        self.held_keys = set(self.key_generations)
+        self.keyboard_generation = result["keyboardGeneration"]
+        self.held_keys = set(result["keys"])
         self.pointer_target = next(
             (obj for obj in self.objects if obj.id == result.get("pointerId")), None,
         )
@@ -718,9 +739,7 @@ class ProjectRuntime:
             names = actor.touching_names
             if names:
                 self.dispatch(actor, "닿는_중", (names,), delta_time)
-        for key in sorted(self.held_keys):
-            for obj in self.objects:
-                self.dispatch(obj, "키_누름_중", (key,), delta_time)
+        self.dispatch_held_keys(delta_time)
         if self.pointer_target is not None:
             self.dispatch(self.pointer_target, "자신_클릭_중", delta_time=delta_time)
 
@@ -746,8 +765,9 @@ class ProjectRuntime:
                 for deadline, future in list(self.timers):
                     if self.elapsed + 1e-12 >= deadline and not future.done():
                         future.set_result(None)
-                self.expire_speech()
                 self.accept_remote(result, delta_time, started)
+                # Held speech ends in the same exchange as its key, click or contact.
+                self.expire_speech()
                 await asyncio.sleep(0)
                 if started and not self.persistent and not self.tasks and not self.speech_pending:
                     break

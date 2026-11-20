@@ -78,8 +78,9 @@ test("implicit commands are recognized while misspellings and wrong argument typ
     await writeFile(path.join(directory, "test.py"),
         'def 시작():\n    말하기("안녕")\n    앞으로(100)\n    바라보기(90)\n    바라보기(1, 2)\n'
         + '    왼쪽_돌기(10)\n    오른쪽_돌기(10)\n    물리_설정("물리")\n    무게_설정(10)\n'
-        + '    힘_작용(90, 10)\n    정지()\n    이름_정하기("새 고양이")\n'
-        + '    print(len(이름), 위치_구하기("고양이"), 물리, 무게, 닿은_객체_리스트)\n'
+        + '    힘_작용(90, 10)\n    정지()\n    중력_설정(0.5)\n    이름_정하기("새 고양이")\n'
+        + '    print(len(이름), 위치_구하기("고양이"), 물리, 무게, 중력, 닿은_객체_리스트)\n'
+        + '    키들: list[str] = 누른_키들_가져오기()\n'
         + 'def 키_누름(누른_키):\n    말하기(누른_키, "키를 눌렀구나!")\n'
         + '    말하기("점수", 3, True, None, 시간=0.5)\n    말하기()\n',);
     const valid = analyze(directory);
@@ -97,9 +98,9 @@ test("physics mode choices and command argument types remain checked", async () 
     const directory = await mkdtemp(path.join(tmpdir(), "BlackPy physics editor "));
     await copyProject(path.join(toolRoot, "distribution/project"), directory);
     await writeFile(path.join(directory, "test.py"),
-        'def 시작():\n    물리_설정("다른")\n    무게_설정("무거움")\n    힘_작용("위", 10)\n',);
+        'def 시작():\n    물리_설정("다른")\n    무게_설정("무거움")\n    힘_작용("위", 10)\n    중력_설정("절반")\n',);
     const result = analyze(directory);
-    assert.equal(result.summary.errorCount, 3, JSON.stringify(result.generalDiagnostics));
+    assert.equal(result.summary.errorCount, 4, JSON.stringify(result.generalDiagnostics));
     assert.ok(result.generalDiagnostics.every(item => item.rule === "reportArgumentType"));
 },);
 

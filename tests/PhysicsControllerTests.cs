@@ -46,6 +46,30 @@ namespace BlackThunder.BlackPy.Tests
         }
 
         [Test]
+        public void GravityScaleChangesEachActorsAccelerationIndependently()
+        {
+            _physics.BeginRun("run", 3);
+            var actors = new[] { Actor(1, "물리", -150), Actor(2, "물리"), Actor(3, "물리", 150) };
+            actors[1].Gravity = 0.5;
+            actors[2].Gravity = 0;
+            var state = Step(0.2, actors);
+            Assert.That(state.Actors[0].Y, Is.InRange(-21, -19));
+            Assert.That(state.Actors[1].Y, Is.EqualTo(state.Actors[0].Y / 2).Within(0.01));
+            Assert.That(state.Actors[2].Y, Is.Zero);
+        }
+
+        [Test]
+        public void RestoringGravityWakesAnIdleBody()
+        {
+            _physics.BeginRun("run", 1);
+            var actors = new[] { Actor(1, "물리") };
+            actors[0].Gravity = 0;
+            Assert.That(Step(2, actors).Actors[0].Y, Is.Zero);
+            var falling = Step(0.2, actors, Command(1, "gravity", 1));
+            Assert.That(falling.Actors[0].Y, Is.InRange(-21, -19));
+        }
+
+        [Test]
         public void StopDoesNotDisableLaterGravityOrImpulse()
         {
             _physics.BeginRun("run", 1);
@@ -234,6 +258,8 @@ namespace BlackThunder.BlackPy.Tests
                 new[] { Mode(1, "물리"), Command(1, "resize", 900, 50), Command(1, "resize", 50, 50) },
                 new[] { Mode(1, "unknown") },
                 new[] { Command(1, "mass", 0) },
+                new[] { Command(1, "gravity", -1) },
+                new[] { Command(1, "gravity", 100001) },
                 new[] { Command(1, "visible", 2) },
             };
 

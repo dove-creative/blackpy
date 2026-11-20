@@ -14,6 +14,33 @@ function physicsProject() {
     return project;
 }
 
+test("student gravity commands preserve motion and restart restores the project scale", async () => {
+    const project = physicsProject();
+    Object.assign(project.actors[0], { gravity: 0, x: -140 });
+    Object.assign(project.actors[1], { physics: "물리", x: 120, y: 100 });
+    await host.write([
+        "def 시작():",
+        "    print('START', 중력)",
+        "    힘_작용(0, 2)",
+        "",
+        "def 키_누름(키):",
+        "    if 키 == '스페이스':",
+        "        중력_설정(0.5)",
+        "        print('HALF', 중력)",
+    ].join("\n"), "", "", project);
+    await host.run();
+    await host.wait(() => host.sprite()?.x > -100 && host.sprite("자동차")?.y < 80, "zero gravity glide");
+    assert.ok(Math.abs(host.sprite().y - 100) < 1);
+    const x = host.sprite().x;
+    await host.input("keydown", { key: "스페이스" });
+    await host.input("keyup", { key: "스페이스" });
+    await host.wait(() => host.text().includes("HALF 0.5") && host.sprite().y < 80, "half gravity falls");
+    assert.ok(host.sprite().x > x + 10);
+    await host.run("/api/restart");
+    await host.wait(() => host.text().includes("START 0") && host.sprite()?.x > -110, "reset gravity");
+    assert.ok(Math.abs(host.sprite().y - 100) < 1);
+});
+
 test("start-only physics stays alive, falls to the boundary and does not rotate", async () => {
     await host.write('def 시작():\n    방향 = 37\n    힘_작용(0, 2)\n', "", "", physicsProject());
     await host.run();
@@ -47,7 +74,8 @@ test("renaming keeps contact identity and lookup uses the new name", async () =>
     const project = defaultProject();
     project.actors[0].x = 0;
     project.actors[1].x = 0;
-    await host.write('이름_정하기("새 고양이")\n' +
+    // The rename must precede the first contact, so it runs through a top-level assignment.
+    await host.write('_ = 이름_정하기("새 고양이")\n' +
         'def 닿았을_때(목록):\n    print("CONTACT", 닿은_객체_리스트)\n' +
         'def 키_누름(키):\n    가시성_설정(False)\n',
     'def 닿았을_때(목록):\n    print("LOOKUP", 목록, 위치_구하기("새 고양이"))\n' +

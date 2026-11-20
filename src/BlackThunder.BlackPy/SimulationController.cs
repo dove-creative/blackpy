@@ -29,6 +29,7 @@ namespace BlackThunder.BlackPy
         private long _contactSequence;
         private string? _pointerId;
         private long _pointerGeneration;
+        private long _keyboardGeneration;
         private SceneState _appearance = new();
 
         private class Actor
@@ -71,6 +72,7 @@ namespace BlackThunder.BlackPy
             _contactSequence = 0;
             _pointerId = null;
             _pointerGeneration = 0;
+            _keyboardGeneration = 0;
             _actors.Clear();
             _motions.Clear();
             _rates.Clear();
@@ -140,6 +142,9 @@ namespace BlackThunder.BlackPy
                         break;
                     case "mass":
                         actor.State.Mass = command.X;
+                        break;
+                    case "gravity":
+                        actor.State.Gravity = command.X;
                         break;
                     case "visible":
                         actor.State.Visible = command.X == 1;
@@ -233,13 +238,17 @@ namespace BlackThunder.BlackPy
             switch (input.Kind)
             {
                 case "keydown":
-                    if (!_keys.ContainsKey(input.Key)) _keys.Add(input.Key, ++_generation);
+                    if (!_keys.ContainsKey(input.Key))
+                    {
+                        _keys.Add(input.Key, ++_generation);
+                        KeyboardChanged();
+                    }
                     input.Generation = _keys[input.Key];
                     break;
                 case "keyup":
                     _keys.TryGetValue(input.Key, out var generation);
                     input.Generation = generation;
-                    _keys.Remove(input.Key);
+                    if (_keys.Remove(input.Key)) KeyboardChanged();
                     RemoveRates("key:" + input.Key);
                     break;
                 case "pointerdown":
@@ -259,6 +268,7 @@ namespace BlackThunder.BlackPy
                     break;
                 case "reset":
                     _keys.Clear();
+                    KeyboardChanged();
                     _pointerId = null;
                     _pointerGeneration = ++_generation;
                     foreach (var key in _rates.Keys.Where(key => key.Item2 == "pointer"
@@ -266,6 +276,12 @@ namespace BlackThunder.BlackPy
                     input.Generation = _generation;
                     break;
             }
+        }
+
+        private void KeyboardChanged()
+        {
+            ++_keyboardGeneration;
+            RemoveRates("keyboard");
         }
 
         private string Hit(double x, double y)
@@ -292,6 +308,8 @@ namespace BlackThunder.BlackPy
 
         private bool IsActive(SimulationCommand command)
         {
+            if (command.Source == "keyboard")
+                return _keys.Count > 0 && command.Generation == _keyboardGeneration;
             if (command.Source.StartsWith("key:", StringComparison.Ordinal))
                 return _keys.TryGetValue(command.Source.Substring(4), out var generation)
                     && generation == command.Generation;
@@ -325,6 +343,7 @@ namespace BlackThunder.BlackPy
             Keys = new Dictionary<string, long>(_keys, StringComparer.Ordinal),
             PointerId = _pointerId,
             PointerGeneration = _pointerGeneration,
+            KeyboardGeneration = _keyboardGeneration,
         };
 
         public SceneState Scene()
@@ -445,7 +464,7 @@ namespace BlackThunder.BlackPy
                 {
                     if (command.Source == null || command.Source.Length > 100 || command.Generation < 0
                         || command.Revision < 0 || !(command.Source.StartsWith("key:", StringComparison.Ordinal)
-                            || command.Source == "pointer" || command.Source.StartsWith("contact:", StringComparison.Ordinal)))
+                            || command.Source == "keyboard" || command.Source == "pointer" || command.Source.StartsWith("contact:", StringComparison.Ordinal)))
                         throw Invalid("유지 이동의 입력과 순서 번호를 확인해 주세요.");
                 }
                 else physics.Add(command);
@@ -458,7 +477,7 @@ namespace BlackThunder.BlackPy
         private static PhysicsActorState Copy(PhysicsActorState actor) => new()
         {
             Id = actor.Id, X = actor.X, Y = actor.Y, Width = actor.Width, Height = actor.Height,
-            Mode = actor.Mode, Mass = actor.Mass, Visible = actor.Visible,
+            Mode = actor.Mode, Mass = actor.Mass, Gravity = actor.Gravity, Visible = actor.Visible,
             Heading = actor.Heading, Trigger = actor.Trigger,
         };
 

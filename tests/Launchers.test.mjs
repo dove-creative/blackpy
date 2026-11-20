@@ -71,7 +71,8 @@ test("sample launchers require an installed package throughout install and unins
                 const metadata = await host.request("/api/project");
                 assert.equal(metadata.status, 200);
                 assert.deepEqual(metadata.body.actors, expected.actors.map(actor => ({
-                    heading: 0, scale: 1, speed: 1, visible: true, physics: "충돌만", trigger: false, mass: 1, ...actor,
+                    heading: 0, scale: 1, speed: 1, visible: true, physics: "충돌만", trigger: false,
+                    mass: 1, gravity: 1, ...actor,
                 }),),);
                 assert.equal(metadata.body.background.kind, expected.background.kind);
                 await host.run();

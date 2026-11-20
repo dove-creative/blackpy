@@ -9,7 +9,7 @@ from test_runtime_support import make_runtime, settle
 def reply(runtime, **changes):
     result = {
         "tick": 1, "elapsed": 1 / 60, "completed": [], "contacts": [],
-        "events": [], "keys": {}, "pointerId": None, "pointerGeneration": 0,
+        "events": [], "keys": {}, "keyboardGeneration": 0, "pointerId": None, "pointerGeneration": 0,
         "actors": [{"id": actor.id, "x": actor.position[0], "y": actor.position[1],
                     "heading": actor.heading, "contacts": [], "contactGeneration": 0,}
                    for actor in runtime.actors],
@@ -106,10 +106,11 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
             '    if 움직임:\n        앞으로(0.5)\n        앞으로(0.1)\n',
         )
         runtime.remote_exchange = object()
-        runtime.key_generations = {"오른쪽": 7}
+        runtime.held_keys = {"오른쪽"}
+        runtime.keyboard_generation = 7
         actor = runtime.actors[0]
         actor._physics_commands = []
-        runtime.dispatch(actor, "키_누름_중", ("오른쪽",), 0.1)
+        runtime.dispatch(actor, "키_누름_중", (["오른쪽"],), 0.1)
         await settle()
         rates = actor._physics_commands
         self.assertEqual([rate["forward"] for rate in rates], [0, 100, 120])
@@ -117,7 +118,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         old_revision = rates[-1]["revision"]
         actor._physics_commands = []
         actor.namespace["움직임"] = False
-        runtime.dispatch(actor, "키_누름_중", ("오른쪽",), 0.1)
+        runtime.dispatch(actor, "키_누름_중", (["오른쪽"],), 0.1)
         await settle()
         self.assertEqual(len(actor._physics_commands), 1)
         self.assertEqual(actor._physics_commands[0]["x"], 0)
@@ -129,12 +130,13 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
             '    앞으로(100)\n    기다리기(1)\n    앞으로(900)\n    완료.append(True)\n',
         )
         runtime.remote_exchange = object()
-        runtime.key_generations = {"오른쪽": 7}
+        runtime.held_keys = {"오른쪽"}
+        runtime.keyboard_generation = 7
         actor = runtime.actors[0]
-        runtime.dispatch(actor, "키_누름_중", ("오른쪽",), 0.1)
+        runtime.dispatch(actor, "키_누름_중", (["오른쪽"],), 0.1)
         await settle()
         actor._physics_commands = []
-        runtime.key_generations = {"오른쪽": 8}
+        runtime.keyboard_generation = 8
         for _, future in runtime.timers:
             future.set_result(None)
         await settle()
@@ -188,7 +190,7 @@ class SimulationBridgeTests(unittest.IsolatedAsyncioTestCase):
         for tick in (10, 10, 30):
             runtime.accept_remote(reply(runtime, tick=tick, keys={"오른쪽": 7}), 0.1, True)
             await settle()
-        self.assertEqual(runtime.actors[0].namespace["기록"], ["오른쪽", "오른쪽"])
+        self.assertEqual(runtime.actors[0].namespace["기록"], [["오른쪽"], ["오른쪽"]])
 
     async def test_current_input_snapshot_does_not_consume_queued_transitions(self):
         runtime = await self.prepare(

@@ -21,6 +21,7 @@ namespace BlackThunder.BlackPy
         public double Height { get; set; }
         public string Mode { get; set; } = "충돌만";
         public double Mass { get; set; } = 1;
+        public double Gravity { get; set; } = 1;
         public bool Visible { get; set; } = true;
     }
 

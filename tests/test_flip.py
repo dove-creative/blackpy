@@ -12,6 +12,30 @@ class FlipTests(unittest.IsolatedAsyncioTestCase):
         await runtime.initialize()
         return runtime
 
+    async def test_look_sets_an_upright_pose_for_angles_and_targets(self):
+        runtime = await self.prepare()
+        actor = runtime.actors[0]
+        actor.goto(20, 30)
+
+        for arguments, heading, mirrored in (
+            ((180,), 180, True), ((180,), 180, True), ((135,), 135, True),
+            ((20, 60), 90, True), ((0,), 0, False), ((20, 0), 270, False),
+            ((10, 20), 225, True), ((-45,), 315, False),
+        ):
+            with self.subTest(arguments=arguments):
+                actor.look(*arguments)
+                self.assertAlmostEqual(actor.heading, heading)
+                self.assertIs(actor.snapshot()["flipVertical"], mirrored)
+
+    async def test_turn_after_look_rotates_the_whole_pose(self):
+        runtime = await self.prepare('def 시작():\n    바라보기(180)\n    오른쪽_돌기(180)\n')
+        runtime.start()
+        await settle()
+        await tick(runtime, 1)
+        actor = runtime.actors[0]
+        self.assertAlmostEqual(actor.heading, 0)
+        self.assertTrue(actor.snapshot()["flipVertical"])
+
     async def test_axes_reflect_heading_and_twice_restore_original(self):
         runtime = await self.prepare()
         actor = runtime.actors[0]
@@ -118,9 +142,11 @@ class FlipTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_ignores_invalid_axis_and_new_run_resets_flips(self):
         first = await self.prepare(
-            '뒤집기("가로")\n',
-            background_source='뒤집기(None)\n말하기("계속해요", 시간=None)\n',
+            'def 시작():\n    뒤집기("가로")\n',
+            background_source='def 시작():\n    뒤집기(None)\n    말하기("계속해요", 시간=None)\n',
         )
+        first.start()
+        await settle()
         self.assertEqual(first.message, "계속해요")
         self.assertFalse(first.background._mirrored)
         self.assertTrue(first.actors[0].snapshot()["flipVertical"])

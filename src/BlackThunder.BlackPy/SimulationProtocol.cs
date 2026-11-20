@@ -47,6 +47,7 @@ namespace BlackThunder.BlackPy
         public InputEvent[] Events { get; set; } = Array.Empty<InputEvent>();
         public Dictionary<string, long> Keys { get; set; } = new(StringComparer.Ordinal);
         public string? PointerId { get; set; }
+        public long KeyboardGeneration { get; set; }
         public long PointerGeneration { get; set; }
     }
 }

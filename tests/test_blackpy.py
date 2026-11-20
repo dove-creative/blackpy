@@ -226,7 +226,7 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
             "바라보기": (90,), "속도_변경": (2,),
             "크기_바꾸기": (1,), "크기_정하기": (2,),
             "가시성_설정": (False,), "물리_설정": ("물리",),
-            "무게_설정": (10,), "힘_작용": (90, 10),
+            "무게_설정": (10,), "중력_설정": (0.5,), "힘_작용": (90, 10),
             "정지": (), "이름_정하기": ("새 배경",),
         }
         for continuous in (False, True):
@@ -255,7 +255,7 @@ class MotionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_state_values_still_require_an_actor(self):
         for name in ("position", "heading", "speed", "scale", "visible",
-                     "physics", "mass", "touching_names",):
+                     "physics", "mass", "gravity", "touching_names",):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(ValueError, "상태 값"):
                     getattr(self.runtime.background, name)

@@ -27,9 +27,11 @@ async function answer(prompt, text) {
 }
 
 test("top-level input preserves text and supports sequential numeric conversion before start", async () => {
-    await host.write('대답 = input("이름은?")\nprint("NAME", repr(대답))\n' +
+    // Top-level commands such as print are skipped; only assignments run before start.
+    await host.write('대답 = input("이름은?")\nprint("SKIPPED")\n' +
         '거리 = int(input("거리?"))\n비율 = float(input())\n' +
-        'def 시작():\n    print("RESULT", 거리 * 비율)\n    말하기(대답, 시간=None)\n',);
+        'def 시작():\n    print("NAME", repr(대답))\n    print("RESULT", 거리 * 비율)\n' +
+        '    말하기(대답, 시간=None)\n',);
     await host.run();
     const name = await waitForPrompt("이름은?");
     assert.equal(name.actor, "고양이");
@@ -46,6 +48,7 @@ test("top-level input preserves text and supports sequential numeric conversion 
     assert.equal(host.state.status, "completed", host.text());
     assert.match(host.text(), /NAME '  민수 🐱  '/);
     assert.match(host.text(), /RESULT 30\.0/);
+    assert.doesNotMatch(host.text(), /SKIPPED/);
     assert.equal(host.sprite().speech, "  민수 🐱  ");
     assert.equal(host.state.scene.textInput, null);
 },);
@@ -177,7 +180,7 @@ test("stop clears a pending prompt and restart rejects answers from the previous
 
 test("continuous events report a student error instead of queuing input every frame", async () => {
     await host.write('def 시작():\n    print("READY")\n' +
-        '\ndef 키_누름_중(누른_키):\n    input("반복 질문")\n',);
+        '\ndef 키_누름_중(누른_키들):\n    input("반복 질문")\n',);
     await host.run();
     await host.wait(() => host.text().includes("READY"), "continuous handler ready");
     await host.input("keydown", { key: "오른쪽" });

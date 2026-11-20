@@ -15,6 +15,33 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         await runtime.initialize()
         return runtime
 
+    async def test_held_keys_arrive_once_per_tick_as_independent_lists(self):
+        record = '기록 = []\ndef 키_누름_중(키들):\n    기록.append(키들.copy())\n'
+        runtime = await self.prepare(record, background_source=record + '    키들.clear()\n')
+        await tick(runtime, events=[{"kind": "keydown", "key": "d"}, {"kind": "keydown", "key": "a"}])
+        await tick(runtime)
+        await tick(runtime, events=[{"kind": "keyup", "key": "a"}])
+        await tick(runtime, events=[{"kind": "reset"}])
+
+        for obj in runtime.objects:
+            self.assertEqual(obj.namespace["기록"], [["a", "d"], ["a", "d"], ["d"]])
+
+    async def test_pressed_key_queries_return_independent_current_snapshots(self):
+        runtime = await self.prepare()
+        read_keys = runtime.actors[0].namespace["누른_키들_가져오기"]
+        read_background_keys = runtime.background.namespace["누른_키들_가져오기"]
+        self.assertEqual(read_keys(), [])
+        await tick(runtime, events=[{"kind": "keydown", "key": "스페이스"}, {"kind": "keydown", "key": "a"}])
+        previous = read_keys()
+        self.assertEqual(previous, ["a", "스페이스"])
+        read_keys().clear()
+        self.assertEqual(read_background_keys(), previous)
+        await tick(runtime, events=[{"kind": "keyup", "key": "a"}])
+        self.assertEqual(read_keys(), ["스페이스"])
+        await tick(runtime, events=[{"kind": "reset"}])
+        self.assertEqual(read_keys(), [])
+        self.assertEqual(previous, ["a", "스페이스"])
+
     async def test_file_states_and_globals_are_isolated(self):
         runtime = await self.prepare(
             '점수 = 1\ndef 시작():\n    위치 = (20, 30)\n    크기 += 1\n    속도 *= 2\n',
@@ -254,7 +281,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         for source in (
             '값 = lambda 위치: 위치\n',
             'def 시작():\n    if (속도 := 2):\n        pass\n',
-            'try:\n    1 / 0\nexcept Exception as 크기:\n    pass\n',
+            'def 시작():\n    try:\n        1 / 0\n    except Exception as 크기:\n        pass\n',
         ):
             with self.subTest(source=source):
                 runtime = make_runtime(source)
@@ -285,7 +312,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
                 '    기다리기(0.1)\n    크기_정하기(2)\n'
                 '    방송하기("끝")\n    말하기("완료")\n'
                 'def 키_누름_중(키):\n    앞으로(200)\n'
-                '    왼쪽_돌기(90)\n    말하기(키)\n'
+                '    왼쪽_돌기(90)\n    말하기(*키)\n'
             ),
         )
         self.addAsyncCleanup(runtime.close)
@@ -328,7 +355,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         runtime = await self.prepare(
             '기록 = []\n'
             'def 키_누름(키):\n    기록.append("누름 " + 키)\n'
-            'def 키_누름_중(키):\n    기록.append("중 " + 키)\n'
+            'def 키_누름_중(키):\n    기록.append("중 " + ",".join(키))\n'
             'def 키_누름_끝(키):\n    기록.append("끝 " + 키)\n',
         )
         await tick(runtime, events=[{"kind": "keydown", "key": "위"}])
@@ -337,12 +364,46 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(runtime.error)
 
     async def test_timed_initialization_commands_fail_instead_of_hanging(self):
-        for source in ('기다리기(1)\n', '앞으로(100)\n',
+        for source in ('값 = 기다리기(1)\n', '값 = 앞으로(100)\n',
                        'def 시작(값=기다리기(1)):\n    pass\n',):
             with self.subTest(source=source):
                 runtime = make_runtime(source)
                 with self.assertRaisesRegex(RuntimeError, "함수 안"):
                     await asyncio.wait_for(runtime.initialize(), 1)
+
+    async def test_top_level_commands_and_control_flow_are_skipped(self):
+        runtime = await self.prepare(
+            'import math\n'
+            '기록 = ["변수"]\n'
+            '기록 += ["더하기"]\n'
+            '위치 = (30, 40)\n'
+            '말하기("함수 밖", 시간=None)\n'
+            '앞으로(100)\n'
+            '기다리기(1)\n'
+            'print("함수 밖")\n'
+            '기록.append("호출")\n'
+            'if True:\n    기록.append("if")\n'
+            'for 값 in range(2):\n    기록.append("for")\n'
+            'while True:\n    pass\n'
+            'def 시작():\n    기록.append(math.floor(1.5))\n',
+            background_source='말하기("배경 밖", 시간=None)\n',
+        )
+        actor = runtime.actors[0]
+        self.assertEqual(actor.namespace["기록"], ["변수", "더하기"])
+        self.assertEqual(actor.position, (30, 40))
+        self.assertEqual((actor.speech, runtime.message), ("", ""))
+        self.assertFalse(runtime.timers)
+        runtime.start()
+        await settle()
+        self.assertEqual(actor.namespace["기록"], ["변수", "더하기", 1])
+        self.assertIsNone(runtime.error)
+
+    async def test_top_level_class_and_async_def_are_still_rejected(self):
+        for source in ('class 고양이:\n    pass\n', 'async def 시작():\n    pass\n'):
+            with self.subTest(source=source):
+                runtime = make_runtime(source)
+                with self.assertRaises(SyntaxError):
+                    await runtime.initialize()
 
     async def test_finite_start_finishes_and_keeps_final_scene(self):
         runtime = make_runtime('def 시작():\n    말하기("완료")\n')

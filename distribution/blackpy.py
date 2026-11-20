@@ -19,7 +19,7 @@ STYLES = {
 STATE_NAMES = {
     "이름": "name", "위치": "position", "방향": "heading",
     "속도": "speed", "크기": "scale", "가시성": "visible",
-    "배경": "background", "물리": "physics", "무게": "mass",
+    "배경": "background", "물리": "physics", "무게": "mass", "중력": "gravity",
     "닿은_객체_리스트": "touching_names",
 }
 PHYSICS_MODES = {"없음", "충돌만", "물리"}
@@ -71,6 +71,7 @@ class ScriptObject:
         self.speech = ""
         self._speech_revision = 0
         self._speech_deadline = None
+        self._speech_hold = None
         self._position = (0.0, 0.0)
         self._heading = 0.0
         self._speed = 1.0
@@ -80,6 +81,7 @@ class ScriptObject:
         self._physics = "충돌만"
         self._trigger = False
         self._mass = 1.0
+        self._gravity = 1.0
         self._physics_commands = []
         self._absolute_revision = 0
         self._heading_revision = 0
@@ -95,6 +97,7 @@ class ScriptObject:
             self.scale = specification.get("scale", 1)
             self.visible = specification.get("visible", True)
             self.mass = specification.get("mass", 1)
+            self.gravity = specification.get("gravity", 1)
             self.set_physics(specification.get("physics", "충돌만"),
                              specification.get("trigger", False),)
             self._physics_baseline = self.physics_snapshot()
@@ -212,6 +215,17 @@ class ScriptObject:
         self.queue_physics("mass", self._mass)
 
     @property
+    def gravity(self):
+        self.require_actor()
+        return self._gravity
+
+    @gravity.setter
+    def gravity(self, value):
+        self.require_actor()
+        self._gravity = number(value, "중력 배율", 0, 100000)
+        self.queue_physics("gravity", self._gravity)
+
+    @property
     def touching_names(self):
         self.require_actor()
         contacts = self.runtime.contacts[self.id]
@@ -245,6 +259,12 @@ class ScriptObject:
 
         self.mass = value
 
+    def set_gravity(self, value):
+        if self.is_background:
+            return
+
+        self.gravity = value
+
     def impulse(self, angle, strength):
         if self.is_background:
             return
@@ -267,7 +287,7 @@ class ScriptObject:
         return {
             "id": self.id, "x": self._position[0], "y": self._position[1],
             "width": width, "height": height, "mode": self._physics,
-            "mass": self._mass, "visible": self._visible,
+            "mass": self._mass, "gravity": self._gravity, "visible": self._visible,
             "heading": self._heading, "trigger": self._trigger,
         }
 
@@ -388,6 +408,10 @@ class ScriptObject:
         else:
             raise TypeError("바라보기에는 각도 하나 또는 가로·세로 위치를 넣어 주세요.")
 
+        # At a vertical heading either pose is equally upright, so keep the current one.
+        if self._heading not in (90, 270):
+            self._mirrored = 90 < self._heading < 270
+
     def change_speed(self, value):
         if self.is_background:
             return
@@ -412,26 +436,33 @@ class ScriptObject:
 
         self.visible = value
 
-    def say(self, *messages, 시간=DEFAULT_SPEECH_SECONDS):
+    def say(self, *messages, 시간=UNSET):
         message = " ".join(str(part) for part in messages)
         if len(message) > 200:
             raise ValueError("말하기는 200자까지 사용할 수 있어요.")
         if 시간 is None:
             self.set_speech(message)
             return None
-        duration = number(시간, "말하기 시간", 0, 3600)
+        duration = number(DEFAULT_SPEECH_SECONDS if 시간 is UNSET else 시간, "말하기 시간", 0, 3600)
         if not message:
             self.set_speech("")
             return None
-        if not self.runtime.initialized or EXECUTION.get()[0]:
+        continuous = EXECUTION.get()[0]
+        hold = MOVEMENT.get() if continuous and 시간 is UNSET else None
+        if hold is not None:
+            # 시간을 정하지 않은 '중' 이벤트의 말은 누르기·클릭·닿기가 이어지는 동안만 보인다.
+            self.set_speech(message, hold=hold)
+            return None
+        if not self.runtime.initialized or continuous:
             # 파일 초기화와 매 프레임의 '중' 이벤트는 기다리지 않고 지울 시각만 정한다.
             self.set_speech(message, duration)
             return None
         return self.say_for(message, duration)
 
-    def set_speech(self, message, duration=None):
+    def set_speech(self, message, duration=None, hold=None):
         self._speech_revision += 1
         self._speech_deadline = None if duration is None else self.runtime.elapsed + duration
+        self._speech_hold = hold
         if self.is_background:
             self.runtime.message = message
         else:
@@ -453,9 +484,10 @@ class ScriptObject:
             "가시성_설정": self.set_visible, "말하기": self.say,
             "기다리기": self.runtime.wait, "방송하기": self.runtime.broadcast,
             "랜덤": random_integer, "각도로": vector_angle,
+            "누른_키들_가져오기": self.runtime.pressed_keys,
             "위치_구하기": self.runtime.position_of,
             "방향_구하기": self.runtime.heading_of,
-            "물리_설정": self.set_physics, "무게_설정": self.set_mass,
+            "물리_설정": self.set_physics, "무게_설정": self.set_mass, "중력_설정": self.set_gravity,
             "힘_작용": self.impulse, "정지": self.stop,
             "이름_정하기": self.set_name,
             "왼쪽_돌기": self.left, "오른쪽_돌기": self.right,

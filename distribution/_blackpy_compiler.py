@@ -5,6 +5,16 @@ import ast
 from blackpy import STATE_NAMES
 
 
+# Statements kept outside functions. Commands and control flow at the top level
+# are skipped silently so that only events run student commands. Async functions
+# and classes stay so that the transformer reports them.
+TOP_LEVEL_STATEMENTS = (
+    ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+    ast.Import, ast.ImportFrom,
+    ast.Assign, ast.AugAssign, ast.AnnAssign,
+)
+
+
 class ScriptTransformer(ast.NodeTransformer):
     def __init__(self, source, filename):
         self.source = source
@@ -140,6 +150,7 @@ class ScriptTransformer(ast.NodeTransformer):
 
 def compile_script(source, filename):
     tree = ast.parse(source, filename=filename)
+    tree.body = [node for node in tree.body if isinstance(node, TOP_LEVEL_STATEMENTS)]
     tree = ScriptTransformer(source, filename).visit(tree)
     ast.fix_missing_locations(tree)
     return compile(tree, filename, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)

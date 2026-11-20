@@ -55,7 +55,7 @@ test("installed direct-file execution opens only the selected BlackPy project", 
     const sources = {
         "project.json": JSON.stringify(project),
         "배경.py": '말하기("배경 초기화")\ndef 시작():\n    말하기("배경 전체 실행", 시간=None)\n',
-        "고양이.py": '좌표로(23, 45)\ndef 시작():\n    말하기("고양이 전체 실행", 시간=None)\n',
+        "고양이.py": '위치 = (23, 45)\ndef 시작():\n    말하기("고양이 전체 실행", 시간=None)\n',
         "자동차.py": 'import student_helper\ndef 시작():\n    좌표로(67, 89)\n' +
             '    말하기("자동차 전체 실행", 시간=None)\n    print(student_helper.MESSAGE)\n',
         "student_helper.py": 'MESSAGE = "학생 모듈 유지"\n',
@@ -115,7 +115,7 @@ test("installed direct-file execution opens only the selected BlackPy project", 
             const metadata = await host.request("/api/project");
             assert.equal(metadata.status, 200);
             assert.deepEqual(metadata.body.actors, project.actors.map(actor => ({
-                physics: "충돌만", trigger: false, mass: 1, ...actor,
+                physics: "충돌만", trigger: false, mass: 1, gravity: 1, ...actor,
             }),),);
             assert.equal(metadata.body.background.file, project.background.file);
             await host.run();

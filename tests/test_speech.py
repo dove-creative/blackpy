@@ -202,29 +202,77 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(runtime.timers)
                 self.assertIsNone(runtime.error)
 
-    async def test_held_speech_does_not_wait_and_clears_after_release(self):
+    async def test_held_speech_stays_while_held_and_clears_on_release(self):
         for background in (False, True):
             with self.subTest(background=background):
                 runtime, target = await self.prepare(
                     '기록 = []\n'
-                    'def 키_누름_중(키):\n    말하기(키, "누르는 중")\n'
+                    'def 키_누름_중(키):\n    말하기(*키, "누르는 중")\n'
                     '    기록.append(키)\n',
                     background,
                 )
                 await tick(runtime, 0.25, [{"kind": "keydown", "key": "위"}])
                 self.assertEqual(self.displayed(runtime, target), "위 누르는 중")
-                self.assertEqual(target.namespace["기록"], ["위"])
+                self.assertEqual(target.namespace["기록"], [["위"]])
                 await tick(runtime, 0.9)
-                self.assertEqual(target.namespace["기록"], ["위", "위"])
-                await tick(runtime, 0.25, [{"kind": "keyup", "key": "위"}])
+                await tick(runtime, 0.9)
+                self.assertEqual(target.namespace["기록"], [["위"], ["위"], ["위"]])
                 self.assertEqual(self.displayed(runtime, target), "위 누르는 중")
-                await tick(runtime, 0.75)
+                await tick(runtime, 1 / 60, [{"kind": "keyup", "key": "위"}])
                 self.assertEqual(self.displayed(runtime, target), "")
+                self.assertFalse(runtime.speech_pending)
                 self.assertFalse(runtime.tasks)
                 self.assertFalse(runtime.timers)
                 self.assertIsNone(runtime.error)
 
-    async def test_initialization_speech_clears_after_start_without_waiting(self):
+    async def test_held_speech_follows_the_key_that_is_still_held(self):
+        runtime, target = await self.prepare(
+            'def 키_누름_중(키):\n'
+            '    if "왼쪽" in 키:\n        말하기("왼쪽")\n',
+        )
+        await tick(runtime, 0.1, [{"kind": "keydown", "key": "왼쪽"},
+                                  {"kind": "keydown", "key": "위"}])
+        self.assertEqual(target.speech, "왼쪽")
+        await tick(runtime, 0.1, [{"kind": "keyup", "key": "위"}])
+        self.assertEqual(target.speech, "왼쪽")
+        await tick(runtime, 0.1, [{"kind": "keyup", "key": "왼쪽"}])
+        self.assertEqual(target.speech, "")
+
+    async def test_held_click_and_contact_speech_clear_when_they_end(self):
+        runtime, target = await self.prepare(
+            'def 자신_클릭_중():\n    말하기("누르는 중")\n',
+        )
+        down = {"kind": "pointerdown", "x": 0, "y": 0, "targetId": target.id}
+        await tick(runtime, 0.1, [down])
+        await tick(runtime, 1.5)
+        self.assertEqual(target.speech, "누르는 중")
+        await tick(runtime, 1 / 60, [{"kind": "pointerup"}])
+        self.assertEqual(target.speech, "")
+
+        runtime, target = await self.prepare(
+            'def 닿는_중(목록):\n    말하기("닿는 중")\n', other_source="",
+        )
+        car = runtime.actors[1]
+        car.position = target.position
+        await tick(runtime, 0.1)
+        await tick(runtime, 1.5)
+        self.assertEqual(target.speech, "닿는 중")
+        car.position = (300, 0)
+        await tick(runtime, 1 / 60)
+        self.assertEqual(target.speech, "")
+        self.assertIsNone(runtime.error)
+
+    async def test_held_speech_with_time_keeps_its_deadline_after_release(self):
+        runtime, target = await self.prepare(
+            'def 키_누름_중(키):\n    말하기("잠깐", 시간=0.5)\n',
+        )
+        await tick(runtime, 0.1, [{"kind": "keydown", "key": "위"}])
+        await tick(runtime, 0.1, [{"kind": "keyup", "key": "위"}])
+        self.assertEqual(target.speech, "잠깐")
+        await tick(runtime, 0.5)
+        self.assertEqual(target.speech, "")
+
+    async def test_top_level_speech_is_skipped(self):
         source = '말하기("준비")\n기록 = ["다음 줄"]\n'
 
         for background in (False, True):
@@ -238,16 +286,11 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
                 target = (
                     runtime.background if background else runtime.actors[0]
                 )
-                self.assertEqual(self.displayed(runtime, target), "준비")
-                self.assertEqual(target.namespace["기록"], ["다음 줄"])
-                runtime.start()
-                await tick(runtime, 0.5)
-                self.assertEqual(self.displayed(runtime, target), "준비")
-                await tick(runtime, 0.5)
                 self.assertEqual(self.displayed(runtime, target), "")
-                self.assertFalse(runtime.timers)
+                self.assertEqual(target.namespace["기록"], ["다음 줄"])
+                self.assertFalse(runtime.speech_pending)
 
-    async def test_run_keeps_going_until_initialization_speech_clears(self):
+    async def test_run_ends_without_waiting_for_skipped_top_level_speech(self):
         runtime = make_runtime('말하기("안녕", 시간=0.2)\n')
         scenes = []
 
@@ -259,9 +302,9 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
                 scenes.append(scene)
 
         await asyncio.wait_for(runtime.run(Transport()), 3)
-        self.assertEqual(scenes[0]["sprites"][0]["speech"], "안녕")
-        self.assertEqual(scenes[-1]["sprites"][0]["speech"], "")
-        self.assertGreaterEqual(runtime.elapsed, 0.2)
+        self.assertTrue(scenes)
+        self.assertTrue(all(scene["sprites"][0]["speech"] == "" for scene in scenes))
+        self.assertLess(runtime.elapsed, 0.2)
 
     async def test_stop_cancels_long_speech_without_affecting_a_new_run(self):
         runtime, target = await self.prepare(
