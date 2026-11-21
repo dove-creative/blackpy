@@ -37,12 +37,18 @@ $publishArguments = @('publish', $project, '-c', 'Release', '-r', 'win-x64', '--
     '-p:PublishTrimmed=false', '-p:PublishSingleFile=false', '-o', $runtimePath)
 if ($SkipRestore) { $publishArguments += '--no-restore' }
 
-& dotnet @publishArguments
-if ($LASTEXITCODE -ne 0) { throw 'Runtime publishing failed.' }
+# Resolve the SDK from the repository's global.json even when called from a student folder.
+Push-Location -LiteralPath $toolRoot
+try {
+    & dotnet @publishArguments
+    if ($LASTEXITCODE -ne 0) { throw 'Runtime publishing failed.' }
 
-$launcherScript = Join-Path $PSScriptRoot 'New-Launcher.ps1'
-& $launcherScript -Destination (Join-Path $supportPath '시작.exe') `
-    -ManagedDllRelativePath '_runtime/BlackThunder.BlackPy.dll'
+    $launcherScript = Join-Path $PSScriptRoot 'New-Launcher.ps1'
+    & $launcherScript -Destination (Join-Path $supportPath '시작.exe') `
+        -ManagedDllRelativePath '_runtime/BlackThunder.BlackPy.dll'
+} finally {
+    Pop-Location
+}
 
 $templates = Join-Path $toolRoot 'distribution'
 $batchEncoding = [Text.UTF8Encoding]::new($false)
