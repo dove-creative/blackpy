@@ -2,8 +2,6 @@
 
 ## 프로젝트 범위
 
-- BlackPy는 Windows x64에서 학생 Python 파일을 로컬 웹 무대에서 실행하는 교육용 프로그램이다.
-- 이 저장소는 실행부, 웹 무대, Python 지원 모듈, 시작 코드 예제, 빌드·배포·테스트를 관리한다.
 - 교육 기능이나 예제를 바꿀 때 수업 자료에 미치는 영향을 확인한다. 공개 문서에는 외부 수업 자료의 저장소 링크와 보관 위치를 기재하지 않는다.
 - BlackPy 학생용 익힘책에는 과제의 목표와 실행 결과를 제시한다. 정답 코드나 학생이 스스로 찾아야 할 풀이를 문제, 힌트, 실습 시작 파일에 적지 않는다.
 - 학생에게 내부 프레임워크나 통신 구현을 요구하지 않는다. 아직 제공하지 않는 입력·접촉 판정·아이템·점수·소리를 사용 가능한 기능으로 안내하지 않는다.
@@ -11,9 +9,9 @@
 ## 참조 문서
 
 - 작업 전 `README.md`와 `docs`의 관련 문서를 확인한다. 사용법은 Usage, 책임·동작·제약은 Overview와 Implementation, 테스트 계획은 Testing, 실제 결과는 검증 기록에 둔다.
-- 공통 컨벤션과 작업 지침은 `guidelines/blackthunder-conventions` 서브모듈에서 필요한 문서만 읽는다.
+- 공통 컨벤션과 작업 지침은 `guidelines/blackthunder-conventions` 서브모듈에 있다. 필요한 문서만 읽고 프로젝트와 관계없는 규칙을 임의로 적용하지 않는다.
 - 서브모듈이 비어 있으면 `git submodule update --init --recursive -- guidelines/blackthunder-conventions`로 초기화한다. 실패하면 해당 사실을 알린다.
-- 적용 우선순위는 프로젝트 지침·설정 → 언어별 컨벤션 → 공통 컨벤션이다.
+- 적용 우선순위는 프로젝트 지침·설정 → 언어별 컨벤션 → C 계열 컨벤션(해당 언어만) → 공통 컨벤션이다.
 - 기술 문서는 `conventions/01. dove Documentation Convention.md`와 `instructions/문서 양식.md`를 따른다. README는 일반 README 템플릿과 CSharp README 템플릿을 따른다.
 - 이 문서에서 `conventions`·`instructions`로 시작하는 경로는 `guidelines/blackthunder-conventions` 아래를 가리킨다.
 - 서브모듈은 이 저장소가 기록한 커밋을 사용한다. 컨벤션을 갱신하면 CHANGELOG를 검토하고 프로젝트 지침과의 충돌 여부를 확인한다.
@@ -27,6 +25,7 @@
 
 ## 파일 형식
 
+- 문서의 내용과 관계를 해석하는 규칙이 명시된 구조화 언어로 작성한 문서는 해당 규칙에 따라 수정할 수 있다. Markdown 문서와 프로젝트에서 문법·스키마·의미 규칙을 정의한 모델·다이어그램 문서 등이 이에 해당하며, 익숙하지 않은 형식은 해당 규격을 먼저 확인한다. `.drawio`, `.ai` 등 도형·선·색상·배치를 자유롭게 구성하여 의미를 사람이 해석하는 범용 문서 파일은 사람이 직접 관리하므로 수정하지 않는다.
 - 코드와 프로젝트 설정 파일은 UTF-8·LF를 기본으로 한다.
 - BAT 원본과 배포본은 UTF-8 무BOM·CRLF를 사용한다. 한글 경로를 사용하는 BAT는 코드페이지 65001을 적용한다.
 - `.gitattributes`의 줄 끝 규칙을 유지한다. 마크다운 파일은 개행 문자로 끝낸다.
@@ -48,7 +47,7 @@
 
 ### JavaScript와 PowerShell
 
-- 전용 언어 문서가 없으면 `conventions/02. dove Common Convention.md`에서 해당 언어에 적용되는 절을 읽는다.
+- JavaScript는 `conventions/02. dove CF Convention.md`를, PowerShell은 `conventions/02. dove Common Convention.md`를 기본 문서로 읽는다.
 - JavaScript 테스트는 Node.js 22 이상, 배포 스크립트는 PowerShell 7을 기준으로 한다.
 
 ## 의존성과 배포
