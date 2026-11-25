@@ -57,7 +57,7 @@ Windows x64에서 다음 명령을 실행한다. Python 빌드 도구는 `.cache
 
 ```powershell
 ./scripts/Build-Wheel.ps1
-python -m pip install ./artifacts/wheels/blackpy-0.1.3-py3-none-win_amd64.whl
+python -m pip install ./artifacts/wheels/blackpy-0.1.13-py3-none-win_amd64.whl
 ```
 
 `Build-Wheel.ps1`은 Python 빌드 도구를 준비한 뒤 wheel을 생성하고 Twine으로 메타데이터를 검사한다. `wheel_hook.py`는 새 임시 경로에 `Publish.ps1`을 실행하고 그 결과의 공통 실행부와 `distribution/project`의 원본을 묶는다. 기존 `artifacts/blackpy/실습`이나 학생 프로젝트의 수정 내용은 wheel의 원본으로 사용하지 않는다.
@@ -168,8 +168,8 @@ BlackPy는 UniEngine과 BlackboxSystem, Box2D.NET을 NuGet으로 직접 참조�
 
 | 패키지 | 버전 | 소스 커밋 |
 | --- | --- | --- |
-| `UniEngine` | `0.1.0-main.688b41d` | `688b41d57d67e67ec7b4f01a6cd3c60ba902b7d2` |
-| `BlackThunder.BlackboxSystem` | `0.2.0` | `635c20e2ece4ce0c504ea03dda2c40679eac00e1` |
+| `UniEngine` | `0.1.1` | `853b21ddea1cb18c5cfffc6e94bf6d01d5d4bfe3` |
+| `BlackThunder.BlackboxSystem` | `0.2.1` | `05eeecbd57c7884b86bcf97e073003a9c94e6fb1` |
 | `Box2D.NET` | `3.1.654` | [3.1.654 태그](https://github.com/ikpil/Box2D.NET/tree/3.1.654) |
 
 BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.json](../packages/source-manifest.json)이다. `NuGet.config`는 `UniEngine`과 `BlackThunder.*` 패키지를 `packages` 로컬 피드에서 복원하도록 지정한다. 라이브러리마다 외부 개발 폴더를 직접 프로젝트 참조하지 않는다.
@@ -201,3 +201,18 @@ BlackThunder 패키지의 버전·소스·SHA-256 기준은 [source-manifest.jso
 README는 첫 실행과 상세 문서의 진입점이다. 개요와 구현 문서는 책임·동작·제약을 설명하며, 구체적인 API 사용은 Usage에 둔다. 테스트 계획과 실제 실행 결과는 분리한다.
 
 검증 명령과 범위는 [Testing](Testing.md)에 있다. 배포 구조·의존성·공개 API를 바꾸면 전체 테스트와 실제 배포본 검증을 수행한다. 교육 기능이나 예제를 바꾸면 학생용 HTML과 교안의 대응 여부도 확인한다.
+
+## 2026-11-25 로컬 의존성 갱신
+
+BlackPy 0.1.13은 UniEngine 0.1.1과 Blackbox System 0.2.1을 포함한다. 참조 서브모듈·NuGet 버전·출처 manifest·패키지 SHA-256이 일치하며, 이전 미참조 패키지를 제거한 뒤 별도의 빈 캐시에서 본체·테스트 프로젝트를 Release로 빌드했다. 경고·오류는 0개이다.
+
+새 임시 배포본으로 Windows x64 wheel을 만들고 Twine 메타데이터 검사, wheel 버전·태그, 포함 DLL과 원본 NuGet DLL의 바이트 일치, 라이선스 고지 포함 여부를 확인했다.
+
+| 항목 | 값 |
+| --- | --- |
+| wheel | `blackpy-0.1.13-py3-none-win_amd64.whl` |
+| SHA-256 | `2EFBC8FC542BFA3893FC6909A26B078E4DDA3AB44662BC3995EB0FF46B6390A9` |
+| 터미널 Python | Python 3.13 사용자 사이트에 0.1.13 설치, 버전·CLI 도움말 실행 확인 |
+| VS Code Python | `pygame` 가상환경에 0.1.13 설치, 버전·CLI 도움말 실행 확인 |
+
+사용자 요청에 따라 자동 테스트와 PyPI 공개는 수행하지 않았다. 위 결과는 로컬 wheel의 빌드·정적 검사·설치 확인이며, 게임 실행이나 동작 회귀 검증 결과가 아니다. 기존 학생 프로젝트는 변경하지 않았다.

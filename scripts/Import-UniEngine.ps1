@@ -3,8 +3,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$commit = '688b41d57d67e67ec7b4f01a6cd3c60ba902b7d2'
-$version = '0.1.0-main.688b41d'
+$commit = '853b21ddea1cb18c5cfffc6e94bf6d01d5d4bfe3'
+$version = '0.1.1'
 $toolRoot = Split-Path -Parent $PSScriptRoot
 $feed = Join-Path $toolRoot 'packages'
 $package = Join-Path $feed "UniEngine.$version.nupkg"
@@ -26,7 +26,7 @@ $project = Join-Path $source 'src\UniEngine.csproj'
     '-p:RepositoryUrl=https://github.com/dove-creative/uniengine'
 if ($LASTEXITCODE -ne 0) { throw 'UniEngine packaging failed.' }
 
-$blackbox = Join-Path $source 'packages\BlackThunder.BlackboxSystem.0.2.0.nupkg'
+$blackbox = Join-Path $source 'packages\BlackThunder.BlackboxSystem.0.2.1.nupkg'
 $blackboxTarget = Join-Path $feed ([IO.Path]::GetFileName($blackbox))
 if (-not (Test-Path -LiteralPath $blackboxTarget)) {
     Copy-Item -LiteralPath $blackbox -Destination $blackboxTarget
@@ -44,9 +44,9 @@ $manifest = [ordered]@{
     packages = @(
         [ordered]@{ id = 'UniEngine'; version = $version;
             file = [IO.Path]::GetFileName($package); sha256 = (Get-FileHash -LiteralPath $package).Hash },
-        [ordered]@{ id = 'BlackThunder.BlackboxSystem'; version = '0.2.0';
+        [ordered]@{ id = 'BlackThunder.BlackboxSystem'; version = '0.2.1';
             repository = 'https://github.com/dove-creative/blackbox-system';
-            sourceCommit = '635c20e2ece4ce0c504ea03dda2c40679eac00e1';
+            sourceCommit = '05eeecbd57c7884b86bcf97e073003a9c94e6fb1';
             file = [IO.Path]::GetFileName($blackboxTarget); sha256 = (Get-FileHash -LiteralPath $blackboxTarget).Hash }
     )
 }
