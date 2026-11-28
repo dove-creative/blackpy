@@ -3,13 +3,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace BlackThunder.BlackPy
 {
     public class ProjectDefinition
     {
+        public bool ShowLabels { get; set; } = true;
         public BackgroundDefinition Background { get; set; } = null!;
         public ActorDefinition[] Actors { get; set; } = Array.Empty<ActorDefinition>();
+        public DisplayDefinition[] Displays { get; set; } = Array.Empty<DisplayDefinition>();
     }
 
     public class BackgroundDefinition
@@ -37,6 +42,21 @@ namespace BlackThunder.BlackPy
         public double Gravity { get; set; } = 1;
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Image { get; set; }
+    }
+
+    public class DisplayDefinition
+    {
+        public string Name { get; set; } = "";
+        public string Variable { get; set; } = "";
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Scale { get; set; } = 1;
+    }
+
+    public class DisplayBindingRequest
+    {
+        public string Name { get; set; } = "";
+        public string Variable { get; set; } = "";
     }
 
     public class ImageResource
@@ -72,6 +92,12 @@ namespace BlackThunder.BlackPy
             [".png"] = "image/png", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg",
             [".gif"] = "image/gif", [".webp"] = "image/webp", [".svg"] = "image/svg+xml",
         };
+        private static readonly HashSet<string> _keywords = new(StringComparer.Ordinal)
+        {
+            "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue",
+            "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import",
+            "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while", "with", "yield",
+        };
 
 
         // Content --------------------
@@ -103,6 +129,43 @@ namespace BlackThunder.BlackPy
             Validate(project);
             ValidateImages(project!, Path.GetDirectoryName(filename)!);
             return project!;
+        }
+
+        public static ProjectDefinition BindDisplay(string directory, DisplayBindingRequest request)
+        {
+            var variable = request.Variable?.Trim();
+            ValidateVariable(variable);
+            var filename = DefinitionPath(directory);
+            var temporary = filename + "." + Guid.NewGuid().ToString("N") + ".tmp";
+
+            try
+            {
+                var source = File.ReadAllText(filename);
+                var root = JsonNode.Parse(source, new JsonNodeOptions { PropertyNameCaseInsensitive = true });
+                var project = root?.Deserialize<ProjectDefinition>(StateMessage.JsonOptions);
+                Validate(project);
+                ValidateImages(project!, Path.GetDirectoryName(filename)!);
+                var index = Array.FindIndex(project!.Displays, display => display.Name == request.Name);
+                if (index < 0) throw new BlackPyException(404, "디스플레이를 찾지 못했습니다.");
+                project.Displays[index].Variable = variable!;
+                root!["displays"]![index]!["variable"] = variable;
+                File.WriteAllText(temporary, root.ToJsonString(new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                }) + "\n", new UTF8Encoding(false));
+                if (File.ReadAllText(filename) != source)
+                    throw new BlackPyException(409, "프로젝트 설정이 바뀌었습니다. 디스플레이를 다시 눌러 주세요.");
+                File.Move(temporary, filename, true);
+                return project;
+            }
+            catch (JsonException) { throw Invalid("project.json의 형식을 확인해 주세요."); }
+            catch (IOException) { throw Invalid("디스플레이 설정을 저장하지 못했습니다. 파일을 확인해 주세요."); }
+            catch (UnauthorizedAccessException) { throw Invalid("디스플레이 설정을 저장할 권한이 없습니다."); }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
         }
 
         /// <summary>Reads an image named by the project from the folder that holds project.json.</summary>
@@ -207,6 +270,34 @@ namespace BlackThunder.BlackPy
                 if (!double.IsFinite(actor.Speed) || actor.Speed <= 0)
                     throw Invalid("속도 배율에는 0보다 큰 유한한 숫자를 넣어 주세요.");
             }
+
+            if (project.Displays == null || project.Displays.Length > 64)
+                throw Invalid("디스플레이는 최대 64개까지 넣을 수 있습니다.");
+
+            foreach (var display in project.Displays)
+            {
+                ValidateDisplay(display);
+                if (!names.Add(display.Name)) throw Invalid("배경, 캐릭터, 디스플레이 이름은 서로 달라야 합니다.");
+            }
+        }
+
+        internal static void ValidateDisplay(DisplayDefinition display)
+        {
+            if (display == null || string.IsNullOrWhiteSpace(display.Name) || display.Name.Length > 80)
+                throw Invalid("디스플레이 이름은 1자부터 80자까지 필요합니다.");
+            ValidateVariable(display.Variable);
+            ValidateNumber(display.X, -100000, 100000, "가로 위치");
+            ValidateNumber(display.Y, -100000, 100000, "세로 위치");
+            ValidateNumber(display.Scale, 0.1, 5, "크기");
+        }
+
+        private static void ValidateVariable(string? variable)
+        {
+            if (variable == "") return;
+            if (variable == null || variable.Length > 80 || _keywords.Contains(variable)
+                || variable.StartsWith("__blackpy_", StringComparison.Ordinal)
+                || !Regex.IsMatch(variable, @"\A[_\p{L}\p{Nl}][_\p{L}\p{Nl}\p{Nd}\p{Mn}\p{Mc}\p{Pc}]*\z"))
+                throw Invalid("변수 이름만 입력해 주세요. 예: 점수, 동전_수 (비우면 연결을 해제합니다.)");
         }
 
         private static void ValidateFile(string filename, HashSet<string> files)

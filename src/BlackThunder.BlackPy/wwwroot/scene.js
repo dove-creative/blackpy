@@ -368,7 +368,7 @@
         ellipse(context, -16, -19, 8, 5, "#ffffff65");
     }
 
-    function drawSprite(context, sprite, image = null) {
+    function drawSprite(context, sprite, image = null, showLabels = true) {
         if (!sprite.visible) return;
         const painters = {
             car: drawCar, cat: drawCat, rabbit: drawRabbit, ball: drawBall, bat: drawBat,
@@ -395,7 +395,7 @@
         }
         context.restore();
 
-        if (sprite.label) {
+        if (showLabels && sprite.label) {
             context.save();
             context.font = '600 20px "Malgun Gothic", sans-serif';
             context.textAlign = "center";
@@ -439,17 +439,21 @@
         context.restore();
     }
 
-    function draw(context, scene, images = {}) {
+    function draw(context, scene, images = {}, options = {}) {
         const backgroundImage = images.background && scene.background === images.backgroundKind
             ? images.background : null;
         context.drawImage(backgroundImage || background(scene.background), 0, 0, width, height);
 
         for (const sprite of scene.sprites) {
-            drawSprite(context, sprite, images.actors?.get(sprite.id) || null);
+            drawSprite(context, sprite, images.actors?.get(sprite.id) || null, options.showLabels !== false);
         }
 
         for (const sprite of scene.sprites) {
             drawSpeech(context, sprite);
+        }
+
+        for (const display of scene.displays || []) {
+            window.BlackPyDisplay.draw(context, display);
         }
     }
 

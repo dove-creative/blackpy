@@ -1,0 +1,10 @@
+{
+  "background": { "file": "배경.py", "kind": "forest" },
+  "actors": [
+    { "name": "동전1", "file": "동전1.py", "kind": "star", "x": -180, "y": -40 },
+    { "name": "동전2", "file": "동전2.py", "kind": "star", "x": 180, "y": -40 }
+  ],
+  "displays": [
+    { "name": "점수판", "variable": "", "x": 0, "y": 180, "scale": 1.2 }
+  ]
+}

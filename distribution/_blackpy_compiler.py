@@ -15,6 +15,96 @@ TOP_LEVEL_STATEMENTS = (
 )
 
 
+class GlobalDeclarations(ast.NodeVisitor):
+    """Collect declarations in one function, excluding nested scopes."""
+
+    def __init__(self, body):
+        self.names = set()
+        for statement in body:
+            self.visit(statement)
+
+    def visit_Global(self, node):
+        self.names.update(node.names)
+
+    def visit_AsyncFunctionDef(self, node):
+        pass
+
+    visit_FunctionDef = visit_AsyncFunctionDef
+    visit_Lambda = visit_AsyncFunctionDef
+    visit_ClassDef = visit_AsyncFunctionDef
+
+
+class SharedVariableTransformer(ast.NodeTransformer):
+    """Route variable writes to the stage while Python resolves local scopes."""
+
+    def __init__(self):
+        self.module_scope = True
+        self.global_names = set()
+
+    def shared_target(self, name, context, node):
+        return ast.copy_location(ast.Subscript(
+            value=ast.Name(id="__blackpy_globals__", ctx=ast.Load()),
+            slice=ast.Constant(value=name), ctx=context,
+        ), node)
+
+    def visit_Name(self, node):
+        if (isinstance(node.ctx, (ast.Store, ast.Del))
+                and not node.id.startswith("__blackpy_")
+                and (self.module_scope or node.id in self.global_names)):
+            return self.shared_target(node.id, node.ctx, node)
+        return node
+
+    def visit_AsyncFunctionDef(self, node):
+        # Defaults and decorators belong to the enclosing scope.
+        node.args = self.visit(node.args)
+        node.decorator_list = [self.visit(item) for item in node.decorator_list]
+        previous = self.module_scope, self.global_names
+        self.module_scope = False
+        self.global_names = GlobalDeclarations(node.body).names
+        node.body = self.visit_statements(node.body)
+        self.module_scope, self.global_names = previous
+        return node
+
+    def visit_statements(self, statements):
+        result = []
+        for statement in statements:
+            changed = self.visit(statement)
+            result.extend(changed if isinstance(changed, list) else [changed])
+        return result
+
+    def visit_Lambda(self, node):
+        node.args = self.visit(node.args)
+        previous = self.module_scope, self.global_names
+        self.module_scope, self.global_names = False, set()
+        node.body = self.visit(node.body)
+        self.module_scope, self.global_names = previous
+        return node
+
+    def visit_comprehension(self, node):
+        # Iteration targets are local even in module-level comprehensions.
+        node.iter = self.visit(node.iter)
+        node.ifs = [self.visit(item) for item in node.ifs]
+        return node
+
+    def visit_NamedExpr(self, node):
+        node.value = self.visit(node.value)
+        if self.module_scope or node.target.id in self.global_names:
+            return ast.copy_location(ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="__blackpy_globals__", ctx=ast.Load()),
+                    attr="assign", ctx=ast.Load(),
+                ),
+                args=[ast.Constant(value=node.target.id), node.value], keywords=[],
+            ), node)
+        return node
+
+    def visit_AnnAssign(self, node):
+        node = self.generic_visit(node)
+        if not isinstance(node.target, ast.Name):
+            node.simple = 0
+        return node
+
+
 class ScriptTransformer(ast.NodeTransformer):
     def __init__(self, source, filename):
         self.source = source
@@ -132,6 +222,8 @@ class ScriptTransformer(ast.NodeTransformer):
         return self.generic_visit(node)
 
     def visit_Global(self, node):
+        if any(name.startswith("__blackpy_") for name in node.names):
+            self.error("__blackpy_로 시작하는 이름은 실행기가 사용해요.", node)
         node.names = [name for name in node.names if name not in STATE_NAMES]
         return node if node.names else ast.copy_location(ast.Pass(), node)
 
@@ -152,5 +244,9 @@ def compile_script(source, filename):
     tree = ast.parse(source, filename=filename)
     tree.body = [node for node in tree.body if isinstance(node, TOP_LEVEL_STATEMENTS)]
     tree = ScriptTransformer(source, filename).visit(tree)
+    ast.fix_missing_locations(tree)
+    # Validate Python's scope rules before rewriting global assignments.
+    compile(tree, filename, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    tree = SharedVariableTransformer().visit(tree)
     ast.fix_missing_locations(tree)
     return compile(tree, filename, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)

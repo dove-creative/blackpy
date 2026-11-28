@@ -140,6 +140,12 @@ namespace BlackThunder.BlackPy
                 await session!.RunAsync();
                 await context.Response.WriteAsJsonAsync(new { ok = true });
             });
+            app.MapPost("/api/display", async context =>
+            {
+                var request = await context.Request.ReadFromJsonAsync<DisplayBindingRequest>(StateMessage.JsonOptions);
+                if (request == null) throw new BlackPyException(400, "디스플레이와 변수 이름이 필요합니다.");
+                await context.Response.WriteAsJsonAsync(await session!.BindDisplayAsync(request));
+            });
             app.MapPost("/api/stop", async context =>
             {
                 await session!.StopAsync();

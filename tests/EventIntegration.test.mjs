@@ -1,11 +1,79 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { TestHost, defaultProject, pause } from "./TestHost.mjs";
 
 const host = new TestHost();
 before(async () => { await host.open(); });
 beforeEach(async () => { await host.stop(); });
 after(async () => { await host.close(); });
+
+test("display binding persists, follows two actors, and is locked during a run", async () => {
+    const project = defaultProject();
+    project.displays = [{ name: "점수판", variable: "", x: 0, y: 200 }];
+    project.teacherNote = "preserve";
+    const coin = 'def 자신_클릭():\n    global 동전_수\n    동전_수 += 1\n';
+    await host.write(coin, coin, '동전_수 = 0\n', project);
+    const bind = variable => host.request("/api/display", { name: "점수판", variable });
+    assert.equal((await host.request("/api/display", { name: "점수판", variable: "동전_수" }, "bad")).status, 401);
+    assert.equal((await bind("동전_수 + 1")).status, 400);
+    assert.equal((await host.request("/api/display", { name: "없음", variable: "동전_수" })).status, 404);
+    assert.equal((await bind("동전_수")).status, 200);
+    const saved = JSON.parse(await readFile(path.join(host.workspace, "project.json"), "utf8"));
+    assert.equal(saved.displays[0].variable, "동전_수");
+    assert.equal(saved.teacherNote, "preserve");
+    assert.equal((await host.request("/api/project")).body.displays[0].variable, "동전_수");
+    const value = () => host.state?.scene?.displays?.[0]?.text;
+    await host.run();
+    await host.wait(() => value() === "0", "initial display value");
+    assert.equal((await bind("다른_점수")).status, 409);
+    for (const [x, expected] of [[-100, "1"], [150, "2"], [-100, "3"]]) {
+        await host.input("pointerdown", { button: "왼쪽", x, y: 0 });
+        await host.input("pointerup", { button: "왼쪽", x, y: 0 });
+        await host.wait(() => value() === expected, "both actors update the display");
+    }
+    await host.stop();
+    await host.wait(() => host.state.status === "stopped", "stopped display");
+    assert.equal(value(), "3");
+    assert.equal((await bind("없는_변수")).status, 200);
+    await host.run();
+    await host.wait(() => value() === "—", "missing variable display");
+    await host.stop();
+    assert.equal((await bind("동전_수")).status, 200);
+    await host.run("/api/restart");
+    await host.wait(() => value() === "0", "display resets with the shared variable");
+    await host.stop();
+    assert.equal((await bind("")).status, 200);
+    assert.equal((await host.request("/api/project")).body.displays[0].variable, "");
+});
+
+test("stage globals connect two actors and reset on restart", async () => {
+    await host.write(
+        'def 자신_클릭():\n    global 점수\n    점수 += 1\n    말하기(점수, 시간=None)\n',
+        'def 시작():\n    말하기(점수, 시간=None)\n' +
+        'def 자신_클릭():\n    말하기(점수, 시간=None)\n',
+        '점수 = 0\n',
+    );
+    await host.run();
+    await host.wait(() => host.sprite("자동차")?.speech === "0", "initial shared score");
+    for (let index = 0; index < 3; index++) {
+        await host.input("pointerdown", { button: "왼쪽", x: -100, y: 0 });
+        await host.input("pointerup", { button: "왼쪽" });
+        await host.wait(() => host.sprite()?.speech === String(index + 1), "coin click completes");
+    }
+    await host.input("pointerdown", { button: "왼쪽", x: 150, y: 0 });
+    await host.input("pointerup", { button: "왼쪽" });
+    await host.wait(() => host.sprite("자동차")?.speech === "3", "shared score is displayed");
+    assert.equal(host.state.error, null);
+    await host.stop();
+    await host.run();
+    await host.wait(() => host.sprite("자동차")?.speech === "0", "restarted shared score");
+    await host.input("pointerdown", { button: "왼쪽", x: 150, y: 0 });
+    await host.input("pointerup", { button: "왼쪽" });
+    await host.wait(() => host.sprite("자동차")?.speech === "0", "shared score resets");
+    assert.equal(host.state.error, null);
+});
 
 test("a start loop moves in 0.1 steps until space is held", async () => {
     await host.write('def 시작():\n    while True:\n        앞으로(0.1)\n' +
@@ -27,12 +95,12 @@ test("background ignores actor functions while actor movement and shared command
         '    바라보기(90)\n    속도_변경(2)\n    크기_바꾸기(1)\n    크기_정하기(2)\n' +
         '    가시성_설정(False)\n    물리_설정("물리")\n    무게_설정(10)\n    힘_작용(90, 10)\n' +
         '    정지()\n    이름_정하기("다른 배경")\n' + commonSource.replace("def 시작():\n", "") +
-        '    기다리기(0.05)\n    방송하기("방송 완료")\n' +
+        '    기다리기(0.05)\n    객체_구하기("자동차").알리기("호출 완료")\n' +
         'def 닿는_중(목록):\n    raise RuntimeError("실행되면 안 됨")\n' +
         'def 키_누름_중(키):\n    앞으로(1)\n    오른쪽_돌기(90)\n    말하기(*키)\n';
-    await host.write(commonSource, 'def 방송_받기(신호):\n    말하기(신호)\n', background);
+    await host.write(commonSource, 'def 알리기(내용):\n    말하기(내용, 시간=None)\n', background);
     await host.run();
-    await host.wait(() => host.sprite()?.speech === "완료" && host.sprite("자동차")?.speech === "방송 완료",
+    await host.wait(() => host.sprite()?.speech === "완료" && host.sprite("자동차")?.speech === "호출 완료",
         "actor movement and shared background commands complete",);
     assert.equal(host.state.error, null);
     assert.equal(host.state.scene.message, "완료");
@@ -169,10 +237,10 @@ test("click ownership stays captured and background only receives empty-space pr
     await host.wait(() => host.text().includes("BACKGROUND"), "background click");
 },);
 
-test("same-key ordinary callbacks are suppressed while other keys and signals proceed", async () => {
+test("same-key callbacks are suppressed while other keys and sequential object calls proceed", async () => {
     await host.write('def 키_누름(누른_키):\n    print("KEY", 누른_키)\n    앞으로(60)\n' +
-        '\ndef 방송_받기(신호_이름):\n    print("SIGNAL", 신호_이름)\n    기다리기(0.3)\n', "",
-        'def 자신_클릭():\n    방송하기("A")\n    방송하기("A")\n    방송하기("B")\n',);
+        '\ndef 받기(내용):\n    print("CALL", 내용)\n    기다리기(0.3)\n', "",
+        'def 자신_클릭():\n    객체_구하기("고양이").받기("A")\n    객체_구하기("고양이").받기("A")\n    객체_구하기("고양이").받기("B")\n',);
     await host.run();
     await host.wait(() => host.sprite(), "initial scene");
     for (const key of ["오른쪽", "오른쪽", "위"]) {
@@ -181,11 +249,11 @@ test("same-key ordinary callbacks are suppressed while other keys and signals pr
     }
     await host.input("pointerdown", { button: "왼쪽", x: 350, y: 250 });
     await host.input("pointerup", { button: "왼쪽", x: 350, y: 250 });
-    await host.wait(() => host.text().includes("SIGNAL B"), "broadcast");
+    await host.wait(() => host.text().includes("CALL B"), "sequential object calls");
     await host.wait(() => Math.abs(host.sprite()?.x - 20) < 0.1, "both relative moves finish");
     assert.equal(host.text().match(/KEY 오른쪽/g)?.length, 1);
     assert.equal(host.text().match(/KEY 위/g)?.length, 1);
-    assert.equal(host.text().match(/SIGNAL A/g)?.length, 1);
+    assert.equal(host.text().match(/CALL A/g)?.length, 2);
     assert.ok(Math.abs(host.sprite().x - 20) < 0.1, "Two relative moves must add 120 units");
 },);
 

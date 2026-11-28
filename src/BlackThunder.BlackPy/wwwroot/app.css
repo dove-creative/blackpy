@@ -80,9 +80,9 @@ h2 { font-size: 20px; }
     gap: 0 4px;
     font-family: Consolas, "Malgun Gothic", monospace;
 }
-#text-input-label { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+#text-input-label, #display-input-label { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .text-input-controls { display: flex; align-items: baseline; flex: 1 1 120px; min-width: 0; gap: 6px; }
-#text-input-answer {
+#text-input-answer, #display-input-answer {
     flex: 1;
     min-width: 0;
     width: 100%;

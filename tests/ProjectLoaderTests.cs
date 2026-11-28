@@ -11,6 +11,20 @@ namespace BlackThunder.BlackPy.Tests
     public class ProjectLoaderTests
     {
         [Test]
+        public void LabelVisibilityDefaultsOnAndSurvivesProjectSerialization()
+        {
+            using var project = new ProjectTestDirectory();
+            Assert.That(ProjectLoader.ReadSnapshot(project.Path).Project.ShowLabels, Is.True);
+            project.Definition.ShowLabels = false;
+            project.SaveDefinition();
+            var snapshot = ProjectLoader.ReadSnapshot(project.Path);
+            Assert.That(snapshot.Project.ShowLabels, Is.False);
+            Assert.That(snapshot.Project.Actors[0].Name, Is.EqualTo("고양이"));
+            using var json = JsonDocument.Parse(JsonSerializer.Serialize(snapshot.Project, StateMessage.JsonOptions));
+            Assert.That(json.RootElement.GetProperty("showLabels").GetBoolean(), Is.False);
+        }
+
+        [Test]
         public void SupportFolderConfigurationKeepsStudentSourcesAtProjectRoot()
         {
             using var project = new ProjectTestDirectory();

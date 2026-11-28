@@ -1,6 +1,6 @@
 # BlackPy 실행 예제
 
-캐릭터별 Python 파일로 이동·입력·방송·접촉·물리를 직접 확인하는 작은 프로젝트 모음이다.
+캐릭터별 Python 파일로 이동·입력·객체 함수 호출·접촉·물리를 직접 확인하는 작은 프로젝트 모음이다.
 
 ## 실행
 
@@ -38,9 +38,10 @@ python ./samples/01-movement/_blackpy/시작.pyw --console
 | [01-movement](01-movement/_blackpy/README.md) | 시작하면 네모로 걷기: 순차 이동·회전·반복·속도 배율이다. |
 | [02-keyboard](02-keyboard/_blackpy/README.md) | 방향키로 움직이고 스페이스로 초기화: 키 시작·유지·종료와 속도 이동이다. |
 | [03-click](03-click/_blackpy/README.md) | 공 누르고 놓기: 클릭 시작·유지·종료, 크기·회전·배경 클릭이다. |
-| [04-broadcast](04-broadcast/_blackpy/README.md) | 빈 곳 클릭 또는 스페이스: 방송 수신과 여러 캐릭터의 동시 반응이다. |
+| [04-object-calls](04-object-calls/_blackpy/README.md) | 빈 곳 클릭 또는 스페이스: 객체별 함수를 차례로 호출하고 결과를 받는다. |
 | [05-contact](05-contact/_blackpy/README.md) | 고양이를 별로 이동: 닿는 순간·닿는 동안·떨어지는 순간이다. |
 | [06-physics](06-physics/_blackpy/README.md) | 공을 발판에 떨어뜨리고 방향키·스페이스로 밀기: 중력·충격·무게·정지와 경계 충돌이다. |
+| [07-display](07-display/_blackpy/README.md) | 시작 전 점수판을 눌러 `동전_수`에 연결하고 두 동전을 클릭: 공유 전역변수와 자동 표시이다. BlackPy 0.1.15 이상이 필요하다. |
 
 06-physics는 이전 로컬 0.1.1 wheel과 구분되는 0.1.3 실행부을 사용한다. 물리 엔진은 설치 패키지에 포함되어 있으며 Python 물리 패키지를 따로 설치하지 않는다.
 

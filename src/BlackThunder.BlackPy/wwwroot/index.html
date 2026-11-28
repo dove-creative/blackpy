@@ -7,6 +7,7 @@
     <title>BlackPy · 나의 코드 무대</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="app.css">
+    <script src="display.js" defer></script>
     <script src="scene.js" defer></script>
     <script src="input.js" defer></script>
     <script src="text-input.js" defer></script>
@@ -55,6 +56,18 @@
                             <code>print()</code>로 쓴 말과 오류가 여기에 나와요.
                         </p>
                         <div id="output-lines"></div>
+                        <form id="display-input-form" class="text-input-form" aria-label="디스플레이 변수 연결" hidden>
+                            <label id="display-input-label" for="display-input-answer"></label>
+                            <div class="text-input-controls">
+                                <input id="display-input-answer" type="text" maxlength="80" autocomplete="off"
+                                       autocapitalize="off" spellcheck="false" aria-describedby="display-input-status">
+                                <button id="display-input-submit" class="console-submit" type="submit"
+                                        aria-label="변수 연결">↵</button>
+                                <button id="display-input-cancel" class="console-submit" type="button">취소</button>
+                            </div>
+                            <p id="display-input-status" class="text-input-status" role="status" aria-live="polite"></p>
+                        </form>
+                        <p id="display-feedback" class="text-input-status" role="status" aria-live="polite"></p>
                         <form id="text-input-form" class="text-input-form" aria-label="Python 입력" hidden>
                             <label id="text-input-label" for="text-input-answer"></label>
                             <div class="text-input-controls">

@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import time
 import tokenize
+import unicodedata
 from urllib.parse import urlencode, urlsplit
 
 from blackpy import EXECUTION, MOVEMENT, ScriptObject, number
@@ -22,7 +23,6 @@ EVENT_ARGUMENTS = {
     "시작": 0,
     "키_누름": 1, "키_누름_중": 1, "키_누름_끝": 1,
     "자신_클릭": 0, "자신_클릭_중": 0, "자신_클릭_끝": 0,
-    "방송_받기": 1,
     "닿았을_때": 1, "닿는_중": 1, "닿는_중_종료": 1,
 }
 CONTINUOUS_EVENTS = {"키_누름_중", "자신_클릭_중", "닿는_중"}
@@ -33,6 +33,62 @@ RENAMED_EVENTS = {"키_클릭": "키_누름", "키_클릭_중": "키_누름_중"
 async def invoke(function, *args, **kwargs):
     result = function(*args, **kwargs)
     return await result if inspect.isawaitable(result) else result
+
+
+class SharedVariables(dict):
+    def __missing__(self, name):
+        raise NameError(f"name '{name}' is not defined")
+
+    def __delitem__(self, name):
+        if name not in self:
+            self.__missing__(name)
+        super().__delitem__(name)
+
+    def assign(self, name, value):
+        self[name] = value
+        return value
+
+
+class ScriptNamespace(dict):
+    """Keep commands and functions local, with live stage-variable lookup."""
+
+    def __init__(self, shared_variables, values):
+        super().__init__(values)
+        self.shared_variables = shared_variables
+
+    def __missing__(self, name):
+        if name in self.shared_variables:
+            return self.shared_variables[name]
+        raise KeyError(name)
+
+
+class ObjectReference:
+    """Expose functions defined in one object's script without exposing its runtime."""
+
+    __slots__ = ("_object",)
+
+    def __init__(self, obj):
+        self._object = obj
+
+    def __getattr__(self, name):
+        obj = self._object
+        function = obj.namespace.get(name)
+        if (name.startswith("_") or not inspect.isfunction(function)
+                or function.__globals__ is not obj.namespace):
+            raise AttributeError(f"'{obj.name}' 객체에 '{name}' 함수가 없어요.")
+
+        async def call(*args, **kwargs):
+            # A target action uses ordinary movement/speech, even when its caller
+            # is a held event. Never apply the caller's movement to the target.
+            context = EXECUTION.set((False, 0.0))
+            movement_token = MOVEMENT.set(None)
+            try:
+                return await invoke(function, *args, **kwargs)
+            finally:
+                MOVEMENT.reset(movement_token)
+                EXECUTION.reset(context)
+
+        return call
 
 
 class ProjectRuntime:
@@ -46,6 +102,7 @@ class ProjectRuntime:
         self.background_kind = "plain"
         self.message = ""
         self.objects = []
+        self.shared_variables = SharedVariables()
         specifications = [self.project["background"], *self.project.get("actors", [])]
 
         for index, specification in enumerate(specifications):
@@ -55,6 +112,7 @@ class ProjectRuntime:
         self.background = self.objects[0]
         self.actors = self.objects[1:]
         self.by_name = {obj.name: obj for obj in self.objects}
+        self.object_references = {obj.id: ObjectReference(obj) for obj in self.objects}
         if len(self.by_name) != len(self.objects):
             raise ValueError("캐릭터 이름은 서로 다르게 정해 주세요.")
         self.held_keys = set()
@@ -70,7 +128,6 @@ class ProjectRuntime:
         self.error = None
         self.stopped = False
         self.initialized = False
-        self.pending_signals = []
         self.input_requests = []
         self.input_sequence = 0
         self.physics_step = None
@@ -110,15 +167,16 @@ class ProjectRuntime:
             prepared.append((obj, filename, source, compile_script(source, filename)))
 
         for obj, filename, source, code in prepared:
-            namespace = {
+            namespace = ScriptNamespace(self.shared_variables, {
                 "__name__": f"__blackpy_script_{obj.id}__",
                 "__file__": filename, "__package__": None,
                 "__blackpy_actor__": obj,
                 "__blackpy_call__": invoke,
                 "__blackpy_checkpoint__": self.checkpoint,
+                "__blackpy_globals__": self.shared_variables,
                 "input": partial(self.read_input, obj),
                 **obj.commands(),
-            }
+            })
             obj.namespace = namespace
             obj.filename = filename
             context = EXECUTION.set((False, 0.0))
@@ -162,9 +220,6 @@ class ProjectRuntime:
                 setattr(type(obj), name, staticmethod(function))
 
         self.initialized = True
-        for signal in self.pending_signals:
-            self.broadcast(signal)
-        self.pending_signals.clear()
 
     def start(self):
         for obj in self.objects:
@@ -203,7 +258,7 @@ class ProjectRuntime:
         if function is None or self.stopped:
             return None
         continuous = event in CONTINUOUS_EVENTS
-        detail = args[0] if event in ("키_누름", "키_누름_끝", "방송_받기") else None
+        detail = args[0] if event in ("키_누름", "키_누름_끝") else None
         guard = (obj.id, event, detail)
         guarded = not continuous and not queued
         if guarded and guard in self.guards:
@@ -377,18 +432,12 @@ class ProjectRuntime:
             print(request["message"] + text, flush=True)
             request["future"].set_result(text)
 
-    def broadcast(self, signal):
-        if not isinstance(signal, str) or not signal or len(signal) > 80:
-            raise ValueError("방송 신호에는 1~80자의 이름을 넣어 주세요.")
-        if not self.initialized:
-            self.pending_signals.append(signal)
-            return
-        for obj in self.objects:
-            self.dispatch(obj, "방송_받기", (signal,))
+    def object_of(self, name):
+        return self.object_references[self.target(name).id]
 
     def target(self, name):
         if not isinstance(name, str) or name not in self.by_name:
-            raise ValueError(f"'{name}' 이름의 캐릭터가 없어요.")
+            raise ValueError(f"'{name}' 이름의 객체가 없어요.")
         return self.by_name[name]
 
     def rename(self, actor, name):
@@ -588,11 +637,29 @@ class ProjectRuntime:
             self.dispatch(self.pointer_target, "자신_클릭_중", delta_time=delta_time)
         await asyncio.sleep(0)
 
+    def display_snapshot(self, definition):
+        variable = definition.get("variable", "")
+        key = unicodedata.normalize("NFKC", variable)
+        text = "—"
+        if key and key in self.shared_variables:
+            try:
+                text = str(self.shared_variables[key])
+            except Exception:
+                text = "표시할 수 없음"
+        if len(text) > 200:
+            text = text[:199] + "…"
+        return {
+            "name": definition["name"], "variable": variable, "text": text,
+            "x": definition.get("x", 0), "y": definition.get("y", 0),
+            "scale": definition.get("scale", 1),
+        }
+
     def snapshot(self):
         prompt = self.input_requests[0] if self.input_requests else None
         return {
             "active": True, "background": self.background_kind,
             "sprites": [actor.snapshot() for actor in self.actors],
+            "displays": [self.display_snapshot(display) for display in self.project.get("displays", [])],
             "message": self.message,
             "textInput": None if prompt is None else {
                 key: prompt[key] for key in ("id", "message", "actor")

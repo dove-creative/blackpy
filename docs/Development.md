@@ -34,7 +34,7 @@ dotnet build src/BlackThunder.BlackPy/BlackThunder.BlackPy.csproj -c Release
 | `.github/workflows/publish.yml` | `main`의 코드·빌드 변경 검증과 수동 PyPI Trusted Publishing을 실행하는 워크플로이다. |
 | `distribution` | Python 지원 모듈과 BAT 원본이다. |
 | `distribution/project` | 배경·캐릭터별 새 기본 프로젝트와 편집기 안내 파일의 원본이다. |
-| `samples` | 이동·키 입력·클릭·방송·접촉·물리를 직접 실행하는 독립 프로젝트이다. |
+| `samples` | 이동·키 입력·클릭·객체 함수 호출·접촉·물리를 직접 실행하는 독립 프로젝트이다. |
 | `scripts` | 배포와 패키지 준비 도구이다. |
 | `tests` | 프로젝트·장면·입력·Python·웹·통합·배포 검증이다. |
 | `packages` | 고정한 로컬 NuGet 패키지와 라이선스·출처 기록이다. |
@@ -57,7 +57,7 @@ Windows x64에서 다음 명령을 실행한다. Python 빌드 도구는 `.cache
 
 ```powershell
 ./scripts/Build-Wheel.ps1
-python -m pip install ./artifacts/wheels/blackpy-0.1.13-py3-none-win_amd64.whl
+python -m pip install ./artifacts/wheels/blackpy-0.1.15-py3-none-win_amd64.whl
 ```
 
 `Build-Wheel.ps1`은 Python 빌드 도구를 준비한 뒤 wheel을 생성하고 Twine으로 메타데이터를 검사한다. `wheel_hook.py`는 새 임시 경로에 `Publish.ps1`을 실행하고 그 결과의 공통 실행부와 `distribution/project`의 원본을 묶는다. 기존 `artifacts/blackpy/실습`이나 학생 프로젝트의 수정 내용은 wheel의 원본으로 사용하지 않는다.

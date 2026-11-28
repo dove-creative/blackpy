@@ -159,7 +159,7 @@ class TextInputTests(unittest.IsolatedAsyncioTestCase):
 
             async def publish(self, scene):
                 await super().publish(scene)
-                if runtime.actors[0].namespace.get("기록") == ["시작", "키"]:
+                if runtime.shared_variables.get("기록") == ["시작", "키"]:
                     runtime.stopped = True
 
         await asyncio.wait_for(runtime.run(DelayedTransport([])), timeout=2)

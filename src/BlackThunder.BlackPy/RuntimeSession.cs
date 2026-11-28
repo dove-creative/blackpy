@@ -69,6 +69,16 @@ namespace BlackThunder.BlackPy
 
         public Task<StateMessage> GetStateAsync() => DispatchAsync(Snapshot);
         public Task<StateMessage> RunAsync() => DispatchAsync(StartRun);
+        public Task<ProjectDefinition> BindDisplayAsync(DisplayBindingRequest request) => DispatchAsync(() =>
+        {
+            if (_process != null || _stopping || _restartWaiter != null)
+                throw new BlackPyException(409, "중지한 뒤 디스플레이의 변수를 연결해 주세요.");
+            var project = ProjectLoader.BindDisplay(_projectDirectory, request);
+            _source = null;
+            _scene.SetDisplays(project.Displays);
+            _dirty = true;
+            return project;
+        });
         public Task<ProjectDefinition> GetProjectAsync() => DispatchAsync(() =>
             _source?.Project ?? ProjectLoader.ReadDefinition(_projectDirectory));
         public Task<ImageResource> GetImageAsync(string image) => DispatchAsync(() =>

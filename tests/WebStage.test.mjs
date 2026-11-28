@@ -5,7 +5,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const root = new URL("../src/BlackThunder.BlackPy/wwwroot/", import.meta.url);
-const scripts = await Promise.all(["input.js", "text-input.js", "palette.js", "app.js"]
+const scripts = await Promise.all(["input.js", "text-input.js", "display.js", "palette.js", "app.js"]
     .map(name => readFile(new URL(name, root), "utf8")),);
 const project = {
     background: { file: "배경.py", kind: "plain" },
@@ -30,7 +30,7 @@ function eventTarget(extra = {}) {
     };
 }
 
-function browser({ clipboardError } = {}) {
+function browser({ clipboardError, definition = project, displayError = false } = {}) {
     const elements = new Map();
     const requests = [];
     const copied = [];
@@ -48,6 +48,7 @@ function browser({ clipboardError } = {}) {
                 appendChild(child) { this.children.push(child); },
                 append(...children) { this.children.push(...children); },
                 focus() { document.activeElement = this; this.emit("focus"); },
+                select() {},
                 setPointerCapture(id) { captured.add(id); },
                 hasPointerCapture(id) { return captured.has(id); },
                 releasePointerCapture(id) { captured.delete(id); this.emit("lostpointercapture"); },
@@ -82,7 +83,14 @@ function browser({ clipboardError } = {}) {
         }),
         async fetch(url, options) {
             requests.push({ url, body: options.body ? JSON.parse(options.body) : null });
-            return { ok: true, status: 200, json: async () => url === "/api/project" ? project : ({}) };
+            if (url === "/api/display") {
+                if (displayError) return { ok: false, status: 400, json: async () => ({ error: "변수 이름만 입력해 주세요." }) };
+                const packet = JSON.parse(options.body);
+                return { ok: true, status: 200, json: async () => ({ ...definition,
+                    displays: definition.displays.map(display => ({ ...display, variable: packet.variable.trim() })),
+                }) };
+            }
+            return { ok: true, status: 200, json: async () => url === "/api/project" ? definition : ({}) };
         },
     },);
     for (const source of scripts) vm.runInContext(source, context);
@@ -93,6 +101,51 @@ function browser({ clipboardError } = {}) {
     const inputs = () => requests.filter(request => request.url === "/api/input").map(request => request.body);
     return { document, window, element, requests, state, inputs, copied, captured };
 }
+
+test("idle display opens the console, saves a name, and closes on run or cancel", async () => {
+    const app = browser({ definition: { ...project, displays: [{ name: "점수판", variable: "", y: 200 }] } });
+    app.state(null, "ready");
+    await setImmediate();
+    const click = () => app.element("stage").emit("pointerdown", { button: 0, clientX: 211, clientY: 71 });
+    click();
+    const form = app.element("display-input-form");
+    const answer = app.element("display-input-answer");
+    assert.equal(form.hidden, false);
+    assert.equal(app.document.activeElement, answer);
+    answer.value = "동전_수";
+    app.state(null, "ready");
+    assert.equal(answer.value, "동전_수");
+    form.emit("submit");
+    await setImmediate();
+    assert.deepEqual(app.requests.find(request => request.url === "/api/display").body,
+        { name: "점수판", variable: "동전_수" });
+    assert.equal(form.hidden, true);
+    assert.match(app.element("display-feedback").textContent, /동전_수 연결 완료/);
+    click();
+    assert.equal(answer.value, "동전_수");
+    app.element("display-input-cancel").emit("click");
+    assert.equal(form.hidden, true);
+    click();
+    app.state("run", "running");
+    assert.equal(form.hidden, true);
+    click();
+    assert.equal(form.hidden, true);
+});
+
+test("a rejected display name stays in the console for correction", async () => {
+    const app = browser({ definition: { ...project, displays: [{ name: "점수판", variable: "점수", y: 200 }] },
+        displayError: true });
+    app.state(null, "ready");
+    await setImmediate();
+    app.element("stage").emit("pointerdown", { button: 0, clientX: 211, clientY: 71 });
+    app.element("display-input-answer").value = "점수 + 1";
+    app.element("display-input-form").emit("submit");
+    await setImmediate();
+    assert.equal(app.element("display-input-form").hidden, false);
+    assert.equal(app.element("display-input-answer").value, "점수 + 1");
+    assert.equal(app.element("display-input-submit").disabled, false);
+    assert.match(app.element("display-input-status").textContent, /변수 이름만/);
+});
 
 test("stage keys require focus; repeat, browser shortcuts and Tab are not sent", async () => {
     const app = browser();

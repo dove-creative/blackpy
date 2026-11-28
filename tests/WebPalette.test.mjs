@@ -18,7 +18,11 @@ test("one common palette exposes all commands and marks actor-only cards", () =>
     const codes = cards.flatMap(card => card.rows.map(row => row.code));
     assert.ok(codes.includes("def 자신_클릭():\n    pass"));
     assert.ok(codes.includes("def 키_누름_끝(누른_키):\n    pass"));
-    assert.ok(codes.includes("def 방송_받기(신호_이름):\n    pass"));
+    assert.ok(codes.every(code => !code.includes("방송")));
+    const lookup = availableCards("sensing").find(card => card.title === "객체 구하기");
+    assert.equal(lookup.rows[0].code, '객체_구하기("고양이")');
+    assert.equal(lookup.rows[0].kind, "value");
+    assert.match(lookup.note, /깨지기/);
     assert.ok(codes.includes("def 닿는_중_종료(이름_리스트):\n    pass"));
     assert.ok(["위치", "방향", "속도", "크기", "가시성", "속도_변경(1)", "가시성_설정(True)",
         "크기_정하기(1)", "크기_바꾸기(2)",].every(code => codes.includes(code)),);

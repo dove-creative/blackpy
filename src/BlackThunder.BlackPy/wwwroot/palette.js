@@ -23,8 +23,6 @@
             event("키_누름", "누른_키"), event("키_누름_중", "누른_키들"), event("키_누름_끝", "누른_키"),), },
         { category: "events", title: "자신 클릭 · 시작 / 누르는 중 / 끝", rows: rows(
             event("자신_클릭"), event("자신_클릭_중"), event("자신_클릭_끝"),), },
-        { category: "events", title: "방송하기", sectionStart: true, rows: rows('방송하기("신호")') },
-        { category: "events", title: "방송을 받았을 때", rows: rows(event("방송_받기", "신호_이름")) },
         { category: "motion", title: "속도 배율 · 읽기 / 더하기", actor: true,
             rows: rows(value("속도"), "속도_변경(1)"), },
         { category: "motion", title: "위치", actor: true, sectionStart: true, rows: rows(value("위치")) },
@@ -61,6 +59,8 @@
         { category: "math", title: "무작위 정수 · 양끝 포함", rows: rows(value("랜덤(0, 10)")) },
         { category: "math", title: "가로·세로 방향을 각도로", rows: rows(value("각도로(10, 10)")) },
         { category: "sensing", title: "이름", rows: rows(value("이름")) },
+        { category: "sensing", title: "객체 구하기", rows: rows(value('객체_구하기("고양이")')),
+            note: '객체_구하기("블록").깨지기()처럼 그 객체의 파일에 만든 함수를 불러요.', },
         { category: "sensing", title: "지금 누르고 있는 키", rows: rows(value("누른_키들_가져오기()")) },
         { category: "sensing", title: "이름 정하기", actor: true, rows: rows('이름_정하기("새이름")') },
         { category: "sensing", title: "다른 캐릭터의 위치", rows: rows(value('위치_구하기("고양이")')) },
@@ -95,6 +95,9 @@
             active: true,
             background: project?.background?.kind || "plain",
             message: "",
+            displays: (project?.displays || []).map(display => ({
+                ...display, x: display.x ?? 0, y: display.y ?? 0, scale: display.scale ?? 1, text: "—",
+            })),
             sprites: (project?.actors || []).map((actor, index) => {
                 const size = sizes[actor.kind] || sizes.cat;
                 return {

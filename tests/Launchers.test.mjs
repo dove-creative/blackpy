@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { TestHost, executable, distributionRoot, toolRoot, wheelPath } from "./TestHost.mjs";
 
-const names = ["01-movement", "02-keyboard", "03-click", "04-broadcast", "05-contact", "06-physics"];
+const names = ["01-movement", "02-keyboard", "03-click", "04-object-calls", "05-contact", "06-physics", "07-display"];
 const basePython = process.env.PYTHON_EXE || "python";
 const environment = { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" };
 const invoke = (executable, args, options = {}) => execFileSync(executable, args, {

@@ -14,8 +14,14 @@ namespace BlackThunder.BlackPy
         public bool Active { get; set; }
         public string Background { get; set; } = "plain";
         public SpriteState[] Sprites { get; set; } = Array.Empty<SpriteState>();
+        public DisplayState[] Displays { get; set; } = Array.Empty<DisplayState>();
         public string Message { get; set; } = "";
         public TextInputPrompt? TextInput { get; set; }
+    }
+
+    public class DisplayState : DisplayDefinition
+    {
+        public string Text { get; set; } = "—";
     }
 
     public class TextInputPrompt
@@ -88,6 +94,7 @@ namespace BlackThunder.BlackPy
                 Active = State.Active,
                 Background = State.Background,
                 Sprites = State.Sprites,
+                Displays = State.Displays,
                 Message = State.Message,
             };
         }
@@ -96,6 +103,29 @@ namespace BlackThunder.BlackPy
         {
             _runId = null;
             ClearTextInput();
+        }
+
+        public void SetDisplays(DisplayDefinition[] definitions)
+        {
+            var displays = new DisplayState[definitions.Length];
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                var definition = definitions[i];
+                var previous = Array.Find(State.Displays, display => display.Name == definition.Name
+                    && display.Variable == definition.Variable);
+                displays[i] = new DisplayState
+                {
+                    Name = definition.Name, Variable = definition.Variable,
+                    X = definition.X, Y = definition.Y, Scale = definition.Scale,
+                    Text = previous?.Text ?? "—",
+                };
+            }
+
+            State = new SceneState
+            {
+                Active = State.Active, Background = State.Background, Sprites = State.Sprites,
+                Message = State.Message, TextInput = State.TextInput, Displays = displays,
+            };
         }
 
         // Frame validation
@@ -107,6 +137,23 @@ namespace BlackThunder.BlackPy
                 throw Invalid("장면 안내는 200자까지 사용할 수 있습니다.");
             if (scene.Sprites == null || scene.Sprites.Length > 64)
                 throw Invalid("한 장면에는 캐릭터를 64개까지 놓을 수 있습니다.");
+            if (scene.Displays == null || scene.Displays.Length > 64)
+                throw Invalid("한 장면에는 디스플레이를 64개까지 놓을 수 있습니다.");
+
+            var displays = new DisplayState[scene.Displays.Length];
+            var displayNames = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < displays.Length; i++)
+            {
+                var display = scene.Displays[i];
+                ProjectLoader.ValidateDisplay(display);
+                if (!displayNames.Add(display.Name) || !ValidDisplayText(display.Text))
+                    throw Invalid("디스플레이 이름은 서로 달라야 하며 표시 값은 200자까지 사용할 수 있습니다.");
+                displays[i] = new DisplayState
+                {
+                    Name = display.Name, Variable = display.Variable, Text = display.Text,
+                    X = display.X, Y = display.Y, Scale = display.Scale,
+                };
+            }
 
             var prompt = scene.TextInput;
             if (prompt != null && (prompt.Id <= 0 || prompt.Message == null || prompt.Message.Length > 2000
@@ -158,6 +205,7 @@ namespace BlackThunder.BlackPy
                 Active = true,
                 Background = scene.Background,
                 Sprites = sprites,
+                Displays = displays,
                 Message = scene.Message,
                 TextInput = prompt == null ? null : new TextInputPrompt
                 {
@@ -166,6 +214,15 @@ namespace BlackThunder.BlackPy
                     Actor = prompt.Actor,
                 },
             };
+        }
+
+        private static bool ValidDisplayText(string text)
+        {
+            if (text == null) return false;
+            var length = 0;
+            foreach (var rune in text.EnumerateRunes())
+                if (++length > 200) return false;
+            return true;
         }
 
         private static bool ValidColor(string color)

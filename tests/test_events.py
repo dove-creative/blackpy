@@ -17,14 +17,16 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_held_keys_arrive_once_per_tick_as_independent_lists(self):
         record = '기록 = []\ndef 키_누름_중(키들):\n    기록.append(키들.copy())\n'
-        runtime = await self.prepare(record, background_source=record + '    키들.clear()\n')
+        runtime = await self.prepare(record, background_source=(
+            record.replace("기록", "배경_기록") + '    키들.clear()\n'
+        ))
         await tick(runtime, events=[{"kind": "keydown", "key": "d"}, {"kind": "keydown", "key": "a"}])
         await tick(runtime)
         await tick(runtime, events=[{"kind": "keyup", "key": "a"}])
         await tick(runtime, events=[{"kind": "reset"}])
 
-        for obj in runtime.objects:
-            self.assertEqual(obj.namespace["기록"], [["a", "d"], ["a", "d"], ["d"]])
+        for name in ("기록", "배경_기록"):
+            self.assertEqual(runtime.shared_variables[name], [["a", "d"], ["a", "d"], ["d"]])
 
     async def test_pressed_key_queries_return_independent_current_snapshots(self):
         runtime = await self.prepare()
@@ -42,7 +44,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(read_keys(), [])
         self.assertEqual(previous, ["a", "스페이스"])
 
-    async def test_file_states_and_globals_are_isolated(self):
+    async def test_file_states_are_isolated_and_globals_are_shared(self):
         runtime = await self.prepare(
             '점수 = 1\ndef 시작():\n    위치 = (20, 30)\n    크기 += 1\n    속도 *= 2\n',
             other_source='점수 = 9\ndef 시작():\n    위치 = (300, 40)\n',
@@ -54,7 +56,7 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cat.scale, 2)
         self.assertEqual(cat.speed, 2)
         self.assertEqual(car.position, (300, 40))
-        self.assertEqual(cat.namespace["점수"], 1)
+        self.assertEqual(cat.namespace["점수"], 9)
         self.assertEqual(car.namespace["점수"], 9)
         self.assertIsNot(type(cat), type(car))
 
@@ -142,43 +144,23 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
         await tick(runtime, 1)
         self.assertAlmostEqual(runtime.actors[0].position[0], 0)
 
-    async def test_broadcast_starts_ordinary_context(self):
-        runtime = await self.prepare(
-            'def 키_누름_중(키):\n    방송하기("가자")\n'
-            'def 방송_받기(신호):\n    앞으로(100)\n',
-        )
-        await tick(runtime, 0.1, [{"kind": "keydown", "key": "오른쪽"}])
-        self.assertAlmostEqual(runtime.actors[0].position[0], 0)
-        self.assertEqual(len(runtime.motions), 1)
-        await tick(runtime, 0.5, [{"kind": "keyup", "key": "오른쪽"}])
-        self.assertAlmostEqual(runtime.actors[0].position[0], 100)
-
-    async def test_broadcast_signal_guard_and_background_delivery(self):
-        source = ('기록 = []\ndef 방송_받기(신호):\n'
-                  '    기록.append(신호)\n    기다리기(1)\n')
-        runtime = await self.prepare(source, source)
-        runtime.broadcast("하나")
-        runtime.broadcast("하나")
-        runtime.broadcast("둘")
-        await settle()
-        for obj in runtime.objects:
-            self.assertEqual(obj.namespace["기록"], ["하나", "둘"])
-
     async def test_click_captures_topmost_actor_until_release(self):
         source = ('기록 = []\ndef 자신_클릭():\n    기록.append("시작")\n'
                   'def 자신_클릭_중():\n    기록.append("중")\n'
                   'def 자신_클릭_끝():\n    기록.append("끝")\n')
-        runtime = await self.prepare(source, source, source)
+        runtime = await self.prepare(
+            source, source.replace("기록", "배경_기록"), source.replace("기록", "자동차_기록"),
+        )
         runtime.actors[1].position = (0, 0)
         await tick(runtime, 0.1, [{"kind": "pointerdown", "x": 0, "y": 0}])
         runtime.actors[1].position = (250, 0)
         await tick(runtime, 0.1, [{"kind": "pointermove", "x": -300, "y": 200}])
         await tick(runtime, 0.1, [{"kind": "pointerup"}])
-        self.assertEqual(runtime.actors[1].namespace["기록"], ["시작", "중", "중", "끝"])
-        self.assertEqual(runtime.background.namespace["기록"], [])
+        self.assertEqual(runtime.shared_variables["자동차_기록"], ["시작", "중", "중", "끝"])
+        self.assertEqual(runtime.shared_variables["배경_기록"], [])
         self.assertEqual(runtime.actors[0].namespace["기록"], [])
         await tick(runtime, 0.1, [{"kind": "pointerdown", "x": -300, "y": 200}])
-        self.assertEqual(runtime.background.namespace["기록"], ["시작", "중"])
+        self.assertEqual(runtime.shared_variables["배경_기록"], ["시작", "중"])
 
     async def test_reset_emits_releases_once(self):
         runtime = await self.prepare(
@@ -303,14 +285,14 @@ class ScriptTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(runtime.error)
                 self.assertEqual(runtime.message, "계속 실행")
 
-    async def test_background_skips_movement_but_keeps_waits_and_broadcasts(self):
+    async def test_background_skips_movement_but_keeps_waits_and_object_calls(self):
         runtime = make_runtime(
-            actor_source='def 방송_받기(신호):\n    말하기(신호)\n',
+            actor_source='def 알리기(내용):\n    말하기(내용, 시간=None)\n',
             background_source=(
                 '앞으로(100)\n오른쪽_돌기(90)\n'
                 'def 시작():\n    앞으로(100)\n    말하기("기다려요")\n'
                 '    기다리기(0.1)\n    크기_정하기(2)\n'
-                '    방송하기("끝")\n    말하기("완료")\n'
+                '    객체_구하기("고양이").알리기("끝")\n    말하기("완료")\n'
                 'def 키_누름_중(키):\n    앞으로(200)\n'
                 '    왼쪽_돌기(90)\n    말하기(*키)\n'
             ),

@@ -354,6 +354,7 @@ namespace BlackThunder.BlackPy
                 Background = _appearance.Background,
                 Message = _appearance.Message,
                 TextInput = _appearance.TextInput,
+                Displays = _appearance.Displays,
                 Sprites = _appearance.Sprites.Select(sprite =>
                 {
                     var actor = _actors[sprite.Id];

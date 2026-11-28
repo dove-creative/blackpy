@@ -24,6 +24,7 @@
     const outputLines = document.getElementById("output-lines");
     const outputPlaceholder = document.getElementById("output-placeholder");
     const consoleArea = document.querySelector(".console-area");
+    const displayFeedback = document.getElementById("display-feedback");
     const statusLabels = {
         ready: "시작할 준비가 됐어요",
         running: "코드를 실행하고 있어요",
@@ -54,6 +55,7 @@
     let projectRequest = 0;
     let outputCount = 0;
     let pointerPosition = { x: 0, y: 0 };
+    let displayPrompt = 0;
     const heldKeys = new Map();
     const inputQueue = new window.BlackPyInput.InputQueue(sendInput, message => {
         heldKeys.clear();
@@ -72,6 +74,59 @@
         outputPlaceholder.hidden = true;
         consoleArea.scrollTop = consoleArea.scrollHeight;
     },);
+
+    const displayInput = new window.BlackPyTextInput.TextInput({
+        form: document.getElementById("display-input-form"),
+        label: document.getElementById("display-input-label"),
+        answer: document.getElementById("display-input-answer"),
+        submit: document.getElementById("display-input-submit"),
+        status: document.getElementById("display-input-status"),
+    }, sendDisplayBinding, () => {
+        outputPlaceholder.hidden = true;
+        consoleArea.scrollTop = consoleArea.scrollHeight;
+    });
+
+    function visibleScene() {
+        const preview = window.BlackPyPalette.previewScene(project);
+        if (state.scene?.active) return state.scene;
+        return { ...preview, displays: state.scene?.displays?.length ? state.scene.displays : preview.displays };
+    }
+
+    function openDisplay(display) {
+        displayFeedback.textContent = "";
+        displayInput.update(display.name, {
+            id: ++displayPrompt, message: `${display.name}에 연결할 변수 이름 (비우면 연결 해제):`,
+        });
+        displayInput.elements.answer.value = display.variable;
+        displayInput.elements.answer.select();
+    }
+
+    async function sendDisplayBinding(packet, signal) {
+        requestPending = true;
+        updateControls();
+        try {
+            const response = await fetch("/api/display", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Playground-Token": token },
+                body: JSON.stringify({ name: packet.runId, variable: packet.text }),
+                signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
+            });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error || "변수를 연결하지 못했어요. 다시 눌러 주세요.");
+            if (signal.aborted) return;
+            projectRequest++;
+            project = body;
+            displayInput.update(null, null);
+            const variable = body.displays.find(display => display.name === packet.runId)?.variable;
+            displayFeedback.textContent = variable
+                ? `${packet.runId} → ${variable} 연결 완료. 시작하면 값을 보여 줘요.`
+                : `${packet.runId}의 변수 연결을 해제했어요.`;
+            requestDraw();
+        } finally {
+            requestPending = false;
+            updateControls();
+        }
+    }
 
     function updateLookupName() {
         const name = state.scene?.sprites[0]?.label || project?.actors[0]?.name || "고양이";
@@ -96,6 +151,7 @@
             project = body;
             updateLookupName();
             updatePosition();
+            updateControls();
             requestDraw();
             void loadImages(body, request);
         } catch (error) {
@@ -299,7 +355,10 @@
         updateInput();
         const answerRunId = connected && receivedSnapshot && state.status === "running" ? state.runId : null;
         textInput.update(answerRunId, state.scene?.textInput, requestPending);
-        outputPlaceholder.hidden = outputCount > 0 || textInput.current !== null;
+        if (!connected || !receivedSnapshot || state.status === "running") displayInput.update(null, null);
+        displayInput.disabled = requestPending;
+        displayInput.renderControls();
+        outputPlaceholder.hidden = outputCount > 0 || textInput.current !== null || displayInput.current !== null;
     }
 
     function updateInput() {
@@ -319,7 +378,9 @@
         inputHint.textContent = runId
             ? (focused ? "무대에 입력하고 있어요. 마우스나 키보드로 놀아요."
                 : "무대를 누른 뒤 마우스나 키보드로 놀아요.")
-            : "시작하면 바로 키보드로 놀 수 있어요. 코드를 바꾼 뒤 다시 시작해요.";
+            : (visibleScene().displays?.length
+                ? "디스플레이를 누르면 콘솔에서 표시할 변수를 연결할 수 있어요."
+                : "시작하면 바로 키보드로 놀 수 있어요. 코드를 바꾼 뒤 다시 시작해요.");
     }
 
     async function sendInput(packet, signal) {
@@ -376,6 +437,16 @@
 
     function pressPointer(event) {
         canvas.focus({ preventScroll: true });
+        if (!inputRunId && event.button === 0 && connected && receivedSnapshot && !requestPending
+            && state.status !== "running") {
+            const point = pointerPoint(event);
+            const display = point && window.BlackPyDisplay.hit(visibleScene().displays || [], point);
+            if (display) {
+                event.preventDefault();
+                openDisplay(display);
+            }
+            return;
+        }
         if (!inputRunId || event.button !== 0 || capturedPointer !== null) return;
         const point = pointerPoint(event);
         if (!point) return;
@@ -507,6 +578,8 @@
         }
 
         requestPending = true;
+        displayInput.update(null, null);
+        displayFeedback.textContent = "";
         actionNotice = "";
         updateControls();
 
@@ -614,8 +687,8 @@
     function drawStage() {
         context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         context.clearRect(0, 0, logicalWidth, logicalHeight);
-        const scene = state.scene?.active ? state.scene : window.BlackPyPalette.previewScene(project);
-        window.BlackPySceneRenderer.draw(context, scene, stageImages());
+        const scene = visibleScene();
+        window.BlackPySceneRenderer.draw(context, scene, stageImages(), { showLabels: project?.showLabels !== false });
     }
 
     // Moving focus before the request lets the first key press reach the new run.
@@ -629,6 +702,12 @@
         void sendAction("restart");
     },);
     canvas.addEventListener("pointerdown", pressPointer);
+    document.getElementById("display-input-cancel").addEventListener("click", () => {
+        if (requestPending) return;
+        displayInput.update(null, null);
+        updateControls();
+        canvas.focus({ preventScroll: true });
+    });
     canvas.addEventListener("pointerup", releasePointer);
     canvas.addEventListener("pointercancel", releaseInput);
     canvas.addEventListener("lostpointercapture", () => {
@@ -660,6 +739,7 @@
     window.addEventListener("pagehide", () => {
         releaseInput();
         textInput.update(null, null);
+        displayInput.update(null, null);
         leavingPage = true;
         clearTimeout(reconnectTimer);
         socket?.close();

@@ -21,6 +21,22 @@ async function sample(name, check) {
     }
 }
 
+test("display sample binds before replay and both coins increment the same score", async () => {
+    await sample("07-display", async host => {
+        await host.stop();
+        const result = await host.request("/api/display", { name: "점수판", variable: "동전_수" });
+        assert.equal(result.status, 200);
+        await host.run();
+        const value = () => host.state?.scene?.displays?.[0]?.text;
+        await host.wait(() => value() === "0", "score display");
+        for (const [x, expected] of [[-180, "1"], [180, "2"]]) {
+            await host.input("pointerdown", { button: "왼쪽", x, y: -40 });
+            await host.input("pointerup", { button: "왼쪽", x, y: -40 });
+            await host.wait(() => value() === expected, "coin score");
+        }
+    });
+});
+
 test("movement sample completes its square at the initial position", async () => {
     await sample("01-movement", async host => {
         await host.done();
@@ -82,31 +98,29 @@ test("click sample grows and rotates until release, with separate background inp
     },);
 },);
 
-test("broadcast sample includes its sender and moves both actors together", async () => {
-    await sample("04-broadcast", async host => {
-        await host.input("pointerdown", { button: "왼쪽", x: 0, y: 200 });
-        await host.input("pointerup", { button: "왼쪽", x: 0, y: 200 });
-        await host.wait(() => host.sprite().speech === "고양이가 제자리로 돌아왔어요!" &&
-            host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "broadcast round trip",);
-        assert.ok(host.history.some(scene => scene.message === "방송한 배경도 출발 신호를 받았어요!"));
-        assert.ok(Math.abs(host.sprite().x + 180) < 0.01);
-        assert.ok(Math.abs(host.sprite("자동차").x - 180) < 0.01);
-        assert.ok(host.history.some(scene =>
-            scene.sprites.find(actor => actor.label === "고양이").x > -140 &&
-            scene.sprites.find(actor => actor.label === "자동차").x < 140,), "concurrent movement",);
-        // The one-second closing speech keeps each receiver busy before the same signal can restart it.
-        await host.wait(() => host.sprite().speech === "" && host.sprite("자동차").speech === "", "round trip speech ends");
-
-        await host.input("keydown", { key: "스페이스" });
-        await host.input("keyup", { key: "스페이스" });
-        await host.wait(() => host.sprite().speech === "야옹! 고양이도 출발!", "second movement starts");
-        await host.wait(() => host.text().split("고양이: 출발!").length === 3, "second broadcast");
-        await host.wait(() => host.sprite().speech === "고양이가 제자리로 돌아왔어요!" &&
-            host.sprite("자동차").speech === "자동차가 제자리로 돌아왔어요!", "second round trip",);
-
-        for (const message of ["배경: 내가 보낸 출발 신호를 받았어요.", "고양이: 출발!", "자동차: 출발!"]) {
-            assert.equal(host.text().split(message).length - 1, 2);
+test("object-call sample moves targets in order and returns their results", async () => {
+    await sample("04-object-calls", async host => {
+        for (let run = 1; run <= 2; run++) {
+            if (run === 1) {
+                await host.input("pointerdown", { button: "왼쪽", x: 0, y: 200 });
+                await host.input("pointerup", { button: "왼쪽", x: 0, y: 200 });
+            } else {
+                await host.input("keydown", { key: "스페이스" });
+                await host.input("keyup", { key: "스페이스" });
+            }
+            await host.wait(() => host.text().split("자동차 완료").length - 1 === run, "ordered round trip");
+            assert.ok(Math.abs(host.sprite().x + 180) < 0.01);
+            assert.ok(Math.abs(host.sprite("자동차").x - 180) < 0.01);
         }
+        const messages = host.text().match(/고양이: 출발!|고양이 완료|자동차: 출발!|자동차 완료/g);
+        assert.deepEqual(messages, Array(2).fill(["고양이: 출발!", "고양이 완료", "자동차: 출발!", "자동차 완료"]).flat());
+        assert.ok(host.history.some(scene => scene.sprites.find(actor => actor.label === "고양이").x > -140));
+        assert.ok(host.history.some(scene => scene.sprites.find(actor => actor.label === "자동차").x < 140));
+        assert.ok(host.history.every(scene => {
+            const cat = scene.sprites.find(actor => actor.label === "고양이");
+            const car = scene.sprites.find(actor => actor.label === "자동차");
+            return Math.abs(cat.x + 180) < 0.01 || Math.abs(car.x - 180) < 0.01;
+        }), "Only one target moves at a time");
     },);
 },);
 

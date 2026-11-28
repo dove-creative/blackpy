@@ -482,7 +482,7 @@ class ScriptObject:
             "바라보기": self.look, "속도_변경": self.change_speed,
             "크기_바꾸기": self.change_scale, "크기_정하기": self.set_scale,
             "가시성_설정": self.set_visible, "말하기": self.say,
-            "기다리기": self.runtime.wait, "방송하기": self.runtime.broadcast,
+            "기다리기": self.runtime.wait, "객체_구하기": self.runtime.object_of,
             "랜덤": random_integer, "각도로": vector_angle,
             "누른_키들_가져오기": self.runtime.pressed_keys,
             "위치_구하기": self.runtime.position_of,

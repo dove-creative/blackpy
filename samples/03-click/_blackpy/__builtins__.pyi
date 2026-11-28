@@ -6,6 +6,13 @@
 
 from typing import overload as _overload
 from typing import Literal as _Literal
+from typing import Any as _Any, Callable as _Callable
+
+
+class _객체:
+    """그 객체의 파일에서 def로 만든 함수를 호출할 수 있어요."""
+
+    def __getattr__(self, 함수_이름: str, /) -> _Callable[..., _Any]: ...
 
 이름: str
 위치: tuple[float, float]
@@ -100,8 +107,8 @@ def 기다리기(초: float, /) -> None:
     """지정한 시간 동안 이 이벤트를 기다려요. 다른 이벤트는 계속 실행돼요."""
 
 
-def 방송하기(신호_이름: str, /) -> None:
-    """배경과 캐릭터의 방송_받기 이벤트에 신호를 보내요."""
+def 객체_구하기(이름: str, /) -> _객체:
+    """이름으로 배경이나 캐릭터를 찾아요. 객체_구하기('블록').깨지기()처럼 함수를 불러요."""
 
 
 def 랜덤(부터: int, 까지: int, /) -> int:
